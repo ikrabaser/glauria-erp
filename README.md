@@ -1,5 +1,5 @@
 
-# Gloauria ERP
+# Glauria ERP
 
 ## 1. Projenin Amacı
 
