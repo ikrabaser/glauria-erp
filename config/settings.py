@@ -36,6 +36,7 @@ DJANGO_APPS = [
 
 LOCAL_APPS = [
     "apps.core.apps.CoreConfig",
+     "apps.organizations.apps.OrganizationsConfig",
 ]
 
 INSTALLED_APPS = DJANGO_APPS + LOCAL_APPS
