@@ -1,6 +1,5 @@
-# Gloauria ERP
 
-# Glauria ERP Sistem Mimarisi
+# Gloauria ERP
 
 ## 1. Projenin Amacı
 
