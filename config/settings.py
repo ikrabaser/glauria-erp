@@ -14,11 +14,17 @@ SECRET_KEY = config("DJANGO_SECRET_KEY")
 
 DEBUG = config("DJANGO_DEBUG", default=False, cast=bool)
 
-ALLOWED_HOSTS = config(
-    "DJANGO_ALLOWED_HOSTS",
-    default="localhost,127.0.0.1",
-    cast=Csv(),
-)
+ALLOWED_HOSTS = [
+    "glauria.dev",
+    "www.glauria.dev",
+    "2.28.4.211",
+    "localhost",
+    "127.0.0.1",
+]
+CSRF_TRUSTED_ORIGINS = [
+    "https://glauria.dev",
+    "https://www.glauria.dev",
+]
 
 
 # =========================================================
@@ -33,13 +39,18 @@ DJANGO_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
 ]
+THIRD_PARTY_APPS = [
+]
 
 LOCAL_APPS = [
     "apps.core.apps.CoreConfig",
      "apps.organizations.apps.OrganizationsConfig",
+     "apps.accounts.apps.AccountsConfig",
 ]
 
-INSTALLED_APPS = DJANGO_APPS + LOCAL_APPS
+INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
+
+AUTH_USER_MODEL = "accounts.User"
 
 
 # =========================================================
