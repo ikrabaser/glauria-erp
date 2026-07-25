@@ -1,0 +1,28 @@
+<header class="page-header">
+    <div class="page-header__content">
+        {% if eyebrow %}
+            <span class="page-header__eyebrow">
+                {{ eyebrow }}
+            </span>
+        {% endif %}
+
+        <h2 class="page-header__title">
+            {{ title }}
+        </h2>
+
+        {% if description %}
+            <p class="page-header__description">
+                {{ description }}
+            </p>
+        {% endif %}
+    </div>
+
+    {% if action_text %}
+        <a
+            href="{{ action_url|default:'#' }}"
+            class="page-header__action"
+        >
+            {{ action_text }}
+        </a>
+    {% endif %}
+</header>

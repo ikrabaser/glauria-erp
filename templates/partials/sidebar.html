@@ -9,13 +9,31 @@
     </div>
 
     <nav class="sidebar-nav">
-        <a href="#" class="sidebar-link active">
+        <a
+            href="{% url 'dashboard:home' %}"
+            class="sidebar-link{% if request.resolver_match.namespace == 'dashboard' %} active{% endif %}"
+        >
             Dashboard
         </a>
 
-        <a href="#" class="sidebar-link">
+        <a
+            href="{% url 'crm:home' %}"
+            class="sidebar-link{% if request.resolver_match.namespace == 'crm' %} active{% endif %}"
+        >
             CRM
         </a>
+        <a
+    href="{% url 'sales:home' %}"
+    class="sidebar-link {% if request.resolver_match.namespace == 'sales' %}active{% endif %}"
+>
+    <span class="sidebar-link-icon">
+        <i class="fa-solid fa-chart-line"></i>
+    </span>
+
+    <span class="sidebar-link-text">
+        Satış Yönetimi
+    </span>
+</a>
 
         <a href="#" class="sidebar-link">
             Satış

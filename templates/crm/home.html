@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+
+{% block title %}
+CRM | Glauria ERP
+{% endblock %}
+
+{% block content %}
+{% include "components/page_header.html" with eyebrow="Customer Relationship Management" title="CRM" description="Müşteri ilişkileri, iletişim kişileri ve satış fırsatları bu modül üzerinden yönetilecek." action_text="+ Yeni Müşteri" action_url="#" %}
+
+{% include "components/list_toolbar.html" with search_placeholder="Müşteri adı, şehir veya telefon ara..." %}
+
+{% if customers %}
+    {% include "components/customer_table.html" with customers=customers %}
+{% else %}
+    {% include "components/empty_state.html" with icon="C" title="Henüz müşteri kaydı bulunmuyor" description="İlk müşteri kaydınızı oluşturarak CRM operasyonlarını yönetmeye başlayın." action_text="+ İlk Müşteriyi Oluştur" action_url="#" %}
+{% endif %}
+{% endblock %}

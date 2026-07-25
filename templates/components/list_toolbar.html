@@ -1,0 +1,19 @@
+<div class="list-toolbar">
+    <form class="list-toolbar__search" method="get">
+        <label class="sr-only" for="list-search">
+            Ara
+        </label>
+
+        <input
+            id="list-search"
+            type="search"
+            name="q"
+            value="{{ request.GET.q }}"
+            placeholder="{{ search_placeholder|default:'Kayıtlarda ara...' }}"
+        >
+    </form>
+
+    <button class="list-toolbar__filter" type="button">
+        Filtreler
+    </button>
+</div>
