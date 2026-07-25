@@ -4,19 +4,31 @@
 Dashboard | Glauria ERP
 {% endblock %}
 
-{% block page_title %}
-Dashboard
-{% endblock %}
-
 {% block content %}
-<section>
-    <h2>
-        Hoş geldiniz,
-        {{ request.user.first_name|default:request.user.username }}
-    </h2>
+<section class="dashboard-hero">
+    <div>
+        <span class="dashboard-eyebrow">
+            Executive Overview
+        </span>
 
-    <p class="text-muted">
-        Glauria ERP yönetim paneli başarıyla çalışıyor.
-    </p>
+        <h2>
+            Hoş geldiniz,
+            {{ request.user.first_name|default:request.user.username }}
+        </h2>
+
+        <p>
+            Maison Glauria operasyonlarının güncel görünümü.
+        </p>
+    </div>
+
+    <div class="dashboard-date">
+        Bugünün özeti
+    </div>
+</section>
+
+<section class="stats-grid">
+    {% for stat in stats %}
+        {% include "components/stat_card.html" with title=stat.title value=stat.value change=stat.change change_class=stat.change_class description=stat.description icon=stat.icon %}
+    {% endfor %}
 </section>
 {% endblock %}
