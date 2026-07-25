@@ -8,7 +8,7 @@ Dashboard | Glauria ERP
 <section class="dashboard-hero">
     <div>
         <span class="dashboard-eyebrow">
-            Executive Overview
+            EXECUTIVE OVERVIEW
         </span>
 
         <h2>
@@ -17,7 +17,8 @@ Dashboard | Glauria ERP
         </h2>
 
         <p>
-            Maison Glauria operasyonlarının güncel görünümü.
+            Maison Glauria operasyonlarının güncel görünümünü
+            ve temel iş süreçlerini tek merkezden yönetin.
         </p>
     </div>
 
@@ -30,5 +31,34 @@ Dashboard | Glauria ERP
     {% for stat in stats %}
         {% include "components/stat_card.html" with title=stat.title value=stat.value change=stat.change change_class=stat.change_class description=stat.description icon=stat.icon %}
     {% endfor %}
+</section>
+
+<section class="module-center">
+    <div class="section-heading">
+        <div>
+            <span class="section-heading__eyebrow">
+                GLAURIA WORKSPACE
+            </span>
+
+            <h2 class="section-heading__title">
+                ERP Modülleri
+            </h2>
+
+            <p class="section-heading__description">
+                Operasyonlarınızı yöneteceğiniz uygulama
+                ve iş süreçlerine hızlıca erişin.
+            </p>
+        </div>
+
+        <span class="section-heading__count">
+            {{ module_cards|length }} aktif modül
+        </span>
+    </div>
+
+    <div class="module-grid">
+        {% for module in module_cards %}
+            {% include "components/module_card.html" with module=module only %}
+        {% endfor %}
+    </div>
 </section>
 {% endblock %}
