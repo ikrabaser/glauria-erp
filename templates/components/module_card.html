@@ -1,32 +1,50 @@
-<a href="{{ url }}" class="module-card">
+<a href="{{ module.url }}" class="module-card">
     <div class="module-card__top">
         <span class="module-card__icon" aria-hidden="true">
-            {{ icon }}
+            {{ module.icon|safe }}
         </span>
 
-        {% if badge %}
+        {% if module.badge %}
             <span class="module-card__badge">
-                {{ badge }}
+                <span class="module-card__badge-dot"></span>
+                {{ module.badge }}
             </span>
         {% endif %}
     </div>
 
     <div class="module-card__content">
         <span class="module-card__eyebrow">
-            {{ eyebrow }}
+            {{ module.eyebrow }}
         </span>
 
         <h3 class="module-card__title">
-            {{ title }}
+            {{ module.title }}
         </h3>
 
         <p class="module-card__description">
-            {{ description }}
+            {{ module.description }}
         </p>
     </div>
 
+    {% if module.metrics %}
+        <div class="module-card__metrics">
+            {% for metric in module.metrics %}
+                <div class="module-card__metric">
+                    <span class="module-card__metric-label">
+                        {{ metric.label }}
+                    </span>
+
+                    <strong class="module-card__metric-value">
+                        {{ metric.value }}
+                    </strong>
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+
     <div class="module-card__footer">
-        <span>Modüle Git</span>
-        <span class="module-card__arrow" aria-hidden="true">→</span>
+        <span class="module-card__arrow" aria-hidden="true">
+            →
+        </span>
     </div>
 </a>

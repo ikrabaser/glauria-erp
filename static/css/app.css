@@ -943,10 +943,10 @@ svg {
 .module-card {
     position: relative;
     display: flex;
-    min-height: 270px;
+    min-height: 260px;
     flex-direction: column;
     overflow: hidden;
-    padding: 22px;
+    padding: 24px;
     color: inherit;
     background:
         radial-gradient(
@@ -984,11 +984,11 @@ svg {
 }
 
 .module-card:hover {
-    transform: translateY(-6px);
-    border-color: rgba(215, 164, 143, 0.32);
+    transform: translateY(-5px);
+    border-color: rgba(215, 164, 143, 0.30);
     box-shadow:
-        0 26px 65px rgba(0, 0, 0, 0.3),
-        var(--shadow-accent);
+        0 28px 70px rgba(0, 0, 0, 0.34),
+        0 0 32px rgba(142, 92, 246, 0.11);
 }
 
 .module-card:focus-visible {
@@ -1007,9 +1007,11 @@ svg {
 }
 
 .module-card__icon {
+    position: relative;
     display: grid;
     width: 54px;
     height: 54px;
+    overflow: hidden;
     flex: 0 0 54px;
     place-items: center;
     color: var(--color-rose-gold-light);
@@ -1025,7 +1027,26 @@ svg {
     font-weight: 700;
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
+.module-card__icon::after {
+    position: absolute;
+    inset: 1px;
+    content: "";
+    background:
+        linear-gradient(
+            145deg,
+            rgba(255, 255, 255, 0.08),
+            transparent 55%
+        );
+    border-radius: 15px;
+    pointer-events: none;
+}
 
+.module-card:hover .module-card__icon {
+    border-color: rgba(215, 164, 143, 0.34);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.06),
+        0 10px 28px rgba(142, 92, 246, 0.12);
+}
 .module-card__badge {
     padding: 6px 10px;
     color: #8fe0b2;
@@ -1068,40 +1089,161 @@ svg {
     font-size: 0.84rem;
     line-height: 1.7;
 }
+/* =========================================================
+   MODULE CARD METRICS — PREMIUM INLINE LAYOUT
+   ========================================================= */
+
+.module-card__metrics {
+    position: relative;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    margin-top: 20px;
+    padding: 16px 0 2px;
+    border-top: 1px solid rgba(255, 255, 255, 0.055);
+}
+
+.module-card__metric {
+    position: relative;
+    min-width: 0;
+    padding: 0 16px;
+}
+
+.module-card__metric:first-child {
+    padding-left: 0;
+}
+
+.module-card__metric:last-child {
+    padding-right: 0;
+}
+
+.module-card__metric:not(:last-child)::after {
+    position: absolute;
+    top: 3px;
+    right: 0;
+    width: 1px;
+    height: 34px;
+    content: "";
+    background: linear-gradient(
+        180deg,
+        transparent,
+        rgba(215, 164, 143, 0.18),
+        transparent
+    );
+}
+
+.module-card__metric-label {
+    display: block;
+    overflow: hidden;
+    color: rgba(199, 190, 200, 0.68);
+    font-size: 0.64rem;
+    font-weight: 600;
+    line-height: 1.35;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.module-card__metric-value {
+    display: block;
+    margin-top: 5px;
+    overflow: hidden;
+    color: var(--color-text);
+    font-size: 0.94rem;
+    font-weight: 750;
+    line-height: 1.2;
+    letter-spacing: -0.02em;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+/* =========================================================
+   MODULE CARD FOOTER
+   ========================================================= */
 
 .module-card__footer {
     position: relative;
     z-index: 1;
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    justify-content: flex-end;
     gap: 16px;
-    margin-top: 25px;
+    margin-top: 22px;
     padding-top: 17px;
     color: var(--color-rose-gold-light);
-    border-top: 1px solid var(--color-border);
+    border-top: 1px solid rgba(255, 255, 255, 0.07);
     font-size: 0.78rem;
     font-weight: 700;
 }
 
 .module-card__arrow {
     display: grid;
-    width: 31px;
-    height: 31px;
+    width: 32px;
+    height: 32px;
+    flex: 0 0 32px;
     place-items: center;
+    color: var(--color-rose-gold-light);
     background: rgba(142, 92, 246, 0.13);
+    border: 1px solid rgba(142, 92, 246, 0.16);
     border-radius: 50%;
     font-size: 1rem;
+    line-height: 1;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035);
     transition:
         transform var(--transition-fast),
-        background var(--transition-fast);
+        background var(--transition-fast),
+        border-color var(--transition-fast),
+        box-shadow var(--transition-fast);
+}
+.module-card__icon {
+    position: relative;
+    overflow: hidden;
+    transition:
+        border-color var(--transition-fast),
+        box-shadow var(--transition-fast),
+        transform var(--transition-fast);
 }
 
+.module-card__icon::after {
+    position: absolute;
+    inset: 1px;
+    content: "";
+    background: linear-gradient(
+        145deg,
+        rgba(255, 255, 255, 0.08),
+        transparent 55%
+    );
+    border-radius: 15px;
+    pointer-events: none;
+}
+
+.module-card:hover .module-card__icon {
+    transform: translateY(-1px);
+    border-color: rgba(215, 164, 143, 0.34);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.06),
+        0 10px 28px rgba(142, 92, 246, 0.12);
+}
+.module-card__icon svg {
+    width: 22px;
+    height: 22px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.7;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    transition:
+        transform var(--transition-fast),
+        filter var(--transition-fast);
+}
+
+.module-card:hover .module-card__icon svg {
+    transform: scale(1.08);
+    filter: drop-shadow(0 0 7px rgba(239, 199, 181, 0.28));
+}
 .module-card:hover .module-card__arrow {
-    transform: translateX(4px);
-    background: rgba(142, 92, 246, 0.25);
+    transform: translateX(4px) scale(1.06);
+    background: rgba(142, 92, 246, 0.24);
+    border-color: rgba(177, 140, 255, 0.26);
+    box-shadow: 0 8px 20px rgba(142, 92, 246, 0.14);
 }
-
 @media (max-width: 1180px) {
     .module-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1125,5 +1267,25 @@ svg {
     .module-card {
         min-height: 240px;
     }
+    .module-card__metrics {
+    grid-template-columns: 1fr;
+    gap: 10px;
 }
+
+.module-card__metric,
+.module-card__metric:first-child,
+.module-card__metric:last-child {
+    padding: 0;
+}
+
+.module-card__metric:not(:last-child) {
+    padding-bottom: 10px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.module-card__metric:not(:last-child)::after {
+    display: none;
+}
+}
+
 
