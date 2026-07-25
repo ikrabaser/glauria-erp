@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+
+{% block title %}
+Satın Alma | Glauria ERP
+{% endblock %}
+
+{% block content %}
+<section class="module-page">
+
+    {% include "components/page_header.html" with eyebrow="TEDARİK YÖNETİMİ" title="Satın Alma" description="Tedarikçileri, satın alma taleplerini ve sipariş süreçlerini tek merkezden yönetin." action_text="+ Yeni Satın Alma" action_url="#" %}
+
+    {% include "components/list_toolbar.html" with search_placeholder="Tedarikçi, sipariş veya talep ara..." filter_text="Filtrele" %}
+
+    <div class="module-empty-wrapper">
+        {% include "components/empty_state.html" with icon="↓" title="Henüz satın alma kaydı bulunmuyor" description="İlk satın alma talebinizi veya tedarikçi siparişinizi oluşturarak süreci başlatabilirsiniz." action_text="+ Yeni Satın Alma" action_url="#" %}
+    </div>
+
+</section>
+{% endblock %}

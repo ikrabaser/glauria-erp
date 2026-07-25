@@ -24,39 +24,47 @@
         </a>
         <a
     href="{% url 'sales:home' %}"
-    class="sidebar-link {% if request.resolver_match.namespace == 'sales' %}active{% endif %}"
+    class="sidebar-link{% if request.resolver_match.namespace == 'sales' %} active{% endif %}"
 >
-    <span class="sidebar-link-icon">
-        <i class="fa-solid fa-chart-line"></i>
-    </span>
-
-    <span class="sidebar-link-text">
-        Satış Yönetimi
-    </span>
+    Satış Yönetimi
 </a>
 
         <a href="#" class="sidebar-link">
             Satış
         </a>
 
-        <a href="#" class="sidebar-link">
-            Satın Alma
-        </a>
+       <a
+    href="{% url 'purchasing:home' %}"
+    class="sidebar-link{% if request.resolver_match.namespace == 'purchasing' %} active{% endif %}"
+>
+    Satın Alma
+</a>
 
-        <a href="#" class="sidebar-link">
-            Stok Yönetimi
-        </a>
+       <a
+    href="{% url 'inventory:home' %}"
+    class="sidebar-link{% if request.resolver_match.namespace == 'inventory' %} active{% endif %}"
+>
+    Stok Yönetimi
+</a>
 
-        <a href="#" class="sidebar-link">
-            Üretim
-        </a>
+        <a
+    href="{% url 'manufacturing:home' %}"
+    class="sidebar-link{% if request.resolver_match.namespace == 'manufacturing' %} active{% endif %}"
+>
+    Üretim
+</a>
 
-        <a href="#" class="sidebar-link">
-            Finans
-        </a>
-
-        <a href="#" class="sidebar-link">
-            İnsan Kaynakları
-        </a>
+        <a
+    href="{% url 'finance:home' %}"
+    class="sidebar-link{% if request.resolver_match.namespace == 'finance' %} active{% endif %}"
+>
+    Finans
+</a>
+<a
+    href="{% url 'hr:home' %}"
+    class="sidebar-link{% if request.resolver_match.namespace == 'hr' %} active{% endif %}"
+>
+    İnsan Kaynakları
+</a>
     </nav>
 </aside>
