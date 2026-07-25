@@ -1,0 +1,32 @@
+<a href="{{ url }}" class="module-card">
+    <div class="module-card__top">
+        <span class="module-card__icon" aria-hidden="true">
+            {{ icon }}
+        </span>
+
+        {% if badge %}
+            <span class="module-card__badge">
+                {{ badge }}
+            </span>
+        {% endif %}
+    </div>
+
+    <div class="module-card__content">
+        <span class="module-card__eyebrow">
+            {{ eyebrow }}
+        </span>
+
+        <h3 class="module-card__title">
+            {{ title }}
+        </h3>
+
+        <p class="module-card__description">
+            {{ description }}
+        </p>
+    </div>
+
+    <div class="module-card__footer">
+        <span>Modüle Git</span>
+        <span class="module-card__arrow" aria-hidden="true">→</span>
+    </div>
+</a>

@@ -2,11 +2,47 @@
 
     <div>
         <h1 class="page-title">
-            Dashboard
+            {% if request.resolver_match.namespace == "dashboard" %}
+                Dashboard
+            {% elif request.resolver_match.namespace == "crm" %}
+                CRM
+            {% elif request.resolver_match.namespace == "sales" %}
+                Satış Yönetimi
+            {% elif request.resolver_match.namespace == "purchasing" %}
+                Satın Alma
+            {% elif request.resolver_match.namespace == "inventory" %}
+                Stok Yönetimi
+            {% elif request.resolver_match.namespace == "manufacturing" %}
+                Üretim Yönetimi
+            {% elif request.resolver_match.namespace == "finance" %}
+                Finans Yönetimi
+            {% elif request.resolver_match.namespace == "hr" %}
+                İnsan Kaynakları
+            {% else %}
+                Glauria ERP
+            {% endif %}
         </h1>
 
         <p class="page-subtitle">
-            Maison Glauria Management Center
+            {% if request.resolver_match.namespace == "dashboard" %}
+                Maison Glauria Management Center
+            {% elif request.resolver_match.namespace == "crm" %}
+                Müşteri ilişkileri ve satış fırsatları
+            {% elif request.resolver_match.namespace == "sales" %}
+                Teklif, sipariş ve satış süreçleri
+            {% elif request.resolver_match.namespace == "purchasing" %}
+                Tedarikçi ve satın alma süreçleri
+            {% elif request.resolver_match.namespace == "inventory" %}
+                Ürün, depo ve envanter yönetimi
+            {% elif request.resolver_match.namespace == "manufacturing" %}
+                Üretim emirleri ve operasyon yönetimi
+            {% elif request.resolver_match.namespace == "finance" %}
+                Finans, muhasebe ve cari işlemler
+            {% elif request.resolver_match.namespace == "hr" %}
+                Personel ve insan kaynakları süreçleri
+            {% else %}
+                Maison Glauria Management Center
+            {% endif %}
         </p>
     </div>
 

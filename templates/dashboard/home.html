@@ -8,7 +8,7 @@ Dashboard | Glauria ERP
 <section class="dashboard-hero">
     <div>
         <span class="dashboard-eyebrow">
-            Executive Overview
+            EXECUTIVE OVERVIEW
         </span>
 
         <h2>
@@ -17,7 +17,7 @@ Dashboard | Glauria ERP
         </h2>
 
         <p>
-            Maison Glauria operasyonlarının güncel görünümü.
+            Maison Glauria operasyonlarının güncel görünümünü ve temel iş süreçlerini tek merkezden yönetin.
         </p>
     </div>
 
@@ -30,5 +30,43 @@ Dashboard | Glauria ERP
     {% for stat in stats %}
         {% include "components/stat_card.html" with title=stat.title value=stat.value change=stat.change change_class=stat.change_class description=stat.description icon=stat.icon %}
     {% endfor %}
+</section>
+
+<section class="module-center">
+    <div class="section-heading">
+        <div>
+            <span class="section-heading__eyebrow">
+                GLAURIA WORKSPACE
+            </span>
+
+            <h2 class="section-heading__title">
+                ERP Modülleri
+            </h2>
+
+            <p class="section-heading__description">
+                Operasyonlarınızı yöneteceğiniz uygulama ve iş süreçlerine hızlıca erişin.
+            </p>
+        </div>
+
+        <span class="section-heading__count">
+            7 aktif modül
+        </span>
+    </div>
+
+    <div class="module-grid">
+        {% include "components/module_card.html" with url="/crm/" icon="◇" eyebrow="MÜŞTERİ YÖNETİMİ" title="CRM" description="Müşteri kayıtlarını, iletişim bilgilerini ve satış ilişkilerini yönetin." badge="Aktif" %}
+
+        {% include "components/module_card.html" with url="/sales/" icon="↗" eyebrow="SATIŞ OPERASYONLARI" title="Satış Yönetimi" description="Teklifleri, siparişleri ve satış süreçlerini tek merkezden takip edin." badge="Aktif" %}
+
+        {% include "components/module_card.html" with url="/purchasing/" icon="↓" eyebrow="TEDARİK YÖNETİMİ" title="Satın Alma" description="Tedarikçileri, satın alma taleplerini ve sipariş süreçlerini yönetin." badge="Aktif" %}
+
+        {% include "components/module_card.html" with url="/inventory/" icon="□" eyebrow="DEPO VE ENVANTER" title="Stok Yönetimi" description="Ürünleri, depoları, stok hareketlerini ve envanter seviyelerini izleyin." badge="Aktif" %}
+
+        {% include "components/module_card.html" with url="/manufacturing/" icon="⚙" eyebrow="ÜRETİM OPERASYONLARI" title="Üretim Yönetimi" description="Ürün reçetelerini, üretim emirlerini ve operasyon süreçlerini yönetin." badge="Aktif" %}
+
+        {% include "components/module_card.html" with url="/finance/" icon="₺" eyebrow="FİNANSAL YÖNETİM" title="Finans Yönetimi" description="Gelir, gider, fatura, banka ve cari hesap süreçlerini takip edin." badge="Aktif" %}
+
+        {% include "components/module_card.html" with url="/hr/" icon="●" eyebrow="İNSAN VE ORGANİZASYON" title="İnsan Kaynakları" description="Personel, departman, izin ve performans süreçlerini yönetin." badge="Aktif" %}
+    </div>
 </section>
 {% endblock %}
