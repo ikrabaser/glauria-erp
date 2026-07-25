@@ -1,0 +1,52 @@
+<div class="data-table-wrapper">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Müşteri</th>
+                <th>Tip</th>
+                <th>Şehir</th>
+                <th>Telefon</th>
+                <th>Durum</th>
+                <th>Oluşturulma</th>
+            </tr>
+        </thead>
+
+        <tbody>
+            {% for customer in customers %}
+                <tr>
+                    <td>
+                        <div class="customer-cell">
+                            <strong>{{ customer.name }}</strong>
+
+                            {% if customer.email %}
+                                <span>{{ customer.email }}</span>
+                            {% endif %}
+                        </div>
+                    </td>
+
+                    <td>
+                        {{ customer.get_customer_type_display }}
+                    </td>
+
+                    <td>
+                        {{ customer.city|default:"—" }}
+                    </td>
+
+                    <td>
+                        {{ customer.phone|default:"—" }}
+                    </td>
+
+                    <td>
+                        <span class="status-pill status-pill--{{ customer.status }}">
+                            {{ customer.get_status_display }}
+                        </span>
+                    </td>
+
+                    <td>
+                        {{ customer.created_at|date:"d.m.Y" }}
+                    </td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>

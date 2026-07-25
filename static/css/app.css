@@ -777,3 +777,106 @@ svg {
         width: 100%;
     }
 }
+/* =========================================================
+   Data Table
+========================================================= */
+
+.data-table-wrapper {
+    overflow-x: auto;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 20px;
+    background:
+        linear-gradient(
+            145deg,
+            rgba(255, 255, 255, 0.04),
+            rgba(255, 255, 255, 0.018)
+        );
+}
+
+.data-table {
+    width: 100%;
+    min-width: 920px;
+    border-collapse: collapse;
+}
+
+.data-table th,
+.data-table td {
+    padding: 18px 20px;
+    text-align: left;
+    vertical-align: middle;
+}
+
+.data-table thead {
+    background: rgba(255, 255, 255, 0.025);
+}
+
+.data-table th {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.45);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.data-table td {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.055);
+    color: rgba(255, 255, 255, 0.72);
+    font-size: 0.86rem;
+}
+
+.data-table tbody tr:last-child td {
+    border-bottom: 0;
+}
+
+.data-table tbody tr {
+    transition:
+        background 0.2s ease,
+        transform 0.2s ease;
+}
+
+.data-table tbody tr:hover {
+    background: rgba(142, 92, 246, 0.055);
+}
+
+.customer-cell {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.customer-cell strong {
+    color: #ffffff;
+    font-size: 0.92rem;
+}
+
+.customer-cell span {
+    color: rgba(255, 255, 255, 0.42);
+    font-size: 0.76rem;
+}
+
+.status-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 28px;
+    padding: 0 10px;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 700;
+}
+
+.status-pill--active {
+    background: rgba(78, 210, 156, 0.1);
+    color: #79e2b5;
+}
+
+.status-pill--lead {
+    background: rgba(142, 92, 246, 0.12);
+    color: #bda2ff;
+}
+
+.status-pill--inactive {
+    background: rgba(255, 255, 255, 0.07);
+    color: rgba(255, 255, 255, 0.55);
+}

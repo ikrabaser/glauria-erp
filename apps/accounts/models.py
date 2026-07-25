@@ -100,28 +100,29 @@ class OrganizationMembership(TimeStampedModel):
                 name="unique_user_organization_membership",
             )
         ]
-def clean(self):
-    errors = {}
 
-    if self.branch_id and self.company_id:
-        if self.branch.company_id != self.company_id:
-            errors["branch"] = (
-                "Seçilen şube, seçilen şirkete ait olmalıdır."
+    def clean(self):
+        errors = {}
+
+        if self.branch_id and self.company_id:
+            if self.branch.company_id != self.company_id:
+                errors["branch"] = (
+                    "Seçilen şube, seçilen şirkete ait olmalıdır."
+                )
+
+        if self.department_id and self.branch_id:
+            if self.department.branch_id != self.branch_id:
+                errors["department"] = (
+                    "Seçilen departman, seçilen şubeye ait olmalıdır."
+                )
+
+        if self.user_id and self.user.user_type == User.UserType.PORTAL:
+            errors["user"] = (
+                "Portal kullanıcılarına organizasyon üyeliği atanamaz."
             )
 
-    if self.department_id and self.branch_id:
-        if self.department.branch_id != self.branch_id:
-            errors["department"] = (
-                "Seçilen departman, seçilen şubeye ait olmalıdır."
-            )
-
-    if self.user_id and self.user.user_type == User.UserType.PORTAL:
-        errors["user"] = (
-            "Portal kullanıcılarına organizasyon üyeliği atanamaz."
-        )
-
-    if errors:
-        raise ValidationError(errors)
+        if errors:
+            raise ValidationError(errors)
 
     def save(self, *args, **kwargs):
         self.full_clean()

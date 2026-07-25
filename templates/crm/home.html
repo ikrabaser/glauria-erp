@@ -9,5 +9,9 @@ CRM | Glauria ERP
 
 {% include "components/list_toolbar.html" with search_placeholder="Müşteri adı, şehir veya telefon ara..." %}
 
-{% include "components/empty_state.html" with icon="C" title="Henüz müşteri kaydı bulunmuyor" description="İlk müşteri kaydınızı oluşturarak CRM operasyonlarını yönetmeye başlayın." action_text="+ İlk Müşteriyi Oluştur" action_url="#" %}
+{% if customers %}
+    {% include "components/customer_table.html" with customers=customers %}
+{% else %}
+    {% include "components/empty_state.html" with icon="C" title="Henüz müşteri kaydı bulunmuyor" description="İlk müşteri kaydınızı oluşturarak CRM operasyonlarını yönetmeye başlayın." action_text="+ İlk Müşteriyi Oluştur" action_url="#" %}
+{% endif %}
 {% endblock %}
