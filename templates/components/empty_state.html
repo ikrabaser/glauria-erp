@@ -1,0 +1,22 @@
+<section class="empty-state">
+    <div class="empty-state__icon">
+        {{ icon|default:"◇" }}
+    </div>
+
+    <h3 class="empty-state__title">
+        {{ title }}
+    </h3>
+
+    <p class="empty-state__description">
+        {{ description }}
+    </p>
+
+    {% if action_text %}
+        <a
+            href="{{ action_url|default:'#' }}"
+            class="empty-state__action"
+        >
+            {{ action_text }}
+        </a>
+    {% endif %}
+</section>
