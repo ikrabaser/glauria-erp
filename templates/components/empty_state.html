@@ -1,6 +1,10 @@
 <section class="empty-state">
     <div class="empty-state__icon">
-        {{ icon|default:"◇" }}
+        {% if icon_class %}
+            <i class="{{ icon_class }}"></i>
+        {% else %}
+            {{ icon|default:"◇" }}
+        {% endif %}
     </div>
 
     <h3 class="empty-state__title">

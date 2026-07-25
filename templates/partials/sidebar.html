@@ -22,6 +22,18 @@
         >
             CRM
         </a>
+        <a
+    href="{% url 'sales:home' %}"
+    class="sidebar-link {% if request.resolver_match.namespace == 'sales' %}active{% endif %}"
+>
+    <span class="sidebar-link-icon">
+        <i class="fa-solid fa-chart-line"></i>
+    </span>
+
+    <span class="sidebar-link-text">
+        Satış Yönetimi
+    </span>
+</a>
 
         <a href="#" class="sidebar-link">
             Satış
