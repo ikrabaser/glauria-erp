@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+
+{% block title %}
+Finans Yönetimi | Glauria ERP
+{% endblock %}
+
+{% block content %}
+<section class="module-page">
+
+    {% include "components/page_header.html" with eyebrow="FİNANS VE MUHASEBE YÖNETİMİ" title="Finans Yönetimi" description="Gelir, gider, fatura, kasa, banka ve cari hesap süreçlerini tek merkezden yönetin." action_text="+ Yeni Finans Kaydı" action_url="#" %}
+
+    {% include "components/list_toolbar.html" with search_placeholder="Fatura, cari hesap veya işlem ara..." filter_text="Filtrele" %}
+
+    <div class="module-empty-wrapper">
+        {% include "components/empty_state.html" with icon="₺" title="Henüz finans kaydı bulunmuyor" description="İlk gelir, gider veya finans işlemini oluşturarak finans yönetimine başlayabilirsiniz." action_text="+ Yeni Finans Kaydı" action_url="#" %}
+    </div>
+
+</section>
+{% endblock %}
