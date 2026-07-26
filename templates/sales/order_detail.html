@@ -1,0 +1,168 @@
+{% extends "base.html" %}
+
+{% block title %}
+{{ order.order_number }} | Glauria ERP
+{% endblock %}
+
+{% block content %}
+<section class="customer-detail__header">
+    <div>
+        <a href="{% url 'sales:home' %}" class="customer-detail__back">
+            ← Satış Yönetimine Dön
+        </a>
+
+        <div class="customer-detail__title-row">
+            <div>
+                <span class="page-header__eyebrow">
+                    Sales Order
+                </span>
+
+                <h2 class="customer-detail__title">
+                    {{ order.order_number }}
+                </h2>
+            </div>
+
+            <div class="customer-detail__header-actions">
+    <span class="opportunity-card__quote">
+        {{ order.get_status_display }}
+    </span>
+
+    {% if order.status == "confirmed" %}
+        <form
+            method="post"
+            action="{% url 'sales:order_status_update' order.id 'in_production' %}"
+        >
+            {% csrf_token %}
+
+            <button
+                type="submit"
+                class="opportunity-detail__quote-action"
+            >
+                Üretime Aktar
+            </button>
+        </form>
+
+    {% elif order.status == "in_production" %}
+        <form
+            method="post"
+            action="{% url 'sales:order_status_update' order.id 'ready_to_ship' %}"
+        >
+            {% csrf_token %}
+
+            <button
+                type="submit"
+                class="opportunity-detail__quote-action"
+            >
+                Sevkiyata Hazırla
+            </button>
+        </form>
+
+    {% elif order.status == "ready_to_ship" %}
+        <form
+            method="post"
+            action="{% url 'sales:order_status_update' order.id 'completed' %}"
+        >
+            {% csrf_token %}
+
+            <button
+                type="submit"
+                class="customer-detail__edit"
+            >
+                Siparişi Tamamla
+            </button>
+        </form>
+    {% endif %}
+</div>
+        </div>
+
+        <p class="customer-detail__subtitle">
+            {{ order.customer.name }} · Kaynak teklif:
+            {{ order.quote.quote_number }}
+        </p>
+    </div>
+</section>
+
+<section class="customer-detail__grid">
+    <article class="customer-detail__card">
+        <h3>Sipariş Bilgileri</h3>
+
+        <dl class="customer-detail__list">
+            <div>
+                <dt>Müşteri</dt>
+                <dd>{{ order.customer.name }}</dd>
+            </div>
+
+            <div>
+                <dt>Sipariş tarihi</dt>
+                <dd>{{ order.order_date|date:"d.m.Y" }}</dd>
+            </div>
+
+            <div>
+                <dt>Planlanan teslim</dt>
+                <dd>
+                    {{ order.planned_delivery_date|date:"d.m.Y"|default:"—" }}
+                </dd>
+            </div>
+        </dl>
+    </article>
+
+    <article class="customer-detail__card">
+        <h3>Tutar Özeti</h3>
+
+        <dl class="customer-detail__list">
+            <div>
+                <dt>Ara toplam</dt>
+                <dd>₺{{ order.subtotal|floatformat:2 }}</dd>
+            </div>
+
+            <div>
+                <dt>KDV</dt>
+                <dd>₺{{ order.tax_amount|floatformat:2 }}</dd>
+            </div>
+
+            <div>
+                <dt>Genel toplam</dt>
+                <dd>₺{{ order.total_amount|floatformat:2 }}</dd>
+            </div>
+        </dl>
+    </article>
+
+    <article class="customer-detail__card customer-detail__card--wide">
+        <h3>Sipariş Kalemleri</h3>
+
+        <div class="data-table-wrapper">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Ürün / Hizmet</th>
+                        <th>Miktar</th>
+                        <th>Birim fiyat</th>
+                        <th>KDV</th>
+                        <th>Toplam</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    {% for line in order.lines.all %}
+                        <tr>
+                            <td>{{ line.description }}</td>
+                            <td>{{ line.quantity }}</td>
+                            <td>₺{{ line.unit_price|floatformat:2 }}</td>
+                            <td>%{{ line.tax_rate|floatformat:2 }}</td>
+                            <td>₺{{ line.total_amount|floatformat:2 }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </article>
+
+    <article class="customer-detail__card customer-detail__card--wide">
+        <h3>Notlar</h3>
+
+        <p class="customer-detail__notes">
+            {{ order.notes|default:"Bu sipariş için not eklenmedi."|linebreaksbr }}
+        </p>
+    </article>
+</section>
+{% endblock %}

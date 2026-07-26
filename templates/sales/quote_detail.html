@@ -1,0 +1,229 @@
+{% extends "base.html" %}
+
+{% block title %}
+{{ quote.quote_number }} | Glauria ERP
+{% endblock %}
+
+{% block content %}
+<section class="customer-detail__header">
+    <div>
+        <a href="{% url 'sales:home' %}" class="customer-detail__back">
+            ← Tekliflere Dön
+        </a>
+
+        <div class="customer-detail__title-row">
+            <div>
+                <span class="page-header__eyebrow">
+                    Sales Quote
+                </span>
+
+                <h2 class="customer-detail__title">
+                    {{ quote.quote_number }}
+                </h2>
+            </div>
+
+            <div class="customer-detail__header-actions">
+    <span class="opportunity-card__quote">
+        {{ quote.get_status_display }}
+    </span>
+    {% if quote.status == "accepted" %}
+    {% if quote.sales_order %}
+        <a
+            href="{% url 'sales:order_detail' quote.sales_order.id %}"
+            class="customer-detail__edit"
+        >
+            Siparişi Görüntüle
+        </a>
+    {% else %}
+        <form
+            method="post"
+            action="{% url 'sales:quote_order_create' quote.id %}"
+        >
+            {% csrf_token %}
+
+            <button
+                type="submit"
+                class="customer-detail__edit"
+            >
+                Satış Siparişi Oluştur
+            </button>
+        </form>
+    {% endif %}
+{% endif %}
+
+    {% if quote.status == "draft" %}
+        <form
+            method="post"
+            action="{% url 'sales:quote_status_update' quote.id 'sent' %}"
+        >
+            {% csrf_token %}
+
+            <button
+                type="submit"
+                class="opportunity-detail__quote-action"
+            >
+                Teklifi Gönder
+            </button>
+        </form>
+    {% elif quote.status == "sent" %}
+        <form
+            method="post"
+            action="{% url 'sales:quote_status_update' quote.id 'accepted' %}"
+        >
+            {% csrf_token %}
+
+            <button
+                type="submit"
+                class="customer-detail__edit"
+            >
+                Teklifi Onayla
+            </button>
+        </form>
+    {% endif %}
+</div>
+        </div>
+
+        <p class="customer-detail__subtitle">
+            {{ quote.title }} · {{ quote.customer.name }}
+        </p>
+    </div>
+</section>
+
+<section class="customer-detail__grid">
+    <article class="customer-detail__card">
+        <h3>Teklif Bilgileri</h3>
+
+        <dl class="customer-detail__list">
+            <div>
+                <dt>Müşteri</dt>
+                <dd>{{ quote.customer.name }}</dd>
+            </div>
+
+            <div>
+                <dt>Bağlı fırsat</dt>
+                <dd>{{ quote.opportunity.title|default:"—" }}</dd>
+            </div>
+
+            <div>
+                <dt>Geçerlilik tarihi</dt>
+                <dd>{{ quote.valid_until|date:"d.m.Y"|default:"—" }}</dd>
+            </div>
+        </dl>
+    </article>
+
+    <article class="customer-detail__card">
+        <h3>Tutar Özeti</h3>
+
+        <dl class="customer-detail__list">
+            <div>
+                <dt>Ara toplam</dt>
+                <dd>₺{{ quote.subtotal|floatformat:2 }}</dd>
+            </div>
+
+            <div>
+                <dt>KDV</dt>
+                <dd>₺{{ quote.tax_amount|floatformat:2 }}</dd>
+            </div>
+
+            <div>
+                <dt>Genel toplam</dt>
+                <dd>₺{{ quote.total_amount|floatformat:2 }}</dd>
+            </div>
+        </dl>
+    </article>
+
+    <article class="customer-detail__card customer-detail__card--wide">
+    <h3>Teklif Kalemleri</h3>
+
+    {% if quote.lines.all %}
+        <div class="data-table-wrapper">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Ürün / Hizmet</th>
+                        <th>Miktar</th>
+                        <th>Birim fiyat</th>
+                        <th>KDV</th>
+                        <th>Toplam</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    {% for line in quote.lines.all %}
+                        <tr>
+                            <td>{{ line.description }}</td>
+                            <td>{{ line.quantity }}</td>
+                            <td>₺{{ line.unit_price|floatformat:2 }}</td>
+                            <td>%{{ line.tax_rate|floatformat:2 }}</td>
+                            <td>₺{{ line.total_amount|floatformat:2 }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <p class="customer-detail__notes">
+            Bu teklife henüz ürün veya hizmet kalemi eklenmedi.
+        </p>
+    {% endif %}
+</article>
+
+<article class="customer-detail__card customer-detail__card--wide">
+    <h3>Yeni Kalem Ekle</h3>
+
+    <form
+        method="post"
+        action="{% url 'sales:quote_line_create' quote.id %}"
+    >
+        {% csrf_token %}
+
+        <div class="customer-form__grid">
+            <div class="customer-form__field customer-form__field--full">
+                <label for="{{ line_form.description.id_for_label }}">
+                    {{ line_form.description.label }}
+                </label>
+                {{ line_form.description }}
+                {{ line_form.description.errors }}
+            </div>
+
+            <div class="customer-form__field">
+                <label for="{{ line_form.quantity.id_for_label }}">
+                    {{ line_form.quantity.label }}
+                </label>
+                {{ line_form.quantity }}
+                {{ line_form.quantity.errors }}
+            </div>
+
+            <div class="customer-form__field">
+                <label for="{{ line_form.unit_price.id_for_label }}">
+                    {{ line_form.unit_price.label }}
+                </label>
+                {{ line_form.unit_price }}
+                {{ line_form.unit_price.errors }}
+            </div>
+
+            <div class="customer-form__field">
+                <label for="{{ line_form.tax_rate.id_for_label }}">
+                    {{ line_form.tax_rate.label }}
+                </label>
+                {{ line_form.tax_rate }}
+                {{ line_form.tax_rate.errors }}
+            </div>
+        </div>
+
+        <div class="customer-form__actions">
+            <button type="submit" class="customer-form__submit">
+                Kalemi Ekle
+            </button>
+        </div>
+    </form>
+</article>
+    <article class="customer-detail__card customer-detail__card--wide">
+        <h3>Notlar</h3>
+
+        <p class="customer-detail__notes">
+            {{ quote.notes|default:"Bu teklif için not eklenmedi."|linebreaksbr }}
+        </p>
+    </article>
+</section>
+{% endblock %}

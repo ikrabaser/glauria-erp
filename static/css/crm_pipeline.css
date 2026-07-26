@@ -252,3 +252,68 @@
     color: var(--color-text);
     transform: translateX(3px);
 }
+.opportunity-detail__quote-action {
+    display: inline-flex;
+    min-height: 40px;
+    align-items: center;
+    padding: 0 15px;
+    color: var(--color-rose-gold-light);
+    font-size: 13px;
+    font-weight: 700;
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-sm);
+    transition:
+        transform var(--transition-fast),
+        background var(--transition-fast);
+}
+
+.opportunity-detail__quote-action:hover {
+    transform: translateY(-2px);
+    background: rgba(215, 164, 143, 0.10);
+}
+/* =========================================================
+   SALES QUOTE STATUS ACTIONS
+   ========================================================= */
+
+.customer-detail__header-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 12px;
+}
+
+.customer-detail__header-actions form {
+    margin: 0;
+}
+
+button.opportunity-detail__quote-action,
+button.customer-detail__edit {
+    appearance: none;
+    font: inherit;
+    cursor: pointer;
+}
+
+button.opportunity-detail__quote-action {
+    min-height: 40px;
+    padding: 0 15px;
+    color: var(--color-rose-gold-light);
+    font-size: 13px;
+    font-weight: 700;
+    background: rgba(215, 164, 143, 0.09);
+    border: 1px solid rgba(215, 164, 143, 0.28);
+    border-radius: var(--radius-sm);
+    transition:
+        transform var(--transition-fast),
+        background var(--transition-fast),
+        border-color var(--transition-fast);
+}
+
+button.opportunity-detail__quote-action:hover {
+    transform: translateY(-2px);
+    background: rgba(215, 164, 143, 0.16);
+    border-color: rgba(239, 199, 181, 0.48);
+}
+
+button.customer-detail__edit {
+    border: 0;
+}

@@ -5,15 +5,60 @@ Satış Yönetimi | Glauria ERP
 {% endblock %}
 
 {% block content %}
-<section class="module-page">
+{% url "sales:quote_create" as quote_create_url %}
 
-    {% include "components/page_header.html" with eyebrow="Satış Yönetimi" title="Satışlar" description="Teklifleri, siparişleri ve satış süreçlerini tek merkezden yönetin." action_text="+ Yeni Satış" action_url="#" %}
+{% include "components/page_header.html" with eyebrow="Sales Management" title="Satış Teklifleri" description="Müşteri tekliflerini, geçerlilik durumlarını ve satış sürecini yönetin." action_text="+ Yeni Teklif" action_url=quote_create_url %}
 
-    {% include "components/list_toolbar.html" with search_placeholder="Sipariş, müşteri veya teklif ara..." filter_text="Filtrele" %}
+{% if quotes %}
+    <div class="data-table-wrapper">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Teklif</th>
+                    <th>Müşteri</th>
+                    <th>Bağlı fırsat</th>
+                    <th>Durum</th>
+                    <th>Genel toplam</th>
+                    <th>Geçerlilik</th>
+                </tr>
+            </thead>
 
-    <div class="module-empty-wrapper">
-        {% include "components/empty_state.html" with icon="↗" title="Henüz satış kaydı bulunmuyor" description="İlk teklifinizi veya satış siparişinizi oluşturarak satış sürecini başlatabilirsiniz." action_text="+ Yeni Satış" action_url="#" %}
+            <tbody>
+                {% for quote in quotes %}
+                    <tr>
+                        <td>
+                            <a
+                                href="{% url 'sales:quote_detail' quote.id %}"
+                                class="customer-cell__link"
+                            >
+                                <strong>{{ quote.quote_number }}</strong>
+                                <span>{{ quote.title }}</span>
+                            </a>
+                        </td>
+
+                        <td>{{ quote.customer.name }}</td>
+
+                        <td>
+                            {{ quote.opportunity.title|default:"—" }}
+                        </td>
+
+                        <td>
+                            <span class="opportunity-card__quote">
+                                {{ quote.get_status_display }}
+                            </span>
+                        </td>
+
+                        <td>₺{{ quote.total_amount|floatformat:2 }}</td>
+
+                        <td>
+                            {{ quote.valid_until|date:"d.m.Y"|default:"—" }}
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
     </div>
-
-</section>
+{% else %}
+    {% include "components/empty_state.html" with icon="T" title="Henüz satış teklifi bulunmuyor" description="İlk teklifinizi oluşturarak fırsatları satış sürecine taşıyın." action_text="+ İlk Teklifi Oluştur" action_url=quote_create_url %}
+{% endif %}
 {% endblock %}

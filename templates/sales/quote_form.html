@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+
+{% block title %}
+Yeni Teklif | Glauria ERP
+{% endblock %}
+
+{% block content %}
+<section class="page-header">
+    <div class="page-header__content">
+        <span class="page-header__eyebrow">
+            Sales Quote Management
+        </span>
+
+        <h2 class="page-header__title">
+            Yeni Satış Teklifi
+        </h2>
+
+        <p class="page-header__description">
+            Teklifi müşteri ve bağlı satış fırsatıyla oluşturun.
+        </p>
+    </div>
+
+    <a href="{% url 'sales:home' %}" class="page-header__action">
+        ← Tekliflere Dön
+    </a>
+</section>
+
+<form method="post" class="customer-form">
+    {% csrf_token %}
+
+    <div class="customer-form__section">
+        <div class="customer-form__section-heading">
+            <span>Teklif Bilgileri</span>
+            <p>Teklifin müşteri, fırsat ve geçerlilik bilgilerini belirleyin.</p>
+        </div>
+
+        <div class="customer-form__grid">
+            <div class="customer-form__field customer-form__field--full">
+                <label for="{{ form.title.id_for_label }}">{{ form.title.label }}</label>
+                {{ form.title }}
+                {{ form.title.errors }}
+            </div>
+
+            <div class="customer-form__field">
+                <label for="{{ form.customer.id_for_label }}">{{ form.customer.label }}</label>
+                {{ form.customer }}
+                {{ form.customer.errors }}
+            </div>
+
+            <div class="customer-form__field">
+                <label for="{{ form.opportunity.id_for_label }}">{{ form.opportunity.label }}</label>
+                {{ form.opportunity }}
+                {{ form.opportunity.errors }}
+            </div>
+
+            <div class="customer-form__field">
+                <label for="{{ form.valid_until.id_for_label }}">{{ form.valid_until.label }}</label>
+                {{ form.valid_until }}
+                {{ form.valid_until.errors }}
+            </div>
+
+            <div class="customer-form__field customer-form__field--full">
+                <label for="{{ form.notes.id_for_label }}">{{ form.notes.label }}</label>
+                {{ form.notes }}
+                {{ form.notes.errors }}
+            </div>
+        </div>
+    </div>
+
+    <div class="customer-form__actions">
+        <a href="{% url 'sales:home' %}" class="customer-form__cancel">
+            Vazgeç
+        </a>
+
+        <button type="submit" class="customer-form__submit">
+            Teklifi Oluştur
+        </button>
+    </div>
+</form>
+{% endblock %}
