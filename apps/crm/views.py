@@ -267,3 +267,69 @@ def opportunity_update_stage(request, opportunity_id):
             "stage_label": opportunity.get_stage_display(),
         }
     )
+@login_required
+def opportunity_detail(request, opportunity_id):
+    membership = get_active_membership(request.user)
+
+    if not membership:
+        return redirect("crm:opportunities_home")
+
+    opportunity = get_object_or_404(
+        Opportunity.objects.select_related(
+            "customer",
+            "company",
+            "owner",
+        ),
+        id=opportunity_id,
+        company=membership.company,
+    )
+
+    return render(
+        request,
+        "crm/opportunity_detail.html",
+        {
+            "opportunity": opportunity,
+            "current_membership": membership,
+        },
+    )
+
+
+@login_required
+def opportunity_update(request, opportunity_id):
+    membership = get_active_membership(request.user)
+
+    if not membership:
+        return redirect("crm:opportunities_home")
+
+    opportunity = get_object_or_404(
+        Opportunity,
+        id=opportunity_id,
+        company=membership.company,
+    )
+
+    form = OpportunityForm(
+        request.POST or None,
+        instance=opportunity,
+    )
+    form.fields["customer"].queryset = Customer.objects.filter(
+        company=membership.company
+    ).order_by("name")
+
+    if request.method == "POST" and form.is_valid():
+        form.save()
+
+        return redirect(
+            "crm:opportunity_detail",
+            opportunity_id=opportunity.id,
+        )
+
+    return render(
+        request,
+        "crm/opportunity_form.html",
+        {
+            "form": form,
+            "opportunity": opportunity,
+            "current_membership": membership,
+            "is_edit": True,
+        },
+    )

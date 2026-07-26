@@ -237,3 +237,18 @@
     outline: 1px dashed rgba(215, 164, 143, 0.65);
     background: rgba(215, 164, 143, 0.06);
 }
+.opportunity-card__detail-link {
+    display: inline-flex;
+    margin-top: 14px;
+    color: var(--color-rose-gold-light);
+    font-size: 12px;
+    font-weight: 700;
+    transition:
+        color var(--transition-fast),
+        transform var(--transition-fast);
+}
+
+.opportunity-card__detail-link:hover {
+    color: var(--color-text);
+    transform: translateX(3px);
+}

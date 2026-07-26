@@ -81,8 +81,15 @@ Satış Fırsatları | CRM | Glauria ERP
                         </div>
 
                         <div class="opportunity-card__quote">
-                            {{ opportunity.get_quote_status_display }}
-                        </div>
+    {{ opportunity.get_quote_status_display }}
+</div>
+
+<a
+    href="{% url 'crm:opportunity_detail' opportunity.id %}"
+    class="opportunity-card__detail-link"
+>
+    Fırsat Detayı →
+</a>
                     </article>
                 {% empty %}
                     <div class="pipeline-column__empty">

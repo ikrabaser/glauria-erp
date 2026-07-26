@@ -1,7 +1,11 @@
 {% extends "base.html" %}
 
 {% block title %}
+{% if is_edit %}
+{{ opportunity.title }} Düzenle | CRM | Glauria ERP
+{% else %}
 Yeni Satış Fırsatı | CRM | Glauria ERP
+{% endif %}
 {% endblock %}
 
 {% block content %}
@@ -12,12 +16,20 @@ Yeni Satış Fırsatı | CRM | Glauria ERP
         </span>
 
         <h2 class="page-header__title">
-            Yeni Satış Fırsatı
-        </h2>
+    {% if is_edit %}
+        Fırsatı Düzenle
+    {% else %}
+        Yeni Satış Fırsatı
+    {% endif %}
+</h2>
 
-        <p class="page-header__description">
-            Potansiyel satışı müşteri, öncelik ve tahmini değer bilgileriyle kaydedin.
-        </p>
+<p class="page-header__description">
+    {% if is_edit %}
+        {{ opportunity.title }} fırsatının bilgilerini güncelleyin.
+    {% else %}
+        Potansiyel satışı müşteri, öncelik ve tahmini değer bilgileriyle kaydedin.
+    {% endif %}
+</p>
     </div>
 
     <a
@@ -118,8 +130,12 @@ Yeni Satış Fırsatı | CRM | Glauria ERP
         </a>
 
         <button type="submit" class="customer-form__submit">
-            Fırsatı Kaydet
-        </button>
+    {% if is_edit %}
+        Değişiklikleri Kaydet
+    {% else %}
+        Fırsatı Kaydet
+    {% endif %}
+</button>
     </div>
 </form>
 {% endblock %}

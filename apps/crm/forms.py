@@ -68,12 +68,14 @@ class OpportunityForm(forms.ModelForm):
                     "step": "0.01",
                 }
             ),
-            "expected_close_date": forms.DateInput(
-                attrs={"type": "date"}
-            ),
-            "last_contacted_at": forms.DateTimeInput(
-                attrs={"type": "datetime-local"}
-            ),
+           "expected_close_date": forms.DateInput(
+    format="%Y-%m-%d",
+    attrs={"type": "date"},
+),
+"last_contacted_at": forms.DateTimeInput(
+    format="%Y-%m-%dT%H:%M",
+    attrs={"type": "datetime-local"},
+),
             "notes": forms.Textarea(
                 attrs={
                     "placeholder": "Fırsatla ilgili kısa notlar...",
