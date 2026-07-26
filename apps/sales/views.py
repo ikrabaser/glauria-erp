@@ -269,6 +269,30 @@ def quote_order_create(request, quote_id):
 
     return redirect("sales:quote_detail", quote_id=quote.id)
 @login_required
+def orders_home(request):
+    membership = get_active_membership(request.user)
+
+    if membership:
+        orders = (
+            SalesOrder.objects.select_related(
+                "customer",
+                "quote",
+                "owner",
+            )
+            .filter(company=membership.company)
+        )
+    else:
+        orders = SalesOrder.objects.none()
+
+    return render(
+        request,
+        "sales/orders_home.html",
+        {
+            "orders": orders,
+            "current_membership": membership,
+        },
+    )
+@login_required
 def order_detail(request, order_id):
     membership = get_active_membership(request.user)
 

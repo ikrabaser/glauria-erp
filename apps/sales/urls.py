@@ -8,6 +8,7 @@ from .views import (
     quote_line_create,
     quote_status_update,
     quote_order_create,
+    orders_home,
 )
 
 
@@ -40,6 +41,11 @@ path(
     "quotes/<uuid:quote_id>/order/new/",
     quote_order_create,
     name="quote_order_create",
+),
+path(
+    "orders/",
+    orders_home,
+    name="orders_home",
 ),
 path(
     "orders/<uuid:order_id>/",

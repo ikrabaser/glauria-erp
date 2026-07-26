@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+
+{% block title %}
+Satış Siparişleri | Glauria ERP
+{% endblock %}
+
+{% block content %}
+{% include "components/page_header.html" with eyebrow="Sales Order Management" title="Satış Siparişleri" description="Onaylanan tekliflerden oluşan siparişleri ve operasyon aşamalarını takip edin." %}
+
+{% if orders %}
+    <div class="data-table-wrapper">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Sipariş</th>
+                    <th>Müşteri</th>
+                    <th>Kaynak teklif</th>
+                    <th>Toplam</th>
+                    <th>Durum</th>
+                    <th>Sipariş tarihi</th>
+                </tr>
+            </thead>
+
+            <tbody>
+                {% for order in orders %}
+                    <tr>
+                        <td>
+                            <a
+                                href="{% url 'sales:order_detail' order.id %}"
+                                class="customer-cell__link"
+                            >
+                                <strong>{{ order.order_number }}</strong>
+                            </a>
+                        </td>
+
+                        <td>{{ order.customer.name }}</td>
+
+                        <td>{{ order.quote.quote_number }}</td>
+
+                        <td>₺{{ order.total_amount|floatformat:2 }}</td>
+
+                        <td>
+                            <span class="opportunity-card__quote">
+                                {{ order.get_status_display }}
+                            </span>
+                        </td>
+
+                        <td>{{ order.order_date|date:"d.m.Y" }}</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+{% else %}
+    <div class="empty-state">
+        <h3>Henüz satış siparişi bulunmuyor</h3>
+        <p>
+            Onaylanan teklifler satış siparişine dönüştürüldüğünde
+            burada listelenecek.
+        </p>
+    </div>
+{% endif %}
+{% endblock %}
