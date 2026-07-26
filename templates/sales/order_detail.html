@@ -22,9 +22,57 @@
                 </h2>
             </div>
 
-            <span class="opportunity-card__quote">
-                {{ order.get_status_display }}
-            </span>
+            <div class="customer-detail__header-actions">
+    <span class="opportunity-card__quote">
+        {{ order.get_status_display }}
+    </span>
+
+    {% if order.status == "confirmed" %}
+        <form
+            method="post"
+            action="{% url 'sales:order_status_update' order.id 'in_production' %}"
+        >
+            {% csrf_token %}
+
+            <button
+                type="submit"
+                class="opportunity-detail__quote-action"
+            >
+                Üretime Aktar
+            </button>
+        </form>
+
+    {% elif order.status == "in_production" %}
+        <form
+            method="post"
+            action="{% url 'sales:order_status_update' order.id 'ready_to_ship' %}"
+        >
+            {% csrf_token %}
+
+            <button
+                type="submit"
+                class="opportunity-detail__quote-action"
+            >
+                Sevkiyata Hazırla
+            </button>
+        </form>
+
+    {% elif order.status == "ready_to_ship" %}
+        <form
+            method="post"
+            action="{% url 'sales:order_status_update' order.id 'completed' %}"
+        >
+            {% csrf_token %}
+
+            <button
+                type="submit"
+                class="customer-detail__edit"
+            >
+                Siparişi Tamamla
+            </button>
+        </form>
+    {% endif %}
+</div>
         </div>
 
         <p class="customer-detail__subtitle">

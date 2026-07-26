@@ -293,6 +293,35 @@ def orders_home(request):
         },
     )
 @login_required
+@require_POST
+def order_status_update(request, order_id, status):
+    membership = get_active_membership(request.user)
+
+    if not membership:
+        return redirect("sales:home")
+
+    allowed_transitions = {
+        SalesOrder.Status.CONFIRMED: SalesOrder.Status.IN_PRODUCTION,
+        SalesOrder.Status.IN_PRODUCTION: SalesOrder.Status.READY_TO_SHIP,
+        SalesOrder.Status.READY_TO_SHIP: SalesOrder.Status.COMPLETED,
+    }
+
+    order = get_object_or_404(
+        SalesOrder,
+        id=order_id,
+        company=membership.company,
+    )
+
+    expected_status = allowed_transitions.get(order.status)
+
+    if status != expected_status:
+        return HttpResponseBadRequest("Bu sipariş için geçersiz durum geçişi.")
+
+    order.status = status
+    order.save(update_fields=["status", "updated_at"])
+
+    return redirect("sales:order_detail", order_id=order.id)
+@login_required
 def order_detail(request, order_id):
     membership = get_active_membership(request.user)
 

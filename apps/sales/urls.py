@@ -9,6 +9,7 @@ from .views import (
     quote_status_update,
     quote_order_create,
     orders_home,
+    order_status_update,
 )
 
 
@@ -51,5 +52,10 @@ path(
     "orders/<uuid:order_id>/",
     order_detail,
     name="order_detail",
+),
+path(
+    "orders/<uuid:order_id>/status/<str:status>/",
+    order_status_update,
+    name="order_status_update",
 ),
 ]
