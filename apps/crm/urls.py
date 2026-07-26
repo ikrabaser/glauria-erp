@@ -7,6 +7,7 @@ from .views import (
     home,
     opportunities_home,
     opportunity_create,
+    opportunity_update_stage,
 )
 app_name = "crm"
 
@@ -32,5 +33,10 @@ path(
     "opportunities/new/",
     opportunity_create,
     name="opportunity_create",
+),
+path(
+    "opportunities/<uuid:opportunity_id>/stage/",
+    opportunity_update_stage,
+    name="opportunity_update_stage",
 ),
 ]

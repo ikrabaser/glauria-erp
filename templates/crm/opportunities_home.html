@@ -24,9 +24,16 @@ Satış Fırsatları | CRM | Glauria ERP
                 <span class="pipeline-column__indicator"></span>
             </header>
 
-            <div class="pipeline-column__cards">
+            <div
+    class="pipeline-column__cards"
+    data-stage="{{ column.key }}"
+>
                 {% for opportunity in column.opportunities %}
-                    <article class="opportunity-card">
+                    <article
+    class="opportunity-card"
+    draggable="true"
+    data-opportunity-id="{{ opportunity.id }}"
+>
                         <div class="opportunity-card__top">
                             <span class="opportunity-card__customer">
                                 {{ opportunity.customer.name }}

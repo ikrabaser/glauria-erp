@@ -212,3 +212,28 @@
     color: var(--color-rose-gold-light);
     background: rgba(215, 164, 143, 0.10);
 }
+.opportunity-card[draggable="true"] {
+    cursor: grab;
+}
+
+.opportunity-card[draggable="true"]:active {
+    cursor: grabbing;
+}
+
+.opportunity-card.is-dragging {
+    opacity: 0.45;
+    transform: rotate(1deg) scale(0.98);
+}
+
+.pipeline-column__cards {
+    min-height: 150px;
+    border-radius: var(--radius-md);
+    transition:
+        background var(--transition-fast),
+        outline-color var(--transition-fast);
+}
+
+.pipeline-column__cards.is-drop-target {
+    outline: 1px dashed rgba(215, 164, 143, 0.65);
+    background: rgba(215, 164, 143, 0.06);
+}

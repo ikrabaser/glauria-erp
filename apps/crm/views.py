@@ -1,3 +1,6 @@
+import json
+from django.http import JsonResponse
+from django.views.decorators.http import require_POST
 from django.contrib.auth.decorators import login_required
 from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
@@ -216,4 +219,51 @@ def opportunity_create(request):
             "form": form,
             "current_membership": membership,
         },
+    )
+@login_required
+@require_POST
+def opportunity_update_stage(request, opportunity_id):
+    membership = get_active_membership(request.user)
+
+    if not membership:
+        return JsonResponse(
+            {"error": "Aktif şirket üyeliği bulunamadı."},
+            status=403,
+        )
+
+    try:
+        payload = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse(
+            {"error": "Geçersiz istek verisi."},
+            status=400,
+        )
+
+    stage = payload.get("stage")
+
+    valid_stages = set(Opportunity.Stage.values)
+
+    if stage not in valid_stages:
+        return JsonResponse(
+            {"error": "Geçersiz fırsat aşaması."},
+            status=400,
+        )
+
+    opportunity = get_object_or_404(
+        Opportunity,
+        id=opportunity_id,
+        company=membership.company,
+    )
+
+    opportunity.stage = stage
+    opportunity.save(
+        update_fields=["stage", "updated_at"]
+    )
+
+    return JsonResponse(
+        {
+            "id": str(opportunity.id),
+            "stage": opportunity.stage,
+            "stage_label": opportunity.get_stage_display(),
+        }
     )
