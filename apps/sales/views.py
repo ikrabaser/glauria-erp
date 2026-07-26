@@ -2,12 +2,17 @@ from django.contrib.auth.decorators import login_required
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 from django.http import HttpResponseBadRequest
+from django.db import transaction
 
 
 from apps.crm.models import Customer, Opportunity
 
 from .forms import SalesQuoteForm, SalesQuoteLineForm
-from .models import SalesQuote
+from .models import (
+    SalesOrder,
+    SalesOrderLine,
+    SalesQuote,
+)
 
 
 def get_active_membership(user):
@@ -153,6 +158,43 @@ def quote_line_create(request, quote_id):
         "sales:quote_detail",
         quote_id=quote.id,
     )
+def create_sales_order_from_quote(quote):
+    with transaction.atomic():
+        order, created = SalesOrder.objects.get_or_create(
+            quote=quote,
+            defaults={
+                "company": quote.company,
+                "customer": quote.customer,
+                "status": SalesOrder.Status.CONFIRMED,
+                "subtotal": quote.subtotal,
+                "tax_amount": quote.tax_amount,
+                "total_amount": quote.total_amount,
+                "notes": quote.notes,
+                "owner": quote.owner,
+            },
+        )
+
+        if created:
+            SalesOrderLine.objects.bulk_create(
+                [
+                    SalesOrderLine(
+                        order=order,
+                        description=line.description,
+                        quantity=line.quantity,
+                        unit_price=line.unit_price,
+                        tax_rate=line.tax_rate,
+                        line_order=index,
+                    )
+                    for index, line in enumerate(
+                        quote.lines.all(),
+                        start=1,
+                    )
+                ]
+            )
+
+    return order
+
+
 @login_required
 @require_POST
 def quote_status_update(request, quote_id, status):
@@ -170,7 +212,11 @@ def quote_status_update(request, quote_id, status):
         return HttpResponseBadRequest("Geçersiz teklif durumu.")
 
     quote = get_object_or_404(
-        SalesQuote.objects.select_related("opportunity"),
+        SalesQuote.objects.select_related(
+            "customer",
+            "opportunity",
+            "owner",
+        ).prefetch_related("lines"),
         id=quote_id,
         company=membership.company,
     )
@@ -178,16 +224,72 @@ def quote_status_update(request, quote_id, status):
     quote.status = status
     quote.save(update_fields=["status", "updated_at"])
 
-    if quote.opportunity:
-        if status == SalesQuote.Status.SENT:
-            quote.opportunity.quote_status = Opportunity.QuoteStatus.SENT
-            quote.opportunity.save(update_fields=["quote_status", "updated_at"])
+    if status == SalesQuote.Status.SENT and quote.opportunity:
+        quote.opportunity.quote_status = Opportunity.QuoteStatus.SENT
+        quote.opportunity.save(update_fields=["quote_status", "updated_at"])
 
-        elif status == SalesQuote.Status.ACCEPTED:
+    elif status == SalesQuote.Status.ACCEPTED:
+        if quote.opportunity:
             quote.opportunity.quote_status = Opportunity.QuoteStatus.ACCEPTED
             quote.opportunity.stage = Opportunity.Stage.WON
             quote.opportunity.save(
                 update_fields=["quote_status", "stage", "updated_at"]
             )
 
+        create_sales_order_from_quote(quote)
+
     return redirect("sales:quote_detail", quote_id=quote.id)
+
+
+@login_required
+@require_POST
+def quote_order_create(request, quote_id):
+    membership = get_active_membership(request.user)
+
+    if not membership:
+        return redirect("sales:home")
+
+    quote = get_object_or_404(
+        SalesQuote.objects.select_related(
+            "customer",
+            "owner",
+        ).prefetch_related("lines"),
+        id=quote_id,
+        company=membership.company,
+    )
+
+    if quote.status != SalesQuote.Status.ACCEPTED:
+        return HttpResponseBadRequest(
+            "Sipariş yalnızca onaylanmış tekliften oluşturulabilir."
+        )
+
+    order = create_sales_order_from_quote(quote)
+
+    return redirect("sales:order_detail", order_id=order.id)
+
+    return redirect("sales:quote_detail", quote_id=quote.id)
+@login_required
+def order_detail(request, order_id):
+    membership = get_active_membership(request.user)
+
+    if not membership:
+        return redirect("sales:home")
+
+    order = get_object_or_404(
+        SalesOrder.objects.select_related(
+            "customer",
+            "quote",
+            "owner",
+        ).prefetch_related("lines"),
+        id=order_id,
+        company=membership.company,
+    )
+
+    return render(
+        request,
+        "sales/order_detail.html",
+        {
+            "order": order,
+            "current_membership": membership,
+        },
+    )

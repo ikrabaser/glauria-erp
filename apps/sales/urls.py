@@ -2,10 +2,12 @@ from django.urls import path
 
 from .views import (
     home,
+    order_detail,
     quote_create,
     quote_detail,
     quote_line_create,
     quote_status_update,
+    quote_order_create,
 )
 
 
@@ -33,5 +35,15 @@ path(
     "quotes/<uuid:quote_id>/status/<str:status>/",
     quote_status_update,
     name="quote_status_update",
+),
+path(
+    "quotes/<uuid:quote_id>/order/new/",
+    quote_order_create,
+    name="quote_order_create",
+),
+path(
+    "orders/<uuid:order_id>/",
+    order_detail,
+    name="order_detail",
 ),
 ]

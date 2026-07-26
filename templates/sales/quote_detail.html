@@ -26,6 +26,30 @@
     <span class="opportunity-card__quote">
         {{ quote.get_status_display }}
     </span>
+    {% if quote.status == "accepted" %}
+    {% if quote.sales_order %}
+        <a
+            href="{% url 'sales:order_detail' quote.sales_order.id %}"
+            class="customer-detail__edit"
+        >
+            Siparişi Görüntüle
+        </a>
+    {% else %}
+        <form
+            method="post"
+            action="{% url 'sales:quote_order_create' quote.id %}"
+        >
+            {% csrf_token %}
+
+            <button
+                type="submit"
+                class="customer-detail__edit"
+            >
+                Satış Siparişi Oluştur
+            </button>
+        </form>
+    {% endif %}
+{% endif %}
 
     {% if quote.status == "draft" %}
         <form
