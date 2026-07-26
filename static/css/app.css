@@ -1287,5 +1287,171 @@ svg {
     display: none;
 }
 }
+/* =========================================================
+   CRM CUSTOMER FORM
+   ========================================================= */
+
+.customer-form {
+    display: grid;
+    gap: 20px;
+    max-width: 1040px;
+}
+
+.customer-form__section {
+    padding: 24px;
+    background:
+        linear-gradient(135deg, rgba(142, 92, 246, 0.07), transparent 32%),
+        var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-card);
+}
+
+.customer-form__section-heading {
+    margin-bottom: 22px;
+}
+
+.customer-form__section-heading span {
+    display: block;
+    color: var(--color-text);
+    font-size: 15px;
+    font-weight: 700;
+}
+
+.customer-form__section-heading p {
+    margin: 5px 0 0;
+    color: var(--color-text-muted);
+    font-size: 13px;
+}
+
+.customer-form__grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px;
+}
+
+.customer-form__field {
+    display: grid;
+    gap: 8px;
+}
+
+.customer-form__field--full {
+    grid-column: 1 / -1;
+}
+
+.customer-form__field label {
+    color: var(--color-text-soft);
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.customer-form__field input,
+.customer-form__field select,
+.customer-form__field textarea {
+    width: 100%;
+    padding: 12px 14px;
+    color: var(--color-text);
+    outline: none;
+    background: rgba(7, 6, 12, 0.58);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    transition:
+        border-color var(--transition-fast),
+        box-shadow var(--transition-fast),
+        background var(--transition-fast);
+}
+
+.customer-form__field textarea {
+    resize: vertical;
+}
+
+.customer-form__field input::placeholder,
+.customer-form__field textarea::placeholder {
+    color: var(--color-text-muted);
+}
+
+.customer-form__field input:focus,
+.customer-form__field select:focus,
+.customer-form__field textarea:focus {
+    background: rgba(7, 6, 12, 0.82);
+    border-color: rgba(215, 164, 143, 0.58);
+    box-shadow: 0 0 0 4px rgba(215, 164, 143, 0.09);
+}
+
+.customer-form__field ul.errorlist {
+    margin: 0;
+    padding: 0;
+    color: var(--color-danger);
+    font-size: 12px;
+    list-style: none;
+}
+
+.customer-form__actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    padding-top: 4px;
+}
+
+.customer-form__cancel,
+.customer-form__submit {
+    min-height: 42px;
+    padding: 0 18px;
+    font-weight: 700;
+    cursor: pointer;
+    border-radius: var(--radius-sm);
+    transition:
+        transform var(--transition-fast),
+        border-color var(--transition-fast),
+        background var(--transition-fast);
+}
+
+.customer-form__cancel {
+    display: inline-flex;
+    align-items: center;
+    color: var(--color-text-soft);
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+}
+
+.customer-form__submit {
+    color: #1a1012;
+    background: linear-gradient(135deg, var(--color-rose-gold-light), var(--color-rose-gold));
+    border: 1px solid transparent;
+}
+
+.customer-form__cancel:hover,
+.customer-form__submit:hover {
+    transform: translateY(-2px);
+}
+
+.customer-form__cancel:hover {
+    border-color: var(--color-border-strong);
+}
+
+.customer-form__submit:hover {
+    background: linear-gradient(135deg, #f5d8ca, var(--color-rose-gold-light));
+}
+
+@media (max-width: 700px) {
+    .customer-form__grid {
+        grid-template-columns: 1fr;
+    }
+
+    .customer-form__field--full {
+        grid-column: auto;
+    }
+
+    .customer-form__actions {
+        align-items: stretch;
+        flex-direction: column-reverse;
+    }
+
+    .customer-form__cancel,
+    .customer-form__submit {
+        justify-content: center;
+    }
+}
+}
 
 
