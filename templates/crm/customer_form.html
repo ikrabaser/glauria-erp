@@ -1,7 +1,11 @@
 {% extends "base.html" %}
 
 {% block title %}
+{% if is_edit %}
+{{ customer.name }} Düzenle | CRM | Glauria ERP
+{% else %}
 Yeni Müşteri | Glauria ERP
+{% endif %}
 {% endblock %}
 
 {% block content %}
@@ -12,17 +16,34 @@ Yeni Müşteri | Glauria ERP
         </span>
 
         <h2 class="page-header__title">
-            Yeni Müşteri
+            {% if is_edit %}
+                Müşteriyi Düzenle
+            {% else %}
+                Yeni Müşteri
+            {% endif %}
         </h2>
 
         <p class="page-header__description">
-            Müşteri bilgilerini ekleyerek CRM kaydını oluşturun.
+            {% if is_edit %}
+                {{ customer.name }} kaydındaki bilgileri güncelleyin.
+            {% else %}
+                Müşteri bilgilerini ekleyerek CRM kaydını oluşturun.
+            {% endif %}
         </p>
     </div>
 
-    <a href="{% url 'crm:home' %}" class="page-header__action">
-        ← CRM'e Dön
-    </a>
+    {% if is_edit %}
+        <a
+            href="{% url 'crm:customer_detail' customer.id %}"
+            class="page-header__action"
+        >
+            ← Detaya Dön
+        </a>
+    {% else %}
+        <a href="{% url 'crm:home' %}" class="page-header__action">
+            ← CRM'e Dön
+        </a>
+    {% endif %}
 </section>
 
 <form method="post" class="customer-form">
@@ -95,12 +116,25 @@ Yeni Müşteri | Glauria ERP
     </div>
 
     <div class="customer-form__actions">
-        <a href="{% url 'crm:home' %}" class="customer-form__cancel">
-            Vazgeç
-        </a>
+        {% if is_edit %}
+            <a
+                href="{% url 'crm:customer_detail' customer.id %}"
+                class="customer-form__cancel"
+            >
+                Vazgeç
+            </a>
+        {% else %}
+            <a href="{% url 'crm:home' %}" class="customer-form__cancel">
+                Vazgeç
+            </a>
+        {% endif %}
 
         <button type="submit" class="customer-form__submit">
-            Müşteriyi Kaydet
+            {% if is_edit %}
+                Değişiklikleri Kaydet
+            {% else %}
+                Müşteriyi Kaydet
+            {% endif %}
         </button>
     </div>
 </form>

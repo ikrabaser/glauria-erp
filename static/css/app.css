@@ -1693,3 +1693,37 @@ svg {
         text-align: left;
     }
 }
+    .customer-detail__header-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.customer-detail__edit {
+    display: inline-flex;
+    min-height: 40px;
+    align-items: center;
+    padding: 0 15px;
+    color: #1a1012;
+    font-size: 13px;
+    font-weight: 700;
+    background: linear-gradient(
+        135deg,
+        var(--color-rose-gold-light),
+        var(--color-rose-gold)
+    );
+    border-radius: var(--radius-sm);
+    transition: transform var(--transition-fast);
+}
+
+.customer-detail__edit:hover {
+    transform: translateY(-2px);
+}
+
+@media (max-width: 720px) {
+    .customer-detail__header-actions {
+        width: 100%;
+        align-items: flex-start;
+        flex-direction: column;
+    }
+}

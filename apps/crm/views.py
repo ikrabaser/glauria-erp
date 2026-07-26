@@ -113,3 +113,42 @@ def customer_detail(request, customer_id):
             "current_membership": membership,
         },
     )
+@login_required
+def customer_update(request, customer_id):
+    membership = get_active_membership(request.user)
+
+    if not membership:
+        return redirect("crm:home")
+
+    customer = get_object_or_404(
+        Customer.objects.select_related("company", "created_by"),
+        id=customer_id,
+        company=membership.company,
+    )
+
+    if request.method == "POST":
+        form = CustomerForm(
+            request.POST,
+            instance=customer,
+        )
+
+        if form.is_valid():
+            form.save()
+
+            return redirect(
+                "crm:customer_detail",
+                customer_id=customer.id,
+            )
+    else:
+        form = CustomerForm(instance=customer)
+
+    return render(
+        request,
+        "crm/customer_form.html",
+        {
+            "form": form,
+            "customer": customer,
+            "current_membership": membership,
+            "is_edit": True,
+        },
+    )

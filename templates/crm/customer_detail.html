@@ -22,9 +22,18 @@
                 </h2>
             </div>
 
-            <span class="status-pill status-pill--{{ customer.status }}">
-                {{ customer.get_status_display }}
-            </span>
+            <div class="customer-detail__header-actions">
+    <span class="status-pill status-pill--{{ customer.status }}">
+        {{ customer.get_status_display }}
+    </span>
+
+    <a
+        href="{% url 'crm:customer_update' customer.id %}"
+        class="customer-detail__edit"
+    >
+        Müşteriyi Düzenle
+    </a>
+</div>
         </div>
 
         <p class="customer-detail__subtitle">
