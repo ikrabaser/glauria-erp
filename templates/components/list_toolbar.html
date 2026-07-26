@@ -1,5 +1,5 @@
-<div class="list-toolbar">
-    <form class="list-toolbar__search" method="get">
+<form class="list-toolbar" method="get">
+    <div class="list-toolbar__search">
         <label class="sr-only" for="list-search">
             Ara
         </label>
@@ -8,12 +8,62 @@
             id="list-search"
             type="search"
             name="q"
-            value="{{ request.GET.q }}"
+            value="{{ query }}"
             placeholder="{{ search_placeholder|default:'Kayıtlarda ara...' }}"
         >
-    </form>
+    </div>
 
-    <button class="list-toolbar__filter" type="button">
-        Filtreler
-    </button>
-</div>
+    <details class="list-toolbar__filters"
+        {% if selected_customer_type or selected_status %}open{% endif %}
+    >
+        <summary class="list-toolbar__filter">
+            Filtreler
+        </summary>
+
+        <div class="list-toolbar__filter-panel">
+            <div class="list-toolbar__filter-field">
+                <label for="customer-type-filter">Müşteri tipi</label>
+
+                <select id="customer-type-filter" name="customer_type">
+                    <option value="">Tüm tipler</option>
+
+                    {% for value, label in customer_type_choices %}
+                        <option
+                            value="{{ value }}"
+                            {% if value == selected_customer_type %}selected{% endif %}
+                        >
+                            {{ label }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="list-toolbar__filter-field">
+                <label for="status-filter">Durum</label>
+
+                <select id="status-filter" name="status">
+                    <option value="">Tüm durumlar</option>
+
+                    {% for value, label in status_choices %}
+                        <option
+                            value="{{ value }}"
+                            {% if value == selected_status %}selected{% endif %}
+                        >
+                            {{ label }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="list-toolbar__filter-actions">
+                <a href="{% url 'crm:home' %}">
+                    Temizle
+                </a>
+
+                <button type="submit">
+                    Uygula
+                </button>
+            </div>
+        </div>
+    </details>
+</form>

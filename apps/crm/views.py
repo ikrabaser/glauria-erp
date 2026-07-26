@@ -1,4 +1,5 @@
 from django.contrib.auth.decorators import login_required
+from django.db.models import Q
 from django.shortcuts import redirect, render
 
 from .forms import CustomerForm
@@ -18,12 +19,32 @@ def get_active_membership(user):
 def home(request):
     membership = get_active_membership(request.user)
 
+    query = request.GET.get("q", "").strip()
+    selected_customer_type = request.GET.get("customer_type", "")
+    selected_status = request.GET.get("status", "")
+
     if membership:
         customers = (
             Customer.objects
             .select_related("company", "created_by")
             .filter(company=membership.company)
         )
+
+        if query:
+            customers = customers.filter(
+                Q(name__icontains=query)
+                | Q(email__icontains=query)
+                | Q(phone__icontains=query)
+                | Q(city__icontains=query)
+            )
+
+        if selected_customer_type in Customer.CustomerType.values:
+            customers = customers.filter(
+                customer_type=selected_customer_type
+            )
+
+        if selected_status in Customer.Status.values:
+            customers = customers.filter(status=selected_status)
     else:
         customers = Customer.objects.none()
 
@@ -33,6 +54,11 @@ def home(request):
         {
             "customers": customers,
             "current_membership": membership,
+            "query": query,
+            "selected_customer_type": selected_customer_type,
+            "selected_status": selected_status,
+            "customer_type_choices": Customer.CustomerType.choices,
+            "status_choices": Customer.Status.choices,
         },
     )
 
