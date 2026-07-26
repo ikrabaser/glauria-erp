@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+
+{% block title %}
+Satış Fırsatları | CRM | Glauria ERP
+{% endblock %}
+
+{% block content %}
+{% url "crm:opportunity_create" as opportunity_create_url %}
+
+{% include "components/page_header.html" with eyebrow="Sales Opportunity Management" title="Satış Fırsatları" description="Potansiyel satışları aşamalarına göre takip edin ve teklif sürecini yönetin." action_text="+ Yeni Fırsat" action_url=opportunity_create_url %}
+
+<section class="pipeline-board">
+    {% for column in pipeline %}
+        <article class="pipeline-column pipeline-column--{{ column.key }}">
+            <header class="pipeline-column__header">
+                <div>
+                    <span class="pipeline-column__eyebrow">
+                        {{ column.count }} fırsat
+                    </span>
+
+                    <h3>{{ column.label }}</h3>
+                </div>
+
+                <span class="pipeline-column__indicator"></span>
+            </header>
+
+            <div class="pipeline-column__cards">
+                {% for opportunity in column.opportunities %}
+                    <article class="opportunity-card">
+                        <div class="opportunity-card__top">
+                            <span class="opportunity-card__customer">
+                                {{ opportunity.customer.name }}
+                            </span>
+
+                            <span class="opportunity-card__priority opportunity-card__priority--{{ opportunity.priority }}">
+                                {{ opportunity.get_priority_display }}
+                            </span>
+                        </div>
+
+                        <h4>{{ opportunity.title }}</h4>
+
+                        {% if opportunity.labels %}
+                            <span class="opportunity-card__label">
+                                {{ opportunity.labels }}
+                            </span>
+                        {% endif %}
+
+                        <div class="opportunity-card__meta">
+                            <span>
+                                ₺{{ opportunity.expected_amount|floatformat:2 }}
+                            </span>
+
+                            {% if opportunity.expected_close_date %}
+                                <span>
+                                    {{ opportunity.expected_close_date|date:"d.m.Y" }}
+                                </span>
+                            {% endif %}
+                        </div>
+
+                        <div class="opportunity-card__tracking">
+                            <span>
+                                Sorumlu:
+                                {{ opportunity.owner|default:"Atanmamış" }}
+                            </span>
+
+                            <span>
+                                {% if opportunity.last_contacted_at %}
+                                    Son iletişim:
+                                    {{ opportunity.last_contacted_at|date:"d.m.Y" }}
+                                {% else %}
+                                    Henüz iletişim yok
+                                {% endif %}
+                            </span>
+                        </div>
+
+                        <div class="opportunity-card__quote">
+                            {{ opportunity.get_quote_status_display }}
+                        </div>
+                    </article>
+                {% empty %}
+                    <div class="pipeline-column__empty">
+                        Bu aşamada fırsat bulunmuyor.
+                    </div>
+                {% endfor %}
+            </div>
+        </article>
+    {% endfor %}
+</section>
+{% endblock %}

@@ -1,6 +1,13 @@
 from django.urls import path
 
-from .views import customer_create, customer_detail, customer_update, home
+from .views import (
+    customer_create,
+    customer_detail,
+    customer_update,
+    home,
+    opportunities_home,
+    opportunity_create,
+)
 app_name = "crm"
 
 urlpatterns = [
@@ -15,5 +22,15 @@ urlpatterns = [
     "customers/<uuid:customer_id>/edit/",
     customer_update,
     name="customer_update",
+),
+path(
+    "opportunities/",
+    opportunities_home,
+    name="opportunities_home",
+),
+path(
+    "opportunities/new/",
+    opportunity_create,
+    name="opportunity_create",
 ),
 ]

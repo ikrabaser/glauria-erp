@@ -1,8 +1,8 @@
 from django.contrib.auth.decorators import login_required
 from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
-from .forms import CustomerForm
-from .models import Customer
+from .forms import CustomerForm, OpportunityForm
+from .models import Customer, Opportunity
 
 
 def get_active_membership(user):
@@ -150,5 +150,70 @@ def customer_update(request, customer_id):
             "customer": customer,
             "current_membership": membership,
             "is_edit": True,
+        },
+    )
+@login_required
+def opportunities_home(request):
+    membership = get_active_membership(request.user)
+
+    if membership:
+        opportunities = (
+            Opportunity.objects
+            .select_related("customer", "owner")
+            .filter(company=membership.company)
+        )
+    else:
+        opportunities = Opportunity.objects.none()
+
+    pipeline = []
+
+    for stage_value, stage_label in Opportunity.Stage.choices:
+        stage_opportunities = opportunities.filter(stage=stage_value)
+
+        pipeline.append(
+            {
+                "key": stage_value,
+                "label": stage_label,
+                "opportunities": stage_opportunities,
+                "count": stage_opportunities.count(),
+            }
+        )
+
+    return render(
+        request,
+        "crm/opportunities_home.html",
+        {
+            "pipeline": pipeline,
+            "current_membership": membership,
+        },
+    )
+
+
+@login_required
+def opportunity_create(request):
+    membership = get_active_membership(request.user)
+
+    if not membership:
+        return redirect("crm:home")
+
+    form = OpportunityForm(request.POST or None)
+    form.fields["customer"].queryset = Customer.objects.filter(
+        company=membership.company
+    ).order_by("name")
+
+    if request.method == "POST" and form.is_valid():
+        opportunity = form.save(commit=False)
+        opportunity.company = membership.company
+        opportunity.owner = request.user
+        opportunity.save()
+
+        return redirect("crm:opportunities_home")
+
+    return render(
+        request,
+        "crm/opportunity_form.html",
+        {
+            "form": form,
+            "current_membership": membership,
         },
     )
