@@ -16,7 +16,12 @@
                 <tr>
                     <td>
                         <div class="customer-cell">
-                            <strong>{{ customer.name }}</strong>
+                            <a
+    href="{% url 'crm:customer_detail' customer.id %}"
+    class="customer-cell__link"
+>
+    <strong>{{ customer.name }}</strong>
+</a>
 
                             {% if customer.email %}
                                 <span>{{ customer.email }}</span>

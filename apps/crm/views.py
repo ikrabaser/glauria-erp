@@ -1,7 +1,6 @@
 from django.contrib.auth.decorators import login_required
 from django.db.models import Q
-from django.shortcuts import redirect, render
-
+from django.shortcuts import get_object_or_404, redirect, render
 from .forms import CustomerForm
 from .models import Customer
 
@@ -90,6 +89,27 @@ def customer_create(request):
         "crm/customer_form.html",
         {
             "form": form,
+            "current_membership": membership,
+        },
+    )
+@login_required
+def customer_detail(request, customer_id):
+    membership = get_active_membership(request.user)
+
+    if not membership:
+        return redirect("crm:home")
+
+    customer = get_object_or_404(
+        Customer.objects.select_related("company", "created_by"),
+        id=customer_id,
+        company=membership.company,
+    )
+
+    return render(
+        request,
+        "crm/customer_detail.html",
+        {
+            "customer": customer,
             "current_membership": membership,
         },
     )

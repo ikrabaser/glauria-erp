@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+
+{% block title %}
+{{ customer.name }} | CRM | Glauria ERP
+{% endblock %}
+
+{% block content %}
+<section class="customer-detail__header">
+    <div>
+        <a href="{% url 'crm:home' %}" class="customer-detail__back">
+            ← CRM'e Dön
+        </a>
+
+        <div class="customer-detail__title-row">
+            <div>
+                <span class="page-header__eyebrow">
+                    Customer Profile
+                </span>
+
+                <h2 class="customer-detail__title">
+                    {{ customer.name }}
+                </h2>
+            </div>
+
+            <span class="status-pill status-pill--{{ customer.status }}">
+                {{ customer.get_status_display }}
+            </span>
+        </div>
+
+        <p class="customer-detail__subtitle">
+            {{ customer.get_customer_type_display }} müşteri kaydı ·
+            {{ customer.company.name }}
+        </p>
+    </div>
+</section>
+
+<section class="customer-detail__grid">
+    <article class="customer-detail__card">
+        <h3>İletişim Bilgileri</h3>
+
+        <dl class="customer-detail__list">
+            <div>
+                <dt>E-posta</dt>
+                <dd>{{ customer.email|default:"—" }}</dd>
+            </div>
+
+            <div>
+                <dt>Telefon</dt>
+                <dd>{{ customer.phone|default:"—" }}</dd>
+            </div>
+
+            <div>
+                <dt>Şehir</dt>
+                <dd>{{ customer.city|default:"—" }}</dd>
+            </div>
+        </dl>
+    </article>
+
+    <article class="customer-detail__card">
+        <h3>Kurumsal Bilgiler</h3>
+
+        <dl class="customer-detail__list">
+            <div>
+                <dt>Müşteri tipi</dt>
+                <dd>{{ customer.get_customer_type_display }}</dd>
+            </div>
+
+            <div>
+                <dt>Vergi numarası</dt>
+                <dd>{{ customer.tax_number|default:"—" }}</dd>
+            </div>
+
+            <div>
+                <dt>Oluşturulma tarihi</dt>
+                <dd>{{ customer.created_at|date:"d.m.Y" }}</dd>
+            </div>
+        </dl>
+    </article>
+
+    <article class="customer-detail__card customer-detail__card--wide">
+        <h3>Notlar</h3>
+
+        <p class="customer-detail__notes">
+            {{ customer.notes|default:"Bu müşteri için henüz not eklenmedi."|linebreaksbr }}
+        </p>
+    </article>
+</section>
+{% endblock %}
