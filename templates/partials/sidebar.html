@@ -17,11 +17,18 @@
         </a>
 
         <a
-            href="{% url 'crm:home' %}"
-            class="sidebar-link{% if request.resolver_match.namespace == 'crm' %} active{% endif %}"
-        >
-            CRM
-        </a>
+    href="{% url 'crm:home' %}"
+    class="sidebar-link{% if request.resolver_match.namespace == 'crm' and request.resolver_match.url_name == 'home' %} active{% endif %}"
+>
+    CRM
+</a>
+
+<a
+    href="{% url 'crm:opportunities_home' %}"
+    class="sidebar-link{% if request.resolver_match.namespace == 'crm' and request.resolver_match.url_name == 'opportunities_home' %} active{% endif %}"
+>
+    Satış Fırsatları
+</a>
         <a
     href="{% url 'sales:home' %}"
     class="sidebar-link{% if request.resolver_match.namespace == 'sales' %} active{% endif %}"

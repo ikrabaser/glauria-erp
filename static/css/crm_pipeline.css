@@ -252,3 +252,22 @@
     color: var(--color-text);
     transform: translateX(3px);
 }
+.opportunity-detail__quote-action {
+    display: inline-flex;
+    min-height: 40px;
+    align-items: center;
+    padding: 0 15px;
+    color: var(--color-rose-gold-light);
+    font-size: 13px;
+    font-weight: 700;
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-sm);
+    transition:
+        transform var(--transition-fast),
+        background var(--transition-fast);
+}
+
+.opportunity-detail__quote-action:hover {
+    transform: translateY(-2px);
+    background: rgba(215, 164, 143, 0.10);
+}

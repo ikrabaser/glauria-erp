@@ -29,6 +29,12 @@
                 <span class="opportunity-card__priority opportunity-card__priority--{{ opportunity.priority }}">
                     {{ opportunity.get_priority_display }}
                 </span>
+                <a
+    href="{% url 'sales:quote_create_from_opportunity' opportunity.id %}"
+    class="opportunity-detail__quote-action"
+>
+    Teklif Oluştur
+</a>
 
                 <a
                     href="{% url 'crm:opportunity_update' opportunity.id %}"
