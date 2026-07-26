@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+
+{% block title %}
+{{ opportunity.title }} | CRM | Glauria ERP
+{% endblock %}
+
+{% block content %}
+<section class="customer-detail__header">
+    <div>
+        <a
+            href="{% url 'crm:opportunities_home' %}"
+            class="customer-detail__back"
+        >
+            ← Pipeline'a Dön
+        </a>
+
+        <div class="customer-detail__title-row">
+            <div>
+                <span class="page-header__eyebrow">
+                    Sales Opportunity
+                </span>
+
+                <h2 class="customer-detail__title">
+                    {{ opportunity.title }}
+                </h2>
+            </div>
+
+            <div class="customer-detail__header-actions">
+                <span class="opportunity-card__priority opportunity-card__priority--{{ opportunity.priority }}">
+                    {{ opportunity.get_priority_display }}
+                </span>
+
+                <a
+                    href="{% url 'crm:opportunity_update' opportunity.id %}"
+                    class="customer-detail__edit"
+                >
+                    Fırsatı Düzenle
+                </a>
+            </div>
+        </div>
+
+        <p class="customer-detail__subtitle">
+            {{ opportunity.customer.name }} ·
+            {{ opportunity.get_stage_display }}
+        </p>
+    </div>
+</section>
+
+<section class="customer-detail__grid">
+    <article class="customer-detail__card">
+        <h3>Tutar ve Planlama</h3>
+
+        <dl class="customer-detail__list">
+            <div>
+                <dt>Tahmini tutar</dt>
+                <dd>₺{{ opportunity.expected_amount|floatformat:2 }}</dd>
+            </div>
+
+            <div>
+                <dt>Beklenen kapanış</dt>
+                <dd>
+                    {{ opportunity.expected_close_date|date:"d.m.Y"|default:"—" }}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Son iletişim</dt>
+                <dd>
+                    {{ opportunity.last_contacted_at|date:"d.m.Y H:i"|default:"Henüz iletişim yok" }}
+                </dd>
+            </div>
+        </dl>
+    </article>
+
+    <article class="customer-detail__card">
+        <h3>Takip Bilgileri</h3>
+
+        <dl class="customer-detail__list">
+            <div>
+                <dt>Mevcut aşama</dt>
+                <dd>{{ opportunity.get_stage_display }}</dd>
+            </div>
+
+            <div>
+                <dt>Teklif durumu</dt>
+                <dd>{{ opportunity.get_quote_status_display }}</dd>
+            </div>
+
+        
+
+            <div>
+                <dt>Sorumlu</dt>
+                <dd>{{ opportunity.owner|default:"Atanmamış" }}</dd>
+            </div>
+        </dl>
+    </article>
+
+    <article class="customer-detail__card customer-detail__card--wide">
+        <h3>Etiketler</h3>
+
+        <p class="customer-detail__notes">
+            {{ opportunity.labels|default:"Etiket eklenmedi." }}
+        </p>
+    </article>
+
+    <article class="customer-detail__card customer-detail__card--wide">
+        <h3>Notlar</h3>
+
+        <p class="customer-detail__notes">
+            {{ opportunity.notes|default:"Bu fırsat için henüz not eklenmedi."|linebreaksbr }}
+        </p>
+    </article>
+</section>
+{% endblock %}

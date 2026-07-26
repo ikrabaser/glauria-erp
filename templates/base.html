@@ -25,10 +25,9 @@
         rel="stylesheet"
     >
 
-    <link
-        rel="stylesheet"
-        href="{% static 'css/app.css' %}"
-    >
+    <link rel="stylesheet" href="{% static 'css/app.css' %}?v=crm-v7">
+   <link rel="stylesheet" href="{% static 'css/crm_pipeline.css' %}?v=4">
+   <script src="{% static 'js/crm_pipeline.js' %}?v=1" defer></script>
 
     {% block extra_css %}{% endblock %}
 </head>
