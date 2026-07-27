@@ -66,28 +66,85 @@
     </div>
 
     <div class="topbar-account">
-        <a
-    href="{% url 'core:notifications' %}"
-    class="topbar-notifications"
-    aria-label="Bildirimler"
->
-    <svg
-        viewBox="0 0 24 24"
-        aria-hidden="true"
-        focusable="false"
+       <div class="topbar-notification-wrapper">
+    <button
+        class="topbar-notifications"
+        type="button"
+        data-notification-menu-trigger
+        aria-expanded="false"
+        aria-controls="notification-menu"
+        aria-label="Bildirimler"
     >
-        <path
-            d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"
-        ></path>
-        <path d="M10 21h4"></path>
-    </svg>
+        <svg
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+            focusable="false"
+        >
+            <path
+                d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"
+            ></path>
+            <path d="M10 21h4"></path>
+        </svg>
 
-    {% if unread_notification_count %}
-        <span class="topbar-notifications__count">
-            {{ unread_notification_count }}
-        </span>
-    {% endif %}
-</a>
+        {% if unread_notification_count %}
+            <span class="topbar-notifications__count">
+                {{ unread_notification_count }}
+            </span>
+        {% endif %}
+    </button>
+
+    <div
+        id="notification-menu"
+        class="notification-menu"
+        data-notification-menu
+        hidden
+    >
+        <div class="notification-menu__header">
+            <div>
+                <strong>Bildirimler</strong>
+                <span>
+                    {% if unread_notification_count %}
+                        {{ unread_notification_count }} yeni bildirim
+                    {% else %}
+                        Tüm bildirimler okundu
+                    {% endif %}
+                </span>
+            </div>
+        </div>
+
+        <div class="notification-menu__list">
+            {% for notification in recent_notifications %}
+                <a
+                    href="{% if notification.target_url %}{{ notification.target_url }}{% else %}{% url 'core:notifications' %}{% endif %}"
+                    class="notification-menu__item{% if not notification.is_read %} notification-menu__item--unread{% endif %}"
+                >
+                    <strong>{{ notification.title }}</strong>
+
+                    {% if notification.message %}
+                        <span>
+                            {{ notification.message|truncatechars:92 }}
+                        </span>
+                    {% endif %}
+
+                    <small>
+                        {{ notification.created_at|date:"d.m.Y H:i" }}
+                    </small>
+                </a>
+            {% empty %}
+                <div class="notification-menu__empty">
+                    Henüz bildiriminiz bulunmuyor.
+                </div>
+            {% endfor %}
+        </div>
+
+        <a
+            href="{% url 'core:notifications' %}"
+            class="notification-menu__all"
+        >
+            Tüm bildirimleri görüntüle
+        </a>
+    </div>
+</div>
         <button
             class="topbar-user"
             type="button"
