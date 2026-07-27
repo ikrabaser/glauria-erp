@@ -5,15 +5,105 @@ Stok Yönetimi | Glauria ERP
 {% endblock %}
 
 {% block content %}
-<section class="module-page">
+<section class="page-header">
+    <div class="page-header__content">
+        <span class="page-header__eyebrow">
+            Inventory and Warehouse Management
+        </span>
 
-    {% include "components/page_header.html" with eyebrow="STOK VE DEPO YÖNETİMİ" title="Stok Yönetimi" description="Ürünleri, depoları, stok hareketlerini ve envanter seviyelerini tek merkezden yönetin." action_text="+ Yeni Stok Kaydı" action_url="#" %}
+        <h2 class="page-header__title">
+            Stok Yönetimi
+        </h2>
 
-    {% include "components/list_toolbar.html" with search_placeholder="Ürün, depo veya stok hareketi ara..." filter_text="Filtrele" %}
-
-    <div class="module-empty-wrapper">
-        {% include "components/empty_state.html" with icon="□" title="Henüz stok kaydı bulunmuyor" description="İlk ürün veya stok hareketini oluşturarak envanter yönetimine başlayabilirsiniz." action_text="+ Yeni Stok Kaydı" action_url="#" %}
+        <p class="page-header__description">
+            Ürünleri, depoları, lotları ve kullanılabilir stok miktarlarını tek merkezden yönetin.
+        </p>
     </div>
 
+    <div class="customer-detail__header-actions">
+        <a
+            href="{% url 'inventory:product_create' %}"
+            class="opportunity-detail__quote-action"
+        >
+            + Yeni Ürün
+        </a>
+
+        <a
+            href="{% url 'inventory:warehouse_create' %}"
+            class="opportunity-detail__quote-action"
+        >
+            + Yeni Depo
+        </a>
+
+        <a
+            href="{% url 'inventory:lot_create' %}"
+            class="customer-detail__edit"
+        >
+            + Yeni Lot
+        </a>
+    </div>
 </section>
+
+<section class="customer-detail__grid">
+    <article class="customer-detail__card">
+        <h3>Aktif Ürünler</h3>
+        <p class="customer-detail__title">
+            {{ products_count }}
+        </p>
+    </article>
+
+    <article class="customer-detail__card">
+        <h3>Aktif Depolar</h3>
+        <p class="customer-detail__title">
+            {{ warehouses_count }}
+        </p>
+    </article>
+</section>
+
+{% if lots %}
+    <div class="data-table-wrapper">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Ürün</th>
+                    <th>Depo</th>
+                    <th>Lot</th>
+                    <th>Mevcut</th>
+                    <th>Rezerve</th>
+                    <th>Kullanılabilir</th>
+                    <th>SKT</th>
+                    <th>Durum</th>
+                </tr>
+            </thead>
+
+            <tbody>
+                {% for lot in lots %}
+                    <tr>
+                        <td>
+                            <div class="customer-cell">
+                                <strong>{{ lot.product.name }}</strong>
+                                <span>{{ lot.product.sku }}</span>
+                            </div>
+                        </td>
+
+                        <td>{{ lot.warehouse.name }}</td>
+                        <td>{{ lot.lot_number }}</td>
+                        <td>{{ lot.quantity_on_hand }} {{ lot.product.unit }}</td>
+                        <td>{{ lot.quantity_reserved }} {{ lot.product.unit }}</td>
+                        <td>{{ lot.available_quantity }} {{ lot.product.unit }}</td>
+                        <td>{{ lot.expiry_date|date:"d.m.Y"|default:"—" }}</td>
+
+                        <td>
+                            <span class="opportunity-card__quote">
+                                {{ lot.get_status_display }}
+                            </span>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+{% else %}
+    {% include "components/empty_state.html" with icon="□" title="Henüz stok lotu bulunmuyor" description="Önce ürün ve depo tanımlayın, ardından lot bazlı açılış stoğunuzu ekleyin." %}
+{% endif %}
 {% endblock %}

@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+
+{% block title %}
+{{ bill_of_material.product.name }} Reçetesi | Glauria ERP
+{% endblock %}
+
+{% block content %}
+<section class="customer-detail__header">
+    <div>
+        <a
+            href="{% url 'manufacturing:boms_home' %}"
+            class="customer-detail__back"
+        >
+            ← Reçetelere Dön
+        </a>
+
+        <div class="customer-detail__title-row">
+            <div>
+                <span class="page-header__eyebrow">
+                    Bill of Materials
+                </span>
+
+                <h2 class="customer-detail__title">
+                    {{ bill_of_material.product.name }}
+                </h2>
+            </div>
+
+            <span class="opportunity-card__quote">
+                v{{ bill_of_material.version }}
+            </span>
+        </div>
+
+        <p class="customer-detail__subtitle">
+            Reçete çıktı miktarı:
+            {{ bill_of_material.yield_quantity }}
+            {{ bill_of_material.product.unit }}
+        </p>
+    </div>
+</section>
+
+<section class="customer-detail__grid">
+    <article class="customer-detail__card customer-detail__card--wide">
+        <h3>Reçete Bileşenleri</h3>
+
+        {% if bill_of_material.lines.all %}
+            <div class="data-table-wrapper">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Bileşen</th>
+                            <th>Stok kodu</th>
+                            <th>Birim başına miktar</th>
+                            <th>Fire oranı</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        {% for line in bill_of_material.lines.all %}
+                            <tr>
+                                <td>{{ line.component.name }}</td>
+                                <td>{{ line.component.sku }}</td>
+                                <td>
+                                    {{ line.quantity_per_unit }}
+                                    {{ line.component.unit }}
+                                </td>
+                                <td>%{{ line.scrap_rate }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <p class="customer-detail__notes">
+                Bu reçeteye henüz bileşen eklenmedi.
+            </p>
+        {% endif %}
+    </article>
+
+    <article class="customer-detail__card customer-detail__card--wide">
+        <h3>Yeni Bileşen Ekle</h3>
+
+        <form
+            method="post"
+            action="{% url 'manufacturing:bom_line_create' bill_of_material.id %}"
+        >
+            {% csrf_token %}
+
+            <div class="customer-form__grid">
+                <div class="customer-form__field customer-form__field--full">
+                    <label for="{{ line_form.component.id_for_label }}">
+                        {{ line_form.component.label }}
+                    </label>
+                    {{ line_form.component }}
+                    {{ line_form.component.errors }}
+                </div>
+
+                <div class="customer-form__field">
+                    <label for="{{ line_form.quantity_per_unit.id_for_label }}">
+                        {{ line_form.quantity_per_unit.label }}
+                    </label>
+                    {{ line_form.quantity_per_unit }}
+                    {{ line_form.quantity_per_unit.errors }}
+                </div>
+
+                <div class="customer-form__field">
+                    <label for="{{ line_form.scrap_rate.id_for_label }}">
+                        {{ line_form.scrap_rate.label }}
+                    </label>
+                    {{ line_form.scrap_rate }}
+                    {{ line_form.scrap_rate.errors }}
+                </div>
+            </div>
+
+            <div class="customer-form__actions">
+                <button type="submit" class="customer-form__submit">
+                    Bileşeni Ekle
+                </button>
+            </div>
+        </form>
+    </article>
+
+    <article class="customer-detail__card customer-detail__card--wide">
+        <h3>Üretim Talimatları</h3>
+
+        <p class="customer-detail__notes">
+            {{ bill_of_material.notes|default:"Bu reçete için üretim talimatı eklenmedi."|linebreaksbr }}
+        </p>
+    </article>
+</section>
+{% endblock %}

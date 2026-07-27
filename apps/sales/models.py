@@ -8,6 +8,7 @@ from django.utils import timezone
 
 from apps.crm.models import Customer, Opportunity
 from apps.organizations.models import Company
+from apps.inventory.models import Product
 
 
 def generate_quote_number():
@@ -182,6 +183,15 @@ class SalesQuoteLine(models.Model):
         on_delete=models.CASCADE,
         related_name="lines",
         verbose_name="Teklif",
+    )
+
+    product = models.ForeignKey(
+        Product,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="sales_quote_lines",
+        verbose_name="Ürün kartı",
     )
 
     description = models.CharField(
@@ -381,6 +391,15 @@ class SalesOrderLine(models.Model):
         on_delete=models.CASCADE,
         related_name="lines",
         verbose_name="Sipariş",
+    )
+
+    product = models.ForeignKey(
+        Product,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="sales_order_lines",
+        verbose_name="Ürün kartı",
     )
 
     description = models.CharField(

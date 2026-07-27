@@ -5,15 +5,68 @@
 {% endblock %}
 
 {% block content %}
-<section class="module-page">
+{% include "components/page_header.html" with eyebrow="Manufacturing Operations" title="Üretim Yönetimi" description="Satış siparişlerinden oluşan üretim emirlerini ve operasyon aşamalarını tek merkezden yönetin." %}
 
-    {% include "components/page_header.html" with eyebrow="ÜRETİM VE OPERASYON YÖNETİMİ" title="Üretim Yönetimi" description="Ürün reçetelerini, üretim emirlerini, operasyonları ve kalite süreçlerini tek merkezden yönetin." action_text="+ Yeni Üretim Emri" action_url="#" %}
+{% if production_orders %}
+    <div class="data-table-wrapper">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Üretim emri</th>
+                    <th>Kaynak sipariş</th>
+                    <th>Müşteri</th>
+                    <th>Planlanan tamamlanma</th>
+                    <th>Durum</th>
+                    <th>Oluşturulma</th>
+                </tr>
+            </thead>
 
-    {% include "components/list_toolbar.html" with search_placeholder="Üretim emri, ürün veya operasyon ara..." filter_text="Filtrele" %}
+            <tbody>
+                {% for production_order in production_orders %}
+                    <tr>
+                        <td>
+    <a
+        href="{% url 'manufacturing:production_detail' production_order.id %}"
+        class="customer-cell__link"
+    >
+        <strong>
+            {{ production_order.production_number }}
+        </strong>
+    </a>
+</td>
 
-    <div class="module-empty-wrapper">
-        {% include "components/empty_state.html" with icon="⚙" title="Henüz üretim kaydı bulunmuyor" description="İlk ürün reçetesini veya üretim emrini oluşturarak üretim sürecini başlatabilirsiniz." action_text="+ Yeni Üretim Emri" action_url="#" %}
+                        <td>
+                            <a
+                                href="{% url 'sales:order_detail' production_order.sales_order.id %}"
+                                class="customer-cell__link"
+                            >
+                                {{ production_order.sales_order.order_number }}
+                            </a>
+                        </td>
+
+                        <td>
+                            {{ production_order.sales_order.customer.name }}
+                        </td>
+
+                        <td>
+                            {{ production_order.planned_completion_date|date:"d.m.Y"|default:"—" }}
+                        </td>
+
+                        <td>
+                            <span class="opportunity-card__quote">
+                                {{ production_order.get_status_display }}
+                            </span>
+                        </td>
+
+                        <td>
+                            {{ production_order.created_at|date:"d.m.Y" }}
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
     </div>
-
-</section>
+{% else %}
+    {% include "components/empty_state.html" with icon="⚙" title="Henüz üretim emri bulunmuyor" description="Bir satış siparişini üretime aktardığınızda ilgili üretim emri burada oluşacak." %}
+{% endif %}
 {% endblock %}
