@@ -199,7 +199,42 @@ def support_tickets(request):
         },
     )
 
+@login_required
+def support_queue(request):
+    membership = get_active_membership(request.user)
 
+    if not membership:
+        return redirect("dashboard:home")
+
+    if membership.role not in {
+        OrganizationMembership.Role.OWNER,
+        OrganizationMembership.Role.ADMIN,
+    }:
+        return HttpResponseForbidden(
+            "Destek operasyon kuyruğunu görüntüleme yetkiniz bulunmuyor."
+        )
+
+    tickets = (
+        SupportTicket.objects
+        .filter(company=membership.company)
+        .select_related(
+            "created_by",
+            "assigned_to",
+        )
+        .order_by(
+            "status",
+            "-created_at",
+        )
+    )
+
+    return render(
+        request,
+        "core/support_queue.html",
+        {
+            "tickets": tickets,
+            "current_membership": membership,
+        },
+    )
 @login_required
 def support_ticket_detail(request, ticket_id):
     membership = get_active_membership(request.user)

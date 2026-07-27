@@ -10,6 +10,7 @@ from .views import (
     support_ticket_detail,
     support_ticket_update,
     support_tickets,
+    support_queue,
 )
 
 
@@ -35,6 +36,11 @@ urlpatterns = [
         "support/<uuid:ticket_id>/",
         support_ticket_detail,
         name="support_ticket_detail",
+    ),
+    path(
+            "support/queue/",
+            support_queue,
+            name="support_queue",
     ),
     path(
         "support/<uuid:ticket_id>/update/",

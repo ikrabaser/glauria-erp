@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+
+{% block title %}
+Destek Operasyon Kuyruğu | Glauria ERP
+{% endblock %}
+
+{% block content %}
+<section class="settings-page support-queue">
+    <header class="settings-page__header support-queue__header">
+        <div>
+            <span class="page-header__eyebrow">
+                Support Operations
+            </span>
+
+            <h2 class="settings-page__title">
+                Destek Operasyon Kuyruğu
+            </h2>
+
+            <p class="settings-page__description">
+                {{ current_membership.company.name }} çalışma alanındaki tüm
+                destek taleplerini, atamaları ve çözüm durumlarını yönetin.
+            </p>
+        </div>
+
+        <span class="support-queue__count">
+            {{ tickets|length }} talep
+        </span>
+    </header>
+
+    <article class="settings-card support-queue__card">
+        <div class="support-queue__heading">
+            <div>
+                <h3>Tüm destek talepleri</h3>
+                <p>
+                    Bir talebi açarak atama, öncelik, durum ve çözüm notu
+                    işlemlerini yönetin.
+                </p>
+            </div>
+        </div>
+
+        {% if tickets %}
+            <div class="data-table-wrapper">
+                <table class="data-table support-queue__table">
+                    <thead>
+                        <tr>
+                            <th>Talep</th>
+                            <th>Oluşturan</th>
+                            <th>Atanan</th>
+                            <th>Öncelik</th>
+                            <th>Durum</th>
+                            <th>AI analizi</th>
+                            <th>Tarih</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        {% for ticket in tickets %}
+                            <tr>
+                                <td>
+                                    <div class="customer-cell">
+                                        <a
+                                            href="{% url 'core:support_ticket_detail' ticket.id %}"
+                                            class="customer-cell__link"
+                                        >
+                                            <strong>{{ ticket.subject }}</strong>
+                                        </a>
+
+                                        <span>
+                                            #{{ ticket.id|upper|truncatechars:18 }}
+                                        </span>
+                                    </div>
+                                </td>
+
+                                <td>
+                                    <div class="customer-cell">
+                                        <strong>
+                                            {{ ticket.created_by.get_full_name|default:ticket.created_by.username }}
+                                        </strong>
+
+                                        <span>{{ ticket.created_by.email }}</span>
+                                    </div>
+                                </td>
+
+                                <td>
+                                    {% if ticket.assigned_to %}
+                                        {{ ticket.assigned_to.get_full_name|default:ticket.assigned_to.username }}
+                                    {% else %}
+                                        <span class="support-queue__unassigned">
+                                            Atama bekliyor
+                                        </span>
+                                    {% endif %}
+                                </td>
+
+                                <td>
+                                    <span class="support-queue__priority support-queue__priority--{{ ticket.priority }}">
+                                        {{ ticket.get_priority_display }}
+                                    </span>
+                                </td>
+
+                                <td>
+                                    <span class="support-queue__status support-queue__status--{{ ticket.status }}">
+                                        {{ ticket.get_status_display }}
+                                    </span>
+                                </td>
+
+                                <td>
+                                    {% if ticket.ai_status == "completed" %}
+                                        <span class="support-queue__ai support-queue__ai--ready">
+                                            Hazır
+                                        </span>
+                                    {% elif ticket.ai_status == "failed" %}
+                                        <span class="support-queue__ai support-queue__ai--failed">
+                                            Tamamlanamadı
+                                        </span>
+                                    {% else %}
+                                        <span class="support-queue__ai">
+                                            Hazırlanıyor
+                                        </span>
+                                    {% endif %}
+                                </td>
+
+                                <td>
+                                    {{ ticket.created_at|date:"d.m.Y H:i" }}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="support-ticket-empty">
+                <strong>Henüz destek talebi bulunmuyor.</strong>
+
+                <span>
+                    Çalışma alanındaki kullanıcılar yeni destek talepleri
+                    oluşturduğunda burada görünür.
+                </span>
+            </div>
+        {% endif %}
+    </article>
+</section>
+{% endblock %}
