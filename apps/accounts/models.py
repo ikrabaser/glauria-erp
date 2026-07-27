@@ -46,6 +46,12 @@ class User(UUIDModel, TimeStampedModel, AbstractUser):
         return self.user_type == self.UserType.PORTAL
 
 class OrganizationMembership(TimeStampedModel):
+    class Role(models.TextChoices):
+        OWNER = "owner", "Sahip"
+        ADMIN = "admin", "Yönetici"
+        MANAGER = "manager", "Müdür"
+        MEMBER = "member", "Üye"
+        VIEWER = "viewer", "Görüntüleyici"
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
@@ -78,6 +84,12 @@ class OrganizationMembership(TimeStampedModel):
         max_length=150,
         blank=True,
         verbose_name="Pozisyon",
+    )
+    role = models.CharField(
+        max_length=20,
+        choices=Role.choices,
+        default=Role.MEMBER,
+        verbose_name="Çalışma alanı rolü",
     )
 
     is_primary = models.BooleanField(

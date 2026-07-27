@@ -3,9 +3,10 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import PasswordChangeForm
 from django.shortcuts import redirect, render
 from django.urls import reverse
+from django.http import HttpResponseForbidden
 
 from .forms import ProfileForm
-
+from .models import OrganizationMembership
 
 @login_required
 def login_redirect(request):
@@ -65,5 +66,53 @@ def profile_settings(request):
             "profile_form": profile_form,
             "password_form": password_form,
             "membership": membership,
+        },
+    )
+@login_required
+def workspace_members(request):
+    current_membership = (
+        request.user.organization_memberships
+        .select_related("company")
+        .filter(is_active=True)
+        .order_by("-is_primary", "created_at")
+        .first()
+    )
+
+    if not current_membership:
+        return redirect("dashboard:home")
+
+    allowed_roles = {
+        OrganizationMembership.Role.OWNER,
+        OrganizationMembership.Role.ADMIN,
+    }
+
+    if current_membership.role not in allowed_roles:
+        return HttpResponseForbidden(
+            "Bu sayfayı görüntüleme yetkiniz bulunmuyor."
+        )
+
+    memberships = (
+        OrganizationMembership.objects
+        .select_related(
+            "user",
+            "company",
+            "branch",
+            "department",
+        )
+        .filter(company=current_membership.company)
+        .order_by(
+            "-is_active",
+            "role",
+            "user__first_name",
+            "user__username",
+        )
+    )
+
+    return render(
+        request,
+        "accounts/workspace_members.html",
+        {
+            "memberships": memberships,
+            "current_membership": current_membership,
         },
     )
