@@ -6,6 +6,7 @@ from django.db import transaction
 
 
 from apps.crm.models import Customer, Opportunity
+from apps.inventory.models import Product
 from apps.manufacturing.models import (
     ProductionOrder,
     ProductionOrderLine,
@@ -125,12 +126,19 @@ def quote_detail(request, quote_id):
         company=membership.company,
     )
 
+    line_form = SalesQuoteLineForm()
+
+    line_form.fields["product"].queryset = Product.objects.filter(
+        company=membership.company,
+        is_active=True,
+    ).order_by("name")
+
     return render(
         request,
         "sales/quote_detail.html",
         {
             "quote": quote,
-            "line_form": SalesQuoteLineForm(),
+            "line_form": line_form,
             "current_membership": membership,
         },
     )
@@ -149,6 +157,11 @@ def quote_line_create(request, quote_id):
     )
 
     form = SalesQuoteLineForm(request.POST)
+
+    form.fields["product"].queryset = Product.objects.filter(
+        company=membership.company,
+        is_active=True,
+    ).order_by("name")
 
     if form.is_valid():
         line = form.save(commit=False)
@@ -183,6 +196,7 @@ def create_sales_order_from_quote(quote):
                 [
                     SalesOrderLine(
                         order=order,
+                        product=line.product,
                         description=line.description,
                         quantity=line.quantity,
                         unit_price=line.unit_price,
@@ -215,6 +229,7 @@ def create_production_order_from_sales_order(order):
                 [
                     ProductionOrderLine(
                         production_order=production_order,
+                        product=line.product,
                         description=line.description,
                         planned_quantity=line.quantity,
                         line_order=index,

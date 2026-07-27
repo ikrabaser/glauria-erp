@@ -126,6 +126,14 @@ class ProductionOrderLine(models.Model):
         related_name="lines",
         verbose_name="Üretim emri",
     )
+    product = models.ForeignKey(
+        Product,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="production_order_lines",
+        verbose_name="Ürün kartı",
+    )
 
     description = models.CharField(
         max_length=255,

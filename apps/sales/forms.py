@@ -1,6 +1,6 @@
 from django import forms
 from .models import SalesQuote, SalesQuoteLine
-
+from apps.inventory.models import Product
 
 class SalesQuoteForm(forms.ModelForm):
     class Meta:
@@ -33,6 +33,7 @@ class SalesQuoteLineForm(forms.ModelForm):
     class Meta:
         model = SalesQuoteLine
         fields = [
+            "product",
             "description",
             "quantity",
             "unit_price",

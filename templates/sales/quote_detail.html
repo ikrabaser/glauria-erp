@@ -151,7 +151,19 @@
                 <tbody>
                     {% for line in quote.lines.all %}
                         <tr>
-                            <td>{{ line.description }}</td>
+                            <td>
+    <div class="customer-cell">
+        <strong>{{ line.description }}</strong>
+
+        {% if line.product %}
+            <span>
+                {{ line.product.sku }} · {{ line.product.name }}
+            </span>
+        {% else %}
+            <span>Serbest hizmet kalemi</span>
+        {% endif %}
+    </div>
+</td>
                             <td>{{ line.quantity }}</td>
                             <td>₺{{ line.unit_price|floatformat:2 }}</td>
                             <td>%{{ line.tax_rate|floatformat:2 }}</td>
@@ -178,6 +190,13 @@
         {% csrf_token %}
 
         <div class="customer-form__grid">
+                        <div class="customer-form__field customer-form__field--full">
+                <label for="{{ line_form.product.id_for_label }}">
+                    {{ line_form.product.label }}
+                </label>
+                {{ line_form.product }}
+                {{ line_form.product.errors }}
+            </div>
             <div class="customer-form__field customer-form__field--full">
                 <label for="{{ line_form.description.id_for_label }}">
                     {{ line_form.description.label }}
