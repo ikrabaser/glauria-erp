@@ -1,0 +1,167 @@
+{% extends "base.html" %}
+
+{% block title %}
+{{ production_order.production_number }} | Glauria ERP
+{% endblock %}
+
+{% block content %}
+<section class="customer-detail__header">
+    <div>
+        <a
+            href="{% url 'manufacturing:home' %}"
+            class="customer-detail__back"
+        >
+            ← Üretim Emirlerine Dön
+        </a>
+
+        <div class="customer-detail__title-row">
+            <div>
+                <span class="page-header__eyebrow">
+                    Manufacturing Order
+                </span>
+
+                <h2 class="customer-detail__title">
+                    {{ production_order.production_number }}
+                </h2>
+            </div>
+
+            <div class="customer-detail__header-actions">
+                <span class="opportunity-card__quote">
+                    {{ production_order.get_status_display }}
+                </span>
+
+                {% if production_order.status == "in_production" %}
+                    <form
+                        method="post"
+                        action="{% url 'manufacturing:production_status_update' production_order.id 'quality_control' %}"
+                    >
+                        {% csrf_token %}
+
+                        <button
+                            type="submit"
+                            class="opportunity-detail__quote-action"
+                        >
+                            Kalite Kontrole Gönder
+                        </button>
+                    </form>
+
+                {% elif production_order.status == "quality_control" %}
+                    <form
+                        method="post"
+                        action="{% url 'manufacturing:production_status_update' production_order.id 'completed' %}"
+                    >
+                        {% csrf_token %}
+
+                        <button
+                            type="submit"
+                            class="customer-detail__edit"
+                        >
+                            Üretimi Tamamla
+                        </button>
+                    </form>
+                {% endif %}
+            </div>
+        </div>
+
+        <p class="customer-detail__subtitle">
+            {{ production_order.sales_order.customer.name }} · Kaynak sipariş:
+            {{ production_order.sales_order.order_number }}
+        </p>
+    </div>
+</section>
+
+<section class="customer-detail__grid">
+    <article class="customer-detail__card">
+        <h3>Üretim Planı</h3>
+
+        <dl class="customer-detail__list">
+            <div>
+                <dt>Planlanan başlangıç</dt>
+                <dd>
+                    {{ production_order.planned_start_date|date:"d.m.Y" }}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Planlanan tamamlanma</dt>
+                <dd>
+                    {{ production_order.planned_completion_date|date:"d.m.Y"|default:"—" }}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Gerçek tamamlanma</dt>
+                <dd>
+                    {{ production_order.actual_completion_date|date:"d.m.Y"|default:"—" }}
+                </dd>
+            </div>
+        </dl>
+    </article>
+
+    <article class="customer-detail__card">
+        <h3>Kaynak Sipariş</h3>
+
+        <dl class="customer-detail__list">
+            <div>
+                <dt>Sipariş</dt>
+                <dd>
+                    <a
+                        href="{% url 'sales:order_detail' production_order.sales_order.id %}"
+                        class="customer-cell__link"
+                    >
+                        {{ production_order.sales_order.order_number }}
+                    </a>
+                </dd>
+            </div>
+
+            <div>
+                <dt>Müşteri</dt>
+                <dd>
+                    {{ production_order.sales_order.customer.name }}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Sorumlu</dt>
+                <dd>
+                    {{ production_order.owner|default:"Atanmamış" }}
+                </dd>
+            </div>
+        </dl>
+    </article>
+
+    <article class="customer-detail__card customer-detail__card--wide">
+        <h3>Üretim Kalemleri</h3>
+
+        <div class="data-table-wrapper">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Ürün / İşlem</th>
+                        <th>Planlanan miktar</th>
+                        <th>Tamamlanan miktar</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    {% for line in production_order.lines.all %}
+                        <tr>
+                            <td>{{ line.description }}</td>
+                            <td>{{ line.planned_quantity }}</td>
+                            <td>{{ line.completed_quantity }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </article>
+
+    <article class="customer-detail__card customer-detail__card--wide">
+        <h3>Üretim Notları</h3>
+
+        <p class="customer-detail__notes">
+            {{ production_order.notes|default:"Bu üretim emri için not eklenmedi."|linebreaksbr }}
+        </p>
+    </article>
+</section>
+{% endblock %}

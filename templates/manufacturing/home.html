@@ -25,10 +25,15 @@
                 {% for production_order in production_orders %}
                     <tr>
                         <td>
-                            <strong>
-                                {{ production_order.production_number }}
-                            </strong>
-                        </td>
+    <a
+        href="{% url 'manufacturing:production_detail' production_order.id %}"
+        class="customer-cell__link"
+    >
+        <strong>
+            {{ production_order.production_number }}
+        </strong>
+    </a>
+</td>
 
                         <td>
                             <a
