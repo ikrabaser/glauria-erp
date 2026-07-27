@@ -4,8 +4,10 @@
         <h1 class="page-title">
             {% if request.resolver_match.namespace == "dashboard" %}
                 Dashboard
-            {% elif request.resolver_match.namespace == "accounts" %}
-                Profil ve Güvenlik
+            {% elif request.resolver_match.namespace == "accounts" and request.resolver_match.url_name == "workspace_members" %}
+    Üyeler ve Roller
+{% elif request.resolver_match.namespace == "accounts" %}
+    Profil ve Güvenlik
             {% elif request.resolver_match.namespace == "crm" %}
                 CRM
             {% elif request.resolver_match.namespace == "sales" %}
@@ -30,8 +32,10 @@
         <p class="page-subtitle">
             {% if request.resolver_match.namespace == "dashboard" %}
                 Maison Glauria Management Center
-            {% elif request.resolver_match.namespace == "accounts" %}
-                Hesap, çalışma alanı rolü ve güvenlik tercihleri
+            {% elif request.resolver_match.namespace == "accounts" and request.resolver_match.url_name == "workspace_members" %}
+    Çalışma alanı üyeleri, roller ve erişim seviyeleri
+{% elif request.resolver_match.namespace == "accounts" %}
+    Hesap, çalışma alanı rolü ve güvenlik tercihleri
             {% elif request.resolver_match.namespace == "crm" %}
                 Müşteri ilişkileri ve satış fırsatları
             {% elif request.resolver_match.namespace == "sales" %}
