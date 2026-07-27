@@ -1,4 +1,8 @@
-from django.contrib.auth import update_session_auth_hash
+from django.contrib.auth import (
+    logout,
+    update_session_auth_hash,
+)
+from django.contrib.auth.views import LoginView
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import PasswordChangeForm
 from django.shortcuts import redirect, render
@@ -14,6 +18,14 @@ from apps.core.models import Notification
 from .forms import ProfileForm, WorkspaceMemberCreateForm
 from apps.organizations.models import CompanySubscription
 from .models import OrganizationMembership, User
+
+
+class ERPLoginView(LoginView):
+    template_name = "accounts/login.html"
+    redirect_authenticated_user = True
+
+    def get_success_url(self):
+        return reverse("accounts:login_redirect")
 
 @login_required
 def login_redirect(request):
@@ -336,3 +348,9 @@ def workspace_member_access_update(request, membership_id):
             )
 
     return redirect("accounts:workspace_members")
+@login_required
+@require_POST
+def logout_view(request):
+    logout(request)
+
+    return redirect("accounts:login")

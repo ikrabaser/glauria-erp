@@ -1,9 +1,6 @@
 from django.contrib import admin
 from django.urls import include, path
 
-LOGIN_REDIRECT_URL = "accounts:login_redirect"
-LOGIN_URL = "admin:login"
-
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("", include("apps.core.urls")),

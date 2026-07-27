@@ -1,0 +1,94 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>Oturum Aç | Glauria ERP</title>
+
+    <link
+        rel="preconnect"
+        href="https://fonts.googleapis.com"
+    >
+    <link
+        rel="preconnect"
+        href="https://fonts.gstatic.com"
+        crossorigin
+    >
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+        rel="stylesheet"
+    >
+
+    <link
+        rel="stylesheet"
+        href="{% static 'css/login.css' %}?v=1"
+    >
+</head>
+
+<body class="login-page">
+    <main class="login-page__main">
+        <section class="login-card">
+            <div class="login-brand">
+                <span class="login-brand__mark">G</span>
+
+                <div>
+                    <strong>Glauria ERP</strong>
+                    <small>Maison Glauria</small>
+                </div>
+            </div>
+
+            <div class="login-card__heading">
+                <span>WORKSPACE ACCESS</span>
+                <h1>Tekrar hoş geldiniz</h1>
+                <p>
+                    Çalışma alanınıza erişmek için bilgilerinizi girin.
+                </p>
+            </div>
+
+            <form method="post" class="login-form">
+                {% csrf_token %}
+
+                {% if form.non_field_errors %}
+                    <div class="login-form__error">
+                        {{ form.non_field_errors }}
+                    </div>
+                {% endif %}
+
+                <div class="login-form__field">
+                    <label for="{{ form.username.id_for_label }}">
+                        Kullanıcı adı
+                    </label>
+
+                    {{ form.username }}
+
+                    {{ form.username.errors }}
+                </div>
+
+                <div class="login-form__field">
+                    <label for="{{ form.password.id_for_label }}">
+                        Parola
+                    </label>
+
+                    {{ form.password }}
+
+                    {{ form.password.errors }}
+                </div>
+
+                {% if next %}
+                    <input type="hidden" name="next" value="{{ next }}">
+                {% endif %}
+
+                <button type="submit" class="login-form__submit">
+                    Oturum aç
+                </button>
+            </form>
+        </section>
+    </main>
+</body>
+</html>
