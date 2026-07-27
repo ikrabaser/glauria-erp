@@ -2,16 +2,27 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.cache import cache
 from django.db import connection
-from django.http import JsonResponse
-from django.shortcuts import redirect, render
+from django.http import HttpResponseForbidden, JsonResponse
+from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
+from apps.accounts.models import OrganizationMembership
 from apps.organizations.models import CompanySubscription
 
-from .forms import SupportTicketForm
+from .forms import SupportTicketForm, SupportTicketUpdateForm
 from .models import Notification, SupportTicket
 from .tasks import analyze_support_ticket
+
+
+def get_active_membership(user):
+    return (
+        user.organization_memberships
+        .filter(is_active=True)
+        .order_by("-is_primary", "created_at")
+        .first()
+    )
 
 
 def health_check(request):
@@ -53,16 +64,6 @@ def health_check(request):
     )
 
 
-def get_active_membership(user):
-    return (
-        user.organization_memberships
-        .filter(is_active=True)
-        .select_related("company")
-        .order_by("-is_primary", "created_at")
-        .first()
-    )
-
-
 @login_required
 def settings_home(request):
     return render(
@@ -73,7 +74,13 @@ def settings_home(request):
 
 @login_required
 def billing_home(request):
-    membership = get_active_membership(request.user)
+    membership = (
+        request.user.organization_memberships
+        .filter(is_active=True)
+        .select_related("company")
+        .order_by("-is_primary", "created_at")
+        .first()
+    )
 
     subscription = None
     active_member_count = 0
@@ -158,25 +165,28 @@ def support_tickets(request):
     form = SupportTicketForm(request.POST or None)
 
     if request.method == "POST" and form.is_valid():
-        support_ticket = form.save(commit=False)
-        support_ticket.company = membership.company
-        support_ticket.created_by = request.user
-        support_ticket.save()
-        analyze_support_ticket.delay(
-            str(support_ticket.id)
-        )
+        ticket = form.save(commit=False)
+        ticket.company = membership.company
+        ticket.created_by = request.user
+        ticket.save()
+
+        analyze_support_ticket.delay(str(ticket.id))
+
         messages.success(
             request,
-            "Destek talebiniz oluşturuldu. AI analizi hazırlanıyor.",
+            "Destek talebiniz oluşturuldu. AI ilk değerlendirmesi hazırlanıyor.",
         )
 
         return redirect("core:support_tickets")
 
-    tickets = SupportTicket.objects.filter(
-        company=membership.company,
-        created_by=request.user,
-    ).select_related(
-        "assigned_to",
+    tickets = (
+        SupportTicket.objects
+        .filter(
+            company=membership.company,
+            created_by=request.user,
+        )
+        .select_related("assigned_to")
+        .order_by("-created_at")
     )
 
     return render(
@@ -187,4 +197,142 @@ def support_tickets(request):
             "tickets": tickets,
             "current_membership": membership,
         },
+    )
+
+
+@login_required
+def support_ticket_detail(request, ticket_id):
+    membership = get_active_membership(request.user)
+
+    if not membership:
+        return redirect("dashboard:home")
+
+    ticket = get_object_or_404(
+        SupportTicket.objects.select_related(
+            "created_by",
+            "assigned_to",
+            "company",
+        ),
+        id=ticket_id,
+        company=membership.company,
+    )
+
+    is_support_manager = membership.role in {
+        OrganizationMembership.Role.OWNER,
+        OrganizationMembership.Role.ADMIN,
+    }
+
+    is_ticket_creator = ticket.created_by_id == request.user.id
+
+    if not is_support_manager and not is_ticket_creator:
+        return HttpResponseForbidden(
+            "Bu destek talebini görüntüleme yetkiniz bulunmuyor."
+        )
+
+    update_form = None
+
+    if is_support_manager:
+        update_form = SupportTicketUpdateForm(
+            instance=ticket,
+            company=membership.company,
+        )
+
+    return render(
+        request,
+        "core/support_ticket_detail.html",
+        {
+            "ticket": ticket,
+            "current_membership": membership,
+            "is_support_manager": is_support_manager,
+            "update_form": update_form,
+        },
+    )
+
+
+@login_required
+@require_POST
+def support_ticket_update(request, ticket_id):
+    membership = get_active_membership(request.user)
+
+    if not membership:
+        return redirect("dashboard:home")
+
+    if membership.role not in {
+        OrganizationMembership.Role.OWNER,
+        OrganizationMembership.Role.ADMIN,
+    }:
+        return HttpResponseForbidden(
+            "Bu destek talebini güncelleme yetkiniz bulunmuyor."
+        )
+
+    ticket = get_object_or_404(
+        SupportTicket,
+        id=ticket_id,
+        company=membership.company,
+    )
+
+    previous_assigned_to_id = ticket.assigned_to_id
+    previous_status = ticket.status
+
+    form = SupportTicketUpdateForm(
+        request.POST,
+        instance=ticket,
+        company=membership.company,
+    )
+
+    if not form.is_valid():
+        messages.error(
+            request,
+            "Destek talebi bilgileri güncellenemedi.",
+        )
+
+        return redirect(
+            "core:support_ticket_detail",
+            ticket_id=ticket.id,
+        )
+
+    ticket = form.save()
+
+    if (
+        ticket.assigned_to_id
+        and ticket.assigned_to_id != previous_assigned_to_id
+        and ticket.assigned_to_id != request.user.id
+    ):
+        Notification.objects.create(
+            user=ticket.assigned_to,
+            notification_type=Notification.NotificationType.INFO,
+            title="Size destek talebi atandı",
+            message=(
+                f'"{ticket.subject}" başlıklı destek talebi '
+                "sorumluluğunuza atandı."
+            ),
+            target_url=reverse(
+                "core:support_ticket_detail",
+                kwargs={"ticket_id": ticket.id},
+            ),
+        )
+
+    if ticket.status != previous_status:
+        Notification.objects.create(
+            user=ticket.created_by,
+            notification_type=Notification.NotificationType.INFO,
+            title="Destek talebinizin durumu güncellendi",
+            message=(
+                f'"{ticket.subject}" başlıklı talebinizin durumu '
+                f'"{ticket.get_status_display()}" olarak güncellendi.'
+            ),
+            target_url=reverse(
+                "core:support_ticket_detail",
+                kwargs={"ticket_id": ticket.id},
+            ),
+        )
+
+    messages.success(
+        request,
+        "Destek talebi başarıyla güncellendi.",
+    )
+
+    return redirect(
+        "core:support_ticket_detail",
+        ticket_id=ticket.id,
     )

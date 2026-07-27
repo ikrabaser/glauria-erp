@@ -1,0 +1,202 @@
+{% extends "base.html" %}
+
+{% block title %}
+Destek Talebi | Glauria ERP
+{% endblock %}
+
+{% block content %}
+<section class="settings-page">
+    <header class="settings-page__header">
+        <span class="page-header__eyebrow">
+            AI Assisted Support
+        </span>
+
+        <h2 class="settings-page__title">
+            Destek Talebi
+        </h2>
+
+        <p class="settings-page__description">
+            Talep ayrıntılarını, AI ilk değerlendirmesini ve çözüm sürecini
+            buradan takip edin.
+        </p>
+    </header>
+
+    <div class="support-ticket-detail__layout">
+        <article class="settings-card support-ticket-detail__card">
+            <div class="support-ticket-detail__header">
+                <div>
+                    <span class="support-ticket-detail__number">
+                        #{{ ticket.id|upper }}
+                    </span>
+
+                    <h3>{{ ticket.subject }}</h3>
+                </div>
+
+                <span class="status-pill status-pill--active">
+                    {{ ticket.get_status_display }}
+                </span>
+            </div>
+
+            <div class="support-ticket-detail__meta">
+                <span>{{ ticket.get_category_display }}</span>
+                <span>{{ ticket.get_priority_display }} öncelik</span>
+                <span>{{ ticket.created_at|date:"d.m.Y H:i" }}</span>
+            </div>
+
+            <div class="support-ticket-detail__section">
+                <span>Talep açıklaması</span>
+                <p>{{ ticket.description|linebreaksbr }}</p>
+            </div>
+
+            <div class="support-ticket-detail__section">
+                <span>Atanan kullanıcı</span>
+
+                {% if ticket.assigned_to %}
+                    <p>
+                        {{ ticket.assigned_to.get_full_name|default:ticket.assigned_to.username }}
+                    </p>
+                {% else %}
+                    <p>Henüz bir ekip üyesine atanmadı.</p>
+                {% endif %}
+            </div>
+
+            {% if ticket.resolution_notes %}
+                <div class="support-ticket-detail__section">
+                    <span>Çözüm notu</span>
+                    <p>{{ ticket.resolution_notes|linebreaksbr }}</p>
+                </div>
+            {% endif %}
+        </article>
+
+        <article class="settings-card support-ticket-detail__card">
+            <div class="support-ticket-ai-result__header">
+                <strong>AI ilk değerlendirmesi</strong>
+
+                {% if ticket.ai_status == "completed" %}
+                    <span>Hazır</span>
+                {% elif ticket.ai_status == "failed" %}
+                    <span>Hazırlanamadı</span>
+                {% else %}
+                    <span>Hazırlanıyor</span>
+                {% endif %}
+            </div>
+
+            {% if ticket.ai_status == "completed" %}
+                <div class="support-ticket-ai-result__summary">
+                    <span>Özet</span>
+                    <p>{{ ticket.ai_summary }}</p>
+                </div>
+
+                <div class="support-ticket-ai-result__meta">
+                    <span>
+                        Önerilen kategori:
+
+                        <strong>
+                            {% if ticket.ai_category == "sales" %}
+                                Satış
+                            {% elif ticket.ai_category == "inventory" %}
+                                Stok
+                            {% elif ticket.ai_category == "manufacturing" %}
+                                Üretim
+                            {% elif ticket.ai_category == "account" %}
+                                Hesap ve çalışma alanı
+                            {% elif ticket.ai_category == "billing" %}
+                                Plan ve faturalama
+                            {% else %}
+                                Genel
+                            {% endif %}
+                        </strong>
+                    </span>
+
+                    <span>
+                        Önerilen öncelik:
+
+                        <strong>
+                            {% if ticket.ai_priority == "low" %}
+                                Düşük
+                            {% elif ticket.ai_priority == "high" %}
+                                Yüksek
+                            {% elif ticket.ai_priority == "urgent" %}
+                                Acil
+                            {% else %}
+                                Normal
+                            {% endif %}
+                        </strong>
+                    </span>
+                </div>
+
+                <div class="support-ticket-ai-result__suggestion">
+                    <span>İlk çözüm önerisi</span>
+                    <p>{{ ticket.ai_suggested_response|linebreaksbr }}</p>
+                </div>
+            {% elif ticket.ai_status == "failed" %}
+                <div class="support-ticket-ai-state support-ticket-ai-state--failed">
+                    AI analizi şu an tamamlanamadı. Talep ekibi tarafından
+                    manuel olarak değerlendirilebilir.
+                </div>
+            {% else %}
+                <div class="support-ticket-ai-state">
+                    AI analizi hazırlanıyor.
+                </div>
+            {% endif %}
+        </article>
+
+        {% if is_support_manager %}
+            <article class="settings-card support-ticket-detail__card">
+                <h3>Talep yönetimi</h3>
+
+                <p class="support-ticket-detail__hint">
+                    Talebi uygun ekip üyesine atayın, durumunu güncelleyin ve
+                    kullanıcıya iletilecek çözüm notunu ekleyin.
+                </p>
+
+                <form
+                    method="post"
+                    action="{% url 'core:support_ticket_update' ticket.id %}"
+                    class="support-ticket-update-form"
+                >
+                    {% csrf_token %}
+
+                    <div class="support-ticket-update-form__grid">
+                        <div>
+                            <label for="{{ update_form.assigned_to.id_for_label }}">
+                                {{ update_form.assigned_to.label }}
+                            </label>
+
+                            {{ update_form.assigned_to }}
+                        </div>
+
+                        <div>
+                            <label for="{{ update_form.priority.id_for_label }}">
+                                {{ update_form.priority.label }}
+                            </label>
+
+                            {{ update_form.priority }}
+                        </div>
+
+                        <div>
+                            <label for="{{ update_form.status.id_for_label }}">
+                                {{ update_form.status.label }}
+                            </label>
+
+                            {{ update_form.status }}
+                        </div>
+                    </div>
+
+                    <div>
+                        <label for="{{ update_form.resolution_notes.id_for_label }}">
+                            {{ update_form.resolution_notes.label }}
+                        </label>
+
+                        {{ update_form.resolution_notes }}
+                    </div>
+
+                    <button type="submit" class="support-ticket-submit">
+                        Talebi Güncelle
+                    </button>
+                </form>
+            </article>
+        {% endif %}
+    </div>
+</section>
+{% endblock %}

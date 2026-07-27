@@ -101,7 +101,12 @@ Destek Talepleri | Glauria ERP
                                         #{{ ticket.id|slice:":8"|upper }}
                                     </span>
 
-                                    <h4>{{ ticket.subject }}</h4>
+                                    <a
+    href="{% url 'core:support_ticket_detail' ticket.id %}"
+    class="support-ticket-item__link"
+>
+    <h4>{{ ticket.subject }}</h4>
+</a>
                                 </div>
 
                                 <span class="support-ticket-status support-ticket-status--{{ ticket.status }}">
