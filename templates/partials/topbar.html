@@ -14,6 +14,8 @@
                 Stok Yönetimi
             {% elif request.resolver_match.namespace == "manufacturing" %}
                 Üretim Yönetimi
+            {% elif request.resolver_match.namespace == "core" and request.resolver_match.url_name == "settings" %}
+                Ayarlar
             {% elif request.resolver_match.namespace == "finance" %}
                 Finans Yönetimi
             {% elif request.resolver_match.namespace == "hr" %}
@@ -46,22 +48,48 @@
         </p>
     </div>
 
-    <div class="topbar-user">
+        <div class="topbar-account">
+        <button
+            class="topbar-user"
+            type="button"
+            data-user-menu-trigger
+            aria-expanded="false"
+            aria-controls="user-menu"
+        >
+            <div class="user-info">
+                <strong>
+                    {{ request.user.get_full_name|default:request.user.username }}
+                </strong>
 
-        <div class="user-info">
-            <strong>
-                {{ request.user.get_full_name|default:request.user.username }}
-            </strong>
+                <small>
+                    {{ request.user.email }}
+                </small>
+            </div>
 
-            <small>
-                {{ request.user.email }}
-            </small>
+            <div class="user-avatar">
+                {{ request.user.username|first|upper }}
+            </div>
+        </button>
+
+        <div id="user-menu" class="user-menu" data-user-menu hidden>
+            <div class="user-menu__identity">
+                <strong>
+                    {{ request.user.get_full_name|default:request.user.username }}
+                </strong>
+
+                <span>{{ request.user.email }}</span>
+            </div>
+
+            <div class="user-menu__divider"></div>
+
+            <a href="{% url 'core:settings' %}" class="user-menu__item">
+                Çalışma Alanı Ayarları
+            </a>
+
+            <span class="user-menu__item user-menu__item--disabled">
+                Profil yönetimi · Yakında
+            </span>
         </div>
-
-        <div class="user-avatar">
-            {{ request.user.username|first|upper }}
-        </div>
-
     </div>
 
 </header>

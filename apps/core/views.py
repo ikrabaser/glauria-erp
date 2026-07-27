@@ -1,7 +1,8 @@
 from django.core.cache import cache
 from django.db import connection
 from django.http import JsonResponse
-
+from django.contrib.auth.decorators import login_required
+from django.shortcuts import render
 
 def health_check(request):
     database_status = "ok"
@@ -38,4 +39,10 @@ def health_check(request):
             },
         },
         status=status_code,
+    )
+@login_required
+def settings_home(request):
+    return render(
+        request,
+        "core/settings_home.html",
     )
