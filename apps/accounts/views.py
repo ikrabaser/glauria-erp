@@ -7,6 +7,8 @@ from django.http import HttpResponseForbidden
 from django.http import HttpResponseBadRequest
 from django.shortcuts import get_object_or_404
 from django.views.decorators.http import require_POST
+from django.db import transaction
+from apps.core.models import Notification
 
 
 from .forms import ProfileForm, WorkspaceMemberCreateForm
@@ -189,20 +191,43 @@ def workspace_member_create(request):
             "Yöneticiler Sahip veya Yönetici rolüyle üye ekleyemez."
         )
 
-    user = form.save(commit=False)
-    user.user_type = User.UserType.INTERNAL
-    user.save()
+    with transaction.atomic():
+        user = form.save(commit=False)
+        user.user_type = User.UserType.INTERNAL
+        user.save()
 
-    OrganizationMembership.objects.create(
-        user=user,
-        company=current_membership.company,
-        branch=form.cleaned_data["branch"],
-        department=form.cleaned_data["department"],
-        role=selected_role,
-        job_title=form.cleaned_data["job_title"],
-        is_primary=True,
-        is_active=True,
-    )
+        created_membership = OrganizationMembership.objects.create(
+            user=user,
+            company=current_membership.company,
+            branch=form.cleaned_data["branch"],
+            department=form.cleaned_data["department"],
+            role=selected_role,
+            job_title=form.cleaned_data["job_title"],
+            is_primary=True,
+            is_active=True,
+        )
+
+        Notification.objects.create(
+            user=user,
+            notification_type=Notification.NotificationType.SUCCESS,
+            title="Çalışma alanına eklendiniz",
+            message=(
+                f"{current_membership.company.name} çalışma alanına "
+                f"{created_membership.get_role_display()} rolüyle eklendiniz."
+            ),
+            target_url="/accounts/profile/",
+        )
+
+        Notification.objects.create(
+            user=request.user,
+            notification_type=Notification.NotificationType.INFO,
+            title="Yeni çalışma alanı üyesi eklendi",
+            message=(
+                f"{user.get_full_name() or user.username} adlı kullanıcı "
+                f"{created_membership.get_role_display()} rolüyle eklendi."
+            ),
+            target_url="/accounts/workspace/members/",
+        )
 
     return redirect("accounts:workspace_members")
 @login_required
@@ -274,10 +299,40 @@ def workspace_member_access_update(request, membership_id):
             "Yöneticiler Sahip veya Yönetici rolü atayamaz."
         )
 
-    target_membership.role = selected_role
-    target_membership.is_active = is_active
-    target_membership.save(
-        update_fields=["role", "is_active", "updated_at"]
-    )
+    previous_role = target_membership.role
+    previous_is_active = target_membership.is_active
+
+    with transaction.atomic():
+        target_membership.role = selected_role
+        target_membership.is_active = is_active
+        target_membership.save(
+            update_fields=["role", "is_active", "updated_at"]
+        )
+
+        changes = []
+
+        if previous_role != selected_role:
+            changes.append(
+                f"Rolünüz {target_membership.get_role_display()} olarak güncellendi."
+            )
+
+        if previous_is_active != is_active:
+            status_text = "aktif" if is_active else "pasif"
+            changes.append(
+                f"Çalışma alanı erişiminiz {status_text} duruma alındı."
+            )
+
+        if changes:
+            Notification.objects.create(
+                user=target_membership.user,
+                notification_type=(
+                    Notification.NotificationType.INFO
+                    if is_active
+                    else Notification.NotificationType.WARNING
+                ),
+                title="Çalışma alanı erişiminiz güncellendi",
+                message=" ".join(changes),
+                target_url="/accounts/profile/",
+            )
 
     return redirect("accounts:workspace_members")
