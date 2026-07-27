@@ -8,6 +8,7 @@ from .views import (
     home,
     production_detail,
     production_status_update,
+    quality_inspection_update,
 )
 
 
@@ -31,6 +32,11 @@ urlpatterns = [
         "<uuid:production_order_id>/",
         production_detail,
         name="production_detail",
+    ),
+        path(
+        "<uuid:production_order_id>/quality-inspection/",
+        quality_inspection_update,
+        name="quality_inspection_update",
     ),
     path(
         "<uuid:production_order_id>/status/<str:status>/",

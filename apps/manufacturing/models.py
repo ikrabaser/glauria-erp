@@ -288,3 +288,77 @@ class BillOfMaterialLine(models.Model):
 
     def __str__(self):
         return f"{self.component.name} · {self.quantity_per_unit}"
+class QualityInspection(models.Model):
+    class Status(models.TextChoices):
+        PENDING = "pending", "Sonuç bekleniyor"
+        PASSED = "passed", "Geçti"
+        CONDITIONAL = "conditional", "Şartlı geçti"
+        FAILED = "failed", "Kaldı"
+
+    id = models.UUIDField(
+        primary_key=True,
+        default=uuid.uuid4,
+        editable=False,
+    )
+
+    production_order = models.OneToOneField(
+        ProductionOrder,
+        on_delete=models.CASCADE,
+        related_name="quality_inspection",
+        verbose_name="Üretim emri",
+    )
+
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.PENDING,
+        verbose_name="Kontrol sonucu",
+    )
+
+    sample_quantity = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name="Kontrol edilen numune miktarı",
+    )
+
+    notes = models.TextField(
+        blank=True,
+        verbose_name="Kalite kontrol notları",
+    )
+
+    inspected_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="quality_inspections",
+        verbose_name="Kontrolü yapan kullanıcı",
+    )
+
+    inspected_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="Kontrol tarihi",
+    )
+
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name="Oluşturulma tarihi",
+    )
+
+    updated_at = models.DateTimeField(
+        auto_now=True,
+        verbose_name="Güncellenme tarihi",
+    )
+
+    class Meta:
+        verbose_name = "Kalite kontrol kaydı"
+        verbose_name_plural = "Kalite kontrol kayıtları"
+
+    def __str__(self):
+        return (
+            f"{self.production_order.production_number} · "
+            f"{self.get_status_display()}"
+        )

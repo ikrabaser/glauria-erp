@@ -7,17 +7,22 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 from django.db import transaction
 from django.db.models import F
+from django.utils import timezone
 
 from apps.sales.models import SalesOrder
 
 from apps.inventory.models import InventoryLot, Product, StockMovement
 
-from .forms import BillOfMaterialForm, BillOfMaterialLineForm
+from .forms import (
+    BillOfMaterialForm,
+    BillOfMaterialLineForm,
+    QualityInspectionForm,
+)
 from .models import (
     BillOfMaterial,
     ProductionOrder,
+    QualityInspection,
 )
-
 
 def get_active_membership(user):
     return (
@@ -179,21 +184,35 @@ def production_detail(request, production_order_id):
             "sales_order",
             "sales_order__customer",
             "owner",
+            "quality_inspection",
         ).prefetch_related("lines"),
         id=production_order_id,
         company=membership.company,
     )
+
+    quality_inspection = getattr(
+        production_order,
+        "quality_inspection",
+        None,
+    )
+
+    quality_form = None
+
+    if production_order.status == ProductionOrder.Status.QUALITY_CONTROL:
+        quality_form = QualityInspectionForm(
+            instance=quality_inspection
+        )
 
     return render(
         request,
         "manufacturing/production_detail.html",
         {
             "production_order": production_order,
+            "quality_inspection": quality_inspection,
+            "quality_form": quality_form,
             "current_membership": membership,
         },
     )
-
-
 @login_required
 @require_POST
 def production_status_update(request, production_order_id, status):
@@ -212,7 +231,10 @@ def production_status_update(request, production_order_id, status):
     }
 
     production_order = get_object_or_404(
-        ProductionOrder.objects.select_related("sales_order"),
+        ProductionOrder.objects.select_related(
+            "sales_order",
+            "quality_inspection",
+        ),
         id=production_order_id,
         company=membership.company,
     )
@@ -228,7 +250,40 @@ def production_status_update(request, production_order_id, status):
         with transaction.atomic():
             production_order.status = status
 
-            if status == ProductionOrder.Status.COMPLETED:
+            if status == ProductionOrder.Status.QUALITY_CONTROL:
+                QualityInspection.objects.get_or_create(
+                    production_order=production_order,
+                    defaults={
+                        "status": QualityInspection.Status.PENDING,
+                    },
+                )
+
+                production_order.save(
+                    update_fields=["status", "updated_at"]
+                )
+
+            elif status == ProductionOrder.Status.COMPLETED:
+                quality_inspection = getattr(
+                    production_order,
+                    "quality_inspection",
+                    None,
+                )
+
+                allowed_quality_results = {
+                    QualityInspection.Status.PASSED,
+                    QualityInspection.Status.CONDITIONAL,
+                }
+
+                if (
+                    not quality_inspection
+                    or quality_inspection.status
+                    not in allowed_quality_results
+                ):
+                    raise ValueError(
+                        "Kalite kontrol sonucu onaylanmadan "
+                        "üretim tamamlanamaz."
+                    )
+
                 consume_bom_materials(
                     production_order,
                     request.user,
@@ -248,13 +303,61 @@ def production_status_update(request, production_order_id, status):
                 sales_order.save(
                     update_fields=["status", "updated_at"]
                 )
-            else:
-                production_order.save(
-                    update_fields=["status", "updated_at"]
-                )
 
     except ValueError as error:
         return HttpResponseBadRequest(str(error))
+
+    return redirect(
+        "manufacturing:production_detail",
+        production_order_id=production_order.id,
+    )
+
+@login_required
+@require_POST
+def quality_inspection_update(request, production_order_id):
+    membership = get_active_membership(request.user)
+
+    if not membership:
+        return redirect("manufacturing:home")
+
+    production_order = get_object_or_404(
+        ProductionOrder,
+        id=production_order_id,
+        company=membership.company,
+    )
+
+    if production_order.status != ProductionOrder.Status.QUALITY_CONTROL:
+        return HttpResponseBadRequest(
+            "Kalite sonucu yalnızca kalite kontrol aşamasında girilebilir."
+        )
+
+    quality_inspection, _ = QualityInspection.objects.get_or_create(
+        production_order=production_order,
+        defaults={
+            "status": QualityInspection.Status.PENDING,
+        },
+    )
+
+    form = QualityInspectionForm(
+        request.POST,
+        instance=quality_inspection,
+    )
+
+    if not form.is_valid():
+        return HttpResponseBadRequest(
+            "Kalite kontrol bilgileri geçersiz."
+        )
+
+    quality_inspection = form.save(commit=False)
+    quality_inspection.inspected_by = request.user
+    quality_inspection.inspected_at = timezone.now()
+    quality_inspection.save()
+
+    if quality_inspection.status == QualityInspection.Status.FAILED:
+        production_order.status = ProductionOrder.Status.IN_PRODUCTION
+        production_order.save(
+            update_fields=["status", "updated_at"]
+        )
 
     return redirect(
         "manufacturing:production_detail",

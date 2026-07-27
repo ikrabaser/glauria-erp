@@ -2,7 +2,11 @@ from django import forms
 
 from apps.inventory.models import Product
 
-from .models import BillOfMaterial, BillOfMaterialLine
+from .models import (
+    BillOfMaterial,
+    BillOfMaterialLine,
+    QualityInspection,
+)
 
 
 class BillOfMaterialForm(forms.ModelForm):
@@ -60,3 +64,46 @@ class BillOfMaterialLineForm(forms.ModelForm):
                 }
             ),
         }
+class QualityInspectionForm(forms.ModelForm):
+    class Meta:
+        model = QualityInspection
+        fields = [
+            "status",
+            "sample_quantity",
+            "notes",
+        ]
+        widgets = {
+            "sample_quantity": forms.NumberInput(
+                attrs={
+                    "min": "0",
+                    "step": "0.01",
+                }
+            ),
+            "notes": forms.Textarea(
+                attrs={
+                    "rows": 4,
+                    "placeholder": (
+                        "Kontrol kriterleri, uygunsuzluklar "
+                        "veya onay notları..."
+                    ),
+                }
+            ),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.fields["status"].choices = [
+            (
+                QualityInspection.Status.PASSED,
+                "Geçti",
+            ),
+            (
+                QualityInspection.Status.CONDITIONAL,
+                "Şartlı geçti",
+            ),
+            (
+                QualityInspection.Status.FAILED,
+                "Kaldı",
+            ),
+        ]

@@ -45,20 +45,32 @@
                         </button>
                     </form>
 
-                {% elif production_order.status == "quality_control" %}
-                    <form
-                        method="post"
-                        action="{% url 'manufacturing:production_status_update' production_order.id 'completed' %}"
-                    >
-                        {% csrf_token %}
+                                {% elif production_order.status == "quality_control" %}
+                    {% if quality_inspection %}
+                        {% if quality_inspection.status == "passed" or quality_inspection.status == "conditional" %}
+                            <form
+                                method="post"
+                                action="{% url 'manufacturing:production_status_update' production_order.id 'completed' %}"
+                            >
+                                {% csrf_token %}
 
-                        <button
-                            type="submit"
-                            class="customer-detail__edit"
-                        >
-                            Üretimi Tamamla
-                        </button>
-                    </form>
+                                <button
+                                    type="submit"
+                                    class="customer-detail__edit"
+                                >
+                                    Üretimi Tamamla
+                                </button>
+                            </form>
+                        {% else %}
+                            <span class="opportunity-card__quote">
+                                Kalite sonucu bekleniyor
+                            </span>
+                        {% endif %}
+                    {% else %}
+                        <span class="opportunity-card__quote">
+                            Kalite sonucu bekleniyor
+                        </span>
+                    {% endif %}
                 {% endif %}
             </div>
         </div>
@@ -155,6 +167,72 @@
             </table>
         </div>
     </article>
+
+        {% if production_order.status == "quality_control" and quality_form %}
+        <article class="customer-detail__card customer-detail__card--wide">
+            <h3>Kalite Kontrol Kaydı</h3>
+
+            {% if quality_inspection %}
+                <dl class="customer-detail__list">
+                    <div>
+                        <dt>Mevcut sonuç</dt>
+                        <dd>
+                            {{ quality_inspection.get_status_display }}
+                        </dd>
+                    </div>
+
+                    <div>
+                        <dt>Kontrolü yapan</dt>
+                        <dd>
+                            {{ quality_inspection.inspected_by|default:"Henüz atanmadı" }}
+                        </dd>
+                    </div>
+                </dl>
+            {% endif %}
+
+            <form
+                method="post"
+                action="{% url 'manufacturing:quality_inspection_update' production_order.id %}"
+            >
+                {% csrf_token %}
+
+                <div class="customer-form__grid">
+                    <div class="customer-form__field">
+                        <label for="{{ quality_form.status.id_for_label }}">
+                            {{ quality_form.status.label }}
+                        </label>
+                        {{ quality_form.status }}
+                        {{ quality_form.status.errors }}
+                    </div>
+
+                    <div class="customer-form__field">
+                        <label for="{{ quality_form.sample_quantity.id_for_label }}">
+                            {{ quality_form.sample_quantity.label }}
+                        </label>
+                        {{ quality_form.sample_quantity }}
+                        {{ quality_form.sample_quantity.errors }}
+                    </div>
+
+                    <div class="customer-form__field customer-form__field--full">
+                        <label for="{{ quality_form.notes.id_for_label }}">
+                            {{ quality_form.notes.label }}
+                        </label>
+                        {{ quality_form.notes }}
+                        {{ quality_form.notes.errors }}
+                    </div>
+                </div>
+
+                <div class="customer-form__actions">
+                    <button
+                        type="submit"
+                        class="customer-form__submit"
+                    >
+                        Kalite Sonucunu Kaydet
+                    </button>
+                </div>
+            </form>
+        </article>
+    {% endif %}
 
     <article class="customer-detail__card customer-detail__card--wide">
         <h3>Üretim Notları</h3>
