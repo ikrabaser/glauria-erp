@@ -8,6 +8,9 @@ from django.views.decorators.http import require_POST
 from django.db import transaction
 from django.db.models import F
 from django.utils import timezone
+from django.urls import reverse
+
+from apps.core.models import Notification
 
 from apps.sales.models import SalesOrder
 
@@ -361,16 +364,56 @@ def quality_inspection_update(request, production_order_id):
             "Kalite kontrol bilgileri geçersiz."
         )
 
-    quality_inspection = form.save(commit=False)
-    quality_inspection.inspected_by = request.user
-    quality_inspection.inspected_at = timezone.now()
-    quality_inspection.save()
+    with transaction.atomic():
+        quality_inspection = form.save(commit=False)
+        quality_inspection.inspected_by = request.user
+        quality_inspection.inspected_at = timezone.now()
+        quality_inspection.save()
 
-    if quality_inspection.status == QualityInspection.Status.FAILED:
-        production_order.status = ProductionOrder.Status.IN_PRODUCTION
-        production_order.save(
-            update_fields=["status", "updated_at"]
-        )
+        if quality_inspection.status == QualityInspection.Status.FAILED:
+            production_order.status = ProductionOrder.Status.IN_PRODUCTION
+            production_order.save(
+                update_fields=["status", "updated_at"]
+            )
+
+        if (
+            production_order.owner_id
+            and quality_inspection.status
+            != QualityInspection.Status.PENDING
+        ):
+            notification_type = Notification.NotificationType.INFO
+            message = (
+                f"{production_order.production_number} üretim emrinin "
+                f"kalite kontrol sonucu: "
+                f"{quality_inspection.get_status_display()}."
+            )
+
+            if quality_inspection.status == QualityInspection.Status.PASSED:
+                notification_type = Notification.NotificationType.SUCCESS
+
+            elif (
+                quality_inspection.status
+                == QualityInspection.Status.CONDITIONAL
+            ):
+                notification_type = Notification.NotificationType.WARNING
+                message += " Üretim şartlı olarak uygun bulundu."
+
+            elif quality_inspection.status == QualityInspection.Status.FAILED:
+                notification_type = Notification.NotificationType.ERROR
+                message += " Üretim emri yeniden üretim aşamasına alındı."
+
+            Notification.objects.create(
+                user=production_order.owner,
+                notification_type=notification_type,
+                title="Kalite kontrol sonucu kaydedildi",
+                message=message,
+                target_url=reverse(
+                    "manufacturing:production_detail",
+                    kwargs={
+                        "production_order_id": production_order.id,
+                    },
+                ),
+            )
 
     return redirect(
         "manufacturing:production_detail",
