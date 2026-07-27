@@ -4,6 +4,7 @@ from django.shortcuts import redirect, render
 
 from .forms import InventoryLotForm, ProductForm, WarehouseForm
 from .models import InventoryLot, Product, StockMovement, Warehouse
+from .services import notify_if_product_below_reorder_level
 
 
 def get_active_membership(user):
@@ -151,6 +152,8 @@ def lot_create(request):
                     reference="Açılış stoğu",
                     created_by=request.user,
                 )
+
+            notify_if_product_below_reorder_level(lot.product)
 
         return redirect("inventory:home")
 

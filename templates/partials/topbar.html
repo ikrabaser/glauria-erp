@@ -66,6 +66,28 @@
     </div>
 
     <div class="topbar-account">
+        <a
+    href="{% url 'core:notifications' %}"
+    class="topbar-notifications"
+    aria-label="Bildirimler"
+>
+    <svg
+        viewBox="0 0 24 24"
+        aria-hidden="true"
+        focusable="false"
+    >
+        <path
+            d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"
+        ></path>
+        <path d="M10 21h4"></path>
+    </svg>
+
+    {% if unread_notification_count %}
+        <span class="topbar-notifications__count">
+            {{ unread_notification_count }}
+        </span>
+    {% endif %}
+</a>
         <button
             class="topbar-user"
             type="button"
@@ -101,9 +123,6 @@
 
             <a href="{% url 'core:notifications' %}" class="user-menu__item">
     Bildirimler
-    {% if unread_notification_count %}
-        ({{ unread_notification_count }})
-    {% endif %}
 </a>
 
             <a href="{% url 'core:billing' %}" class="user-menu__item">

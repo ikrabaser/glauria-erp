@@ -15,6 +15,9 @@ from apps.core.models import Notification
 from apps.sales.models import SalesOrder
 
 from apps.inventory.models import InventoryLot, Product, StockMovement
+from apps.inventory.services import (
+    notify_if_product_below_reorder_level,
+)
 
 from .forms import (
     BillOfMaterialForm,
@@ -138,6 +141,9 @@ def consume_bom_materials(production_order, user):
                     f"Eksik miktar: {remaining_quantity} "
                     f"{bom_line.component.unit}."
                 )
+            notify_if_product_below_reorder_level(
+                bom_line.component
+            )
 
         production_line.completed_quantity = (
             production_line.planned_quantity
