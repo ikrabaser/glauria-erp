@@ -131,3 +131,10 @@ def notifications_mark_all_read(request):
     )
 
     return redirect("core:notifications")
+
+@login_required
+def help_center(request):
+    return render(
+        request,
+        "core/help_center.html",
+    )

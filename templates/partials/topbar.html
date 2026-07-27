@@ -17,6 +17,8 @@
                 Stok Yönetimi
             {% elif request.resolver_match.namespace == "manufacturing" %}
                 Üretim Yönetimi
+            {% elif request.resolver_match.namespace == "core" and request.resolver_match.url_name == "help" %}
+                Yardım Merkezi
             {% elif request.resolver_match.namespace == "core" and request.resolver_match.url_name == "notifications" %}
                 Bildirimler
             {% elif request.resolver_match.namespace == "core" and request.resolver_match.url_name == "billing" %}
@@ -49,6 +51,8 @@
                 Ürün, depo ve envanter yönetimi
             {% elif request.resolver_match.namespace == "manufacturing" %}
                 Üretim emirleri, reçeteler ve kalite süreçleri
+            {% elif request.resolver_match.namespace == "core" and request.resolver_match.url_name == "help" %}
+                Kullanım rehberleri ve çalışma alanı desteği
             {% elif request.resolver_match.namespace == "core" and request.resolver_match.url_name == "notifications" %}
                 Operasyon, kalite, stok ve çalışma alanı bildirimleri
             {% elif request.resolver_match.namespace == "core" and request.resolver_match.url_name == "billing" %}
@@ -181,7 +185,9 @@
             <a href="{% url 'core:notifications' %}" class="user-menu__item">
     Bildirimler
 </a>
-
+            <a href="{% url 'core:help' %}" class="user-menu__item">
+    Yardım Merkezi
+</a>
             <a href="{% url 'core:billing' %}" class="user-menu__item">
                 Plan ve Faturalama
             </a>

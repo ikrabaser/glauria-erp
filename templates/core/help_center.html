@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+
+{% block title %}
+Yardım Merkezi | Glauria ERP
+{% endblock %}
+
+{% block content %}
+<section class="settings-page">
+    <header class="settings-page__header">
+        <span class="page-header__eyebrow">
+            Workspace Support
+        </span>
+
+        <h2 class="settings-page__title">
+            Yardım Merkezi
+        </h2>
+
+        <p class="settings-page__description">
+            Glauria ERP modüllerini ve günlük operasyon akışlarını
+            hızlıca gözden geçirin.
+        </p>
+    </header>
+
+    <div class="help-center__grid">
+        <article class="settings-card help-center__card">
+            <span class="help-center__eyebrow">
+                Müşteri ve satış
+            </span>
+
+            <h3>CRM ve Satış Süreçleri</h3>
+
+            <p>
+                Müşteri kartlarını, satış fırsatlarını, teklifleri ve
+                satış siparişlerini tek akışta yönetin.
+            </p>
+
+            <div class="help-center__links">
+                <a href="{% url 'crm:home' %}">
+                    CRM’ye git
+                </a>
+
+                <a href="{% url 'sales:home' %}">
+                    Satış tekliflerine git
+                </a>
+
+                <a href="{% url 'sales:orders_home' %}">
+                    Satış siparişlerine git
+                </a>
+            </div>
+        </article>
+
+        <article class="settings-card help-center__card">
+            <span class="help-center__eyebrow">
+                Stok ve üretim
+            </span>
+
+            <h3>Operasyon Rehberi</h3>
+
+            <p>
+                Stok lotlarını, ürün reçetelerini, üretim emirlerini ve
+                kalite kontrol adımlarını takip edin.
+            </p>
+
+            <div class="help-center__links">
+                <a href="{% url 'inventory:home' %}">
+                    Stok yönetimine git
+                </a>
+
+                <a href="{% url 'manufacturing:home' %}">
+                    Üretim yönetimine git
+                </a>
+
+                <a href="{% url 'manufacturing:boms_home' %}">
+                    Ürün reçetelerine git
+                </a>
+            </div>
+        </article>
+
+        <article class="settings-card help-center__card">
+            <span class="help-center__eyebrow">
+                Hesap ve çalışma alanı
+            </span>
+
+            <h3>Hesap Yönetimi</h3>
+
+            <p>
+                Profilinizi, çalışma alanı üyelerini, erişim rollerini,
+                abonelik planını ve bildirimlerinizi buradan yönetin.
+            </p>
+
+            <div class="help-center__links">
+                <a href="{% url 'accounts:profile' %}">
+                    Profil ve güvenlik
+                </a>
+
+                <a href="{% url 'accounts:workspace_members' %}">
+                    Üyeler ve roller
+                </a>
+
+                <a href="{% url 'core:billing' %}">
+                    Plan ve faturalama
+                </a>
+            </div>
+        </article>
+
+        <article class="settings-card help-center__card help-center__card--support">
+            <span class="help-center__eyebrow">
+                Destek
+            </span>
+
+            <h3>Bir sorun mu yaşıyorsunuz?</h3>
+
+            <p>
+                Önce Bildirimler ekranındaki operasyon uyarılarını
+                kontrol edin. Destek talebi oluşturma altyapısı bir sonraki
+                adımda bu alana eklenecek.
+            </p>
+
+            <div class="help-center__links">
+                <a href="{% url 'core:notifications' %}">
+                    Bildirimleri görüntüle
+                </a>
+            </div>
+        </article>
+    </div>
+</section>
+{% endblock %}
