@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+
+{% block title %}
+Bildirimler | Glauria ERP
+{% endblock %}
+
+{% block content %}
+<section class="settings-page">
+    <header class="settings-page__header">
+        <span class="page-header__eyebrow">
+            Workspace Notifications
+        </span>
+
+        <h2 class="settings-page__title">
+            Bildirimler
+        </h2>
+
+        <p class="settings-page__description">
+            Size atanan operasyon, kalite, stok ve çalışma alanı bildirimlerini takip edin.
+        </p>
+    </header>
+
+    {% if notifications %}
+        <div class="settings-page__actions">
+            <form
+                method="post"
+                action="{% url 'core:notifications_mark_all_read' %}"
+            >
+                {% csrf_token %}
+
+                <button type="submit" class="customer-detail__edit">
+                    Tümünü Okundu İşaretle
+                </button>
+            </form>
+        </div>
+
+        <article class="settings-card">
+            <div class="data-table-wrapper">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Bildirim</th>
+                            <th>Tür</th>
+                            <th>Durum</th>
+                            <th>Tarih</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        {% for notification in notifications %}
+                            <tr>
+                                <td>
+                                    {% if notification.target_url %}
+                                        <a
+                                            href="{{ notification.target_url }}"
+                                            class="customer-cell__link"
+                                        >
+                                            <strong>{{ notification.title }}</strong>
+                                        </a>
+                                    {% else %}
+                                        <strong>{{ notification.title }}</strong>
+                                    {% endif %}
+
+                                    {% if notification.message %}
+                                        <div class="customer-cell">
+                                            <span>{{ notification.message }}</span>
+                                        </div>
+                                    {% endif %}
+                                </td>
+
+                                <td>
+                                    {{ notification.get_notification_type_display }}
+                                </td>
+
+                                <td>
+                                    {% if notification.is_read %}
+                                        <span class="status-pill status-pill--inactive">
+                                            Okundu
+                                        </span>
+                                    {% else %}
+                                        <span class="status-pill status-pill--active">
+                                            Yeni
+                                        </span>
+                                    {% endif %}
+                                </td>
+
+                                <td>
+                                    {{ notification.created_at|date:"d.m.Y H:i" }}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </article>
+    {% else %}
+        {% include "components/empty_state.html" with icon="✦" title="Henüz bildiriminiz bulunmuyor" description="Üretim, kalite, stok ve çalışma alanı hareketleri burada görünecek." %}
+    {% endif %}
+</section>
+{% endblock %}

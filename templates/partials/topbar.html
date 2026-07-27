@@ -1,9 +1,12 @@
 <header class="app-topbar">
-
     <div>
         <h1 class="page-title">
             {% if request.resolver_match.namespace == "dashboard" %}
                 Dashboard
+            {% elif request.resolver_match.namespace == "accounts" and request.resolver_match.url_name == "workspace_members" %}
+                Üyeler ve Roller
+            {% elif request.resolver_match.namespace == "accounts" %}
+                Profil ve Güvenlik
             {% elif request.resolver_match.namespace == "crm" %}
                 CRM
             {% elif request.resolver_match.namespace == "sales" %}
@@ -14,6 +17,12 @@
                 Stok Yönetimi
             {% elif request.resolver_match.namespace == "manufacturing" %}
                 Üretim Yönetimi
+            {% elif request.resolver_match.namespace == "core" and request.resolver_match.url_name == "notifications" %}
+                Bildirimler
+            {% elif request.resolver_match.namespace == "core" and request.resolver_match.url_name == "billing" %}
+                Plan ve Faturalama
+            {% elif request.resolver_match.namespace == "core" and request.resolver_match.url_name == "settings" %}
+                Ayarlar
             {% elif request.resolver_match.namespace == "finance" %}
                 Finans Yönetimi
             {% elif request.resolver_match.namespace == "hr" %}
@@ -26,6 +35,10 @@
         <p class="page-subtitle">
             {% if request.resolver_match.namespace == "dashboard" %}
                 Maison Glauria Management Center
+            {% elif request.resolver_match.namespace == "accounts" and request.resolver_match.url_name == "workspace_members" %}
+                Çalışma alanı üyeleri, roller ve erişim seviyeleri
+            {% elif request.resolver_match.namespace == "accounts" %}
+                Hesap, çalışma alanı rolü ve güvenlik tercihleri
             {% elif request.resolver_match.namespace == "crm" %}
                 Müşteri ilişkileri ve satış fırsatları
             {% elif request.resolver_match.namespace == "sales" %}
@@ -35,7 +48,13 @@
             {% elif request.resolver_match.namespace == "inventory" %}
                 Ürün, depo ve envanter yönetimi
             {% elif request.resolver_match.namespace == "manufacturing" %}
-                Üretim emirleri ve operasyon yönetimi
+                Üretim emirleri, reçeteler ve kalite süreçleri
+            {% elif request.resolver_match.namespace == "core" and request.resolver_match.url_name == "notifications" %}
+                Operasyon, kalite, stok ve çalışma alanı bildirimleri
+            {% elif request.resolver_match.namespace == "core" and request.resolver_match.url_name == "billing" %}
+                Abonelik planı, kapasite ve çalışma alanı kullanım bilgileri
+            {% elif request.resolver_match.namespace == "core" and request.resolver_match.url_name == "settings" %}
+                Maison Glauria Management Center
             {% elif request.resolver_match.namespace == "finance" %}
                 Finans, muhasebe ve cari işlemler
             {% elif request.resolver_match.namespace == "hr" %}
@@ -46,22 +65,65 @@
         </p>
     </div>
 
-    <div class="topbar-user">
+    <div class="topbar-account">
+        <button
+            class="topbar-user"
+            type="button"
+            data-user-menu-trigger
+            aria-expanded="false"
+            aria-controls="user-menu"
+        >
+            <div class="user-info">
+                <strong>
+                    {{ request.user.get_full_name|default:request.user.username }}
+                </strong>
 
-        <div class="user-info">
-            <strong>
-                {{ request.user.get_full_name|default:request.user.username }}
-            </strong>
+                <small>
+                    {{ request.user.email }}
+                </small>
+            </div>
 
-            <small>
-                {{ request.user.email }}
-            </small>
+            <div class="user-avatar">
+                {{ request.user.username|first|upper }}
+            </div>
+        </button>
+
+        <div id="user-menu" class="user-menu" data-user-menu hidden>
+            <div class="user-menu__identity">
+                <strong>
+                    {{ request.user.get_full_name|default:request.user.username }}
+                </strong>
+
+                <span>{{ request.user.email }}</span>
+            </div>
+
+            <div class="user-menu__divider"></div>
+
+            <a href="{% url 'core:notifications' %}" class="user-menu__item">
+    Bildirimler
+    {% if unread_notification_count %}
+        ({{ unread_notification_count }})
+    {% endif %}
+</a>
+
+            <a href="{% url 'core:billing' %}" class="user-menu__item">
+                Plan ve Faturalama
+            </a>
+
+            <a href="{% url 'core:settings' %}" class="user-menu__item">
+                Çalışma Alanı Ayarları
+            </a>
+
+            <a href="{% url 'accounts:profile' %}" class="user-menu__item">
+                Profil ve Güvenlik
+            </a>
+
+            <a
+                href="{% url 'accounts:workspace_members' %}"
+                class="user-menu__item"
+            >
+                Üyeler ve Roller
+            </a>
         </div>
-
-        <div class="user-avatar">
-            {{ request.user.username|first|upper }}
-        </div>
-
     </div>
-
 </header>

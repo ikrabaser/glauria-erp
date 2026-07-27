@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+
+{% block title %}
+Ayarlar | Glauria ERP
+{% endblock %}
+
+{% block content %}
+<section class="settings-page">
+    <header class="settings-page__header">
+        <div>
+            <span class="page-header__eyebrow">
+                Workspace Preferences
+            </span>
+
+            <h2 class="settings-page__title">
+                Ayarlar
+            </h2>
+
+            <p class="settings-page__description">
+                Çalışma alanı görünümünü ve kişisel tercihlerini yönetin.
+            </p>
+        </div>
+    </header>
+
+    <div class="settings-layout">
+        <nav class="settings-nav" aria-label="Ayarlar menüsü">
+            <a href="#general" class="settings-nav__link active">
+                Genel
+            </a>
+
+            <a href="#appearance" class="settings-nav__link">
+                Görünüm
+            </a>
+
+            <a href="#notifications" class="settings-nav__link">
+                Bildirimler
+            </a>
+        </nav>
+
+        <div class="settings-content">
+            <article id="general" class="settings-card">
+                <h3>Genel</h3>
+
+                <div class="settings-row">
+                    <div>
+                        <strong>Çalışma alanı</strong>
+                        <span>Glauria ERP varsayılan çalışma alanı</span>
+                    </div>
+
+                    <span class="settings-row__value">
+                        Maison Glauria
+                    </span>
+                </div>
+            </article>
+
+            <article id="appearance" class="settings-card">
+                <h3>Görünüm</h3>
+
+                <div class="settings-row">
+                    <div>
+                        <strong>Tema tercihi</strong>
+                        <span>Uygulamanın renk görünümünü belirleyin.</span>
+                    </div>
+
+                    <select
+                        id="theme-preference"
+                        class="settings-select"
+                        aria-label="Tema tercihi"
+                    >
+                        <option value="system">Sistem</option>
+                        <option value="dark">Koyu</option>
+                        <option value="light">Açık</option>
+                    </select>
+                </div>
+            </article>
+
+            <article id="notifications" class="settings-card">
+                <h3>Bildirimler</h3>
+
+                <div class="settings-row">
+                    <div>
+                        <strong>Operasyon bildirimleri</strong>
+                        <span>Üretim, kalite ve stok süreçleri için bildirim alın.</span>
+                    </div>
+
+                    <span class="settings-row__coming-soon">
+                        Yakında
+                    </span>
+                </div>
+            </article>
+        </div>
+    </div>
+</section>
+{% endblock %}

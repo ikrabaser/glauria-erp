@@ -5,6 +5,12 @@
 {% endblock %}
 
 {% block content %}
+<a
+    href="{% url 'manufacturing:home' %}"
+    class="customer-detail__back"
+>
+    ← Üretim Emirlerine Dön
+</a>
 {% url "manufacturing:bom_create" as bom_create_url %}
 
 {% include "components/page_header.html" with eyebrow="Bill of Materials" title="Ürün Reçeteleri" description="Bitmiş ürünlerin hammadde ve ambalaj bileşenlerini versiyon bazında yönetin." action_text="+ Yeni Reçete" action_url=bom_create_url %}

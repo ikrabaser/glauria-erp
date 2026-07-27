@@ -1,0 +1,242 @@
+{% extends "base.html" %}
+
+{% block title %}
+Üyeler ve Roller | Glauria ERP
+{% endblock %}
+
+{% block content %}
+<section class="settings-page">
+    <header class="settings-page__header">
+        <span class="page-header__eyebrow">
+            Workspace Access
+        </span>
+
+        <h2 class="settings-page__title">
+            Üyeler ve Roller
+        </h2>
+
+        <p class="settings-page__description">
+            {{ current_membership.company.name }} çalışma alanındaki
+            kullanıcıları, organizasyon rollerini ve bağlı birimleri yönetin.
+        </p>
+    </header>
+
+    <div class="workspace-members__summary">
+        <article class="settings-card">
+            <span>Aktif üyeler</span>
+            <strong>{{ memberships|length }}</strong>
+        </article>
+
+        <article class="settings-card">
+            <span>Çalışma alanı</span>
+            <strong>{{ current_membership.company.name }}</strong>
+        </article>
+    </div>
+
+    <article class="settings-card workspace-members__card">
+        <div class="workspace-members__heading">
+            <div>
+                <h3>Çalışma alanı üyeleri</h3>
+                <p>
+                    Roller, kullanıcının yönetim ve operasyon erişim düzeyini belirler.
+                </p>
+            </div>
+        </div>
+                <div class="workspace-members__create">
+            <div>
+                <h3>Yeni üye ekle</h3>
+                <p>
+                    Kullanıcıyı çalışma alanına ekleyin, rolünü ve
+                    bağlı organizasyon birimini belirleyin.
+                </p>
+            </div>
+
+            <form
+                method="post"
+                action="{% url 'accounts:workspace_member_create' %}"
+                class="workspace-member-create-form"
+            >
+                {% csrf_token %}
+
+                <div class="customer-form__grid">
+                    <div class="customer-form__field">
+                        <label for="{{ member_form.first_name.id_for_label }}">
+                            {{ member_form.first_name.label }}
+                        </label>
+                        {{ member_form.first_name }}
+                    </div>
+
+                    <div class="customer-form__field">
+                        <label for="{{ member_form.last_name.id_for_label }}">
+                            {{ member_form.last_name.label }}
+                        </label>
+                        {{ member_form.last_name }}
+                    </div>
+
+                    <div class="customer-form__field">
+                        <label for="{{ member_form.username.id_for_label }}">
+                            {{ member_form.username.label }}
+                        </label>
+                        {{ member_form.username }}
+                    </div>
+
+                    <div class="customer-form__field">
+                        <label for="{{ member_form.email.id_for_label }}">
+                            {{ member_form.email.label }}
+                        </label>
+                        {{ member_form.email }}
+                    </div>
+
+                    <div class="customer-form__field">
+                        <label for="{{ member_form.role.id_for_label }}">
+                            {{ member_form.role.label }}
+                        </label>
+                        {{ member_form.role }}
+                    </div>
+
+                    <div class="customer-form__field">
+                        <label for="{{ member_form.job_title.id_for_label }}">
+                            {{ member_form.job_title.label }}
+                        </label>
+                        {{ member_form.job_title }}
+                    </div>
+
+                    <div class="customer-form__field">
+                        <label for="{{ member_form.branch.id_for_label }}">
+                            {{ member_form.branch.label }}
+                        </label>
+                        {{ member_form.branch }}
+                    </div>
+
+                    <div class="customer-form__field">
+                        <label for="{{ member_form.department.id_for_label }}">
+                            {{ member_form.department.label }}
+                        </label>
+                        {{ member_form.department }}
+                    </div>
+
+                    <div class="customer-form__field">
+                        <label for="{{ member_form.password1.id_for_label }}">
+                            İlk parola
+                        </label>
+                        {{ member_form.password1 }}
+                    </div>
+
+                    <div class="customer-form__field">
+                        <label for="{{ member_form.password2.id_for_label }}">
+                            Parolayı doğrula
+                        </label>
+                        {{ member_form.password2 }}
+                    </div>
+                </div>
+
+                <div class="customer-form__actions">
+                    <button
+                        type="submit"
+                        class="customer-form__submit"
+                    >
+                        Üyeyi Ekle
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <div class="data-table-wrapper">
+            <table class="data-table workspace-members__table">
+                <thead>
+                    <tr>
+                        <th>Kullanıcı</th>
+                        <th>Rol</th>
+                        <th>Şube / Departman</th>
+                        <th>Pozisyon</th>
+                        <th>Erişim yönetimi</th>
+                        <th>Durum</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    {% for membership in memberships %}
+                        <tr>
+                            <td>
+                                <div class="customer-cell">
+                                    <strong>
+                                        {{ membership.user.get_full_name|default:membership.user.username }}
+                                    </strong>
+                                    <span>{{ membership.user.email }}</span>
+                                </div>
+                            </td>
+
+                            <td>
+                                <span class="workspace-role workspace-role--{{ membership.role }}">
+                                    {{ membership.get_role_display }}
+                                </span>
+                            </td>
+
+                            <td>
+                                {{ membership.branch.name }} /
+                                {{ membership.department.name }}
+                            </td>
+
+                            <td>
+                                {{ membership.job_title|default:"—" }}
+                            </td>
+
+                                                        <td>
+                                {% if membership.id != current_membership.id %}
+                                    <form
+                                        method="post"
+                                        action="{% url 'accounts:workspace_member_access_update' membership.id %}"
+                                        class="workspace-member-access-form"
+                                    >
+                                        {% csrf_token %}
+
+                                        <select name="role" class="workspace-role-select">
+                                            {% for value, label in membership.Role.choices %}
+                                                <option
+                                                    value="{{ value }}"
+                                                    {% if membership.role == value %}selected{% endif %}
+                                                >
+                                                    {{ label }}
+                                                </option>
+                                            {% endfor %}
+                                        </select>
+
+                                        <label class="workspace-member-active">
+                                            <input
+                                                type="checkbox"
+                                                name="is_active"
+                                                {% if membership.is_active %}checked{% endif %}
+                                            >
+                                            Aktif
+                                        </label>
+
+                                        <button type="submit" class="workspace-member-save">
+                                            Kaydet
+                                        </button>
+                                    </form>
+                                {% else %}
+                                    <span class="workspace-member-self">
+                                        Kendi erişimin
+                                    </span>
+                                {% endif %}
+                            </td>
+
+                            <td>
+                                {% if membership.is_active %}
+                                    <span class="status-pill status-pill--active">
+                                        Aktif
+                                    </span>
+                                {% else %}
+                                    <span class="status-pill status-pill--inactive">
+                                        Pasif
+                                    </span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </article>
+</section>
+{% endblock %}

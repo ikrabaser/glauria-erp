@@ -57,19 +57,13 @@
     Stok Yönetimi
 </a>
 
-        <a
+       <a
     href="{% url 'manufacturing:home' %}"
-    class="sidebar-link{% if request.resolver_match.namespace == 'manufacturing' and request.resolver_match.url_name == 'home' %} active{% endif %}"
+    class="sidebar-link{% if request.resolver_match.namespace == 'manufacturing' %} active{% endif %}"
 >
     Üretim
 </a>
 
-<a
-    href="{% url 'manufacturing:boms_home' %}"
-    class="sidebar-link{% if request.resolver_match.namespace == 'manufacturing' and request.resolver_match.url_name == 'boms_home' or request.resolver_match.url_name == 'bom_create' or request.resolver_match.url_name == 'bom_detail' %} active{% endif %}"
->
-    Ürün Reçeteleri
-</a>
 
         <a
     href="{% url 'finance:home' %}"
@@ -83,5 +77,6 @@
 >
     İnsan Kaynakları
 </a>
+
     </nav>
 </aside>
