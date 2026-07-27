@@ -2,6 +2,7 @@ import uuid
 
 from django.db import models
 from django.utils import timezone
+from django.conf import settings
 
 
 class TimeStampedModel(models.Model):
@@ -160,3 +161,62 @@ class MasterDataModel(
 
     class Meta:
         abstract = True
+
+class Notification(UUIDModel, TimeStampedModel):
+    class NotificationType(models.TextChoices):
+        INFO = "info", "Bilgi"
+        SUCCESS = "success", "Başarılı"
+        WARNING = "warning", "Uyarı"
+        ERROR = "error", "Hata"
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="notifications",
+        verbose_name="Kullanıcı",
+    )
+
+    notification_type = models.CharField(
+        max_length=20,
+        choices=NotificationType.choices,
+        default=NotificationType.INFO,
+        verbose_name="Bildirim tipi",
+    )
+
+    title = models.CharField(
+        max_length=180,
+        verbose_name="Başlık",
+    )
+
+    message = models.TextField(
+        blank=True,
+        verbose_name="Mesaj",
+    )
+
+    target_url = models.CharField(
+        max_length=500,
+        blank=True,
+        verbose_name="Hedef bağlantı",
+    )
+
+    is_read = models.BooleanField(
+        default=False,
+        verbose_name="Okundu mu?",
+    )
+
+    read_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="Okunma zamanı",
+    )
+
+    class Meta:
+        ordering = ["is_read", "-created_at"]
+        verbose_name = "Bildirim"
+        verbose_name_plural = "Bildirimler"
+        indexes = [
+            models.Index(fields=["user", "is_read", "created_at"]),
+        ]
+
+    def __str__(self):
+        return f"{self.user} · {self.title}"

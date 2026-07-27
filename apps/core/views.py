@@ -1,9 +1,15 @@
+from django.contrib.auth.decorators import login_required
 from django.core.cache import cache
 from django.db import connection
 from django.http import JsonResponse
-from django.contrib.auth.decorators import login_required
-from django.shortcuts import render
+from django.shortcuts import redirect, render
+from django.utils import timezone
+from django.views.decorators.http import require_POST
+
 from apps.organizations.models import CompanySubscription
+
+from .models import Notification
+
 
 def health_check(request):
     database_status = "ok"
@@ -18,6 +24,7 @@ def health_check(request):
 
     try:
         cache.set("glauria_health_check", "ok", timeout=10)
+
         if cache.get("glauria_health_check") != "ok":
             redis_status = "error"
     except Exception:
@@ -41,12 +48,16 @@ def health_check(request):
         },
         status=status_code,
     )
+
+
 @login_required
 def settings_home(request):
     return render(
         request,
         "core/settings_home.html",
     )
+
+
 @login_required
 def billing_home(request):
     membership = (
@@ -88,3 +99,35 @@ def billing_home(request):
             "remaining_member_count": remaining_member_count,
         },
     )
+
+
+@login_required
+def notifications_home(request):
+    notifications = Notification.objects.filter(
+        user=request.user
+    ).order_by(
+        "is_read",
+        "-created_at",
+    )
+
+    return render(
+        request,
+        "core/notifications_home.html",
+        {
+            "notifications": notifications,
+        },
+    )
+
+
+@login_required
+@require_POST
+def notifications_mark_all_read(request):
+    Notification.objects.filter(
+        user=request.user,
+        is_read=False,
+    ).update(
+        is_read=True,
+        read_at=timezone.now(),
+    )
+
+    return redirect("core:notifications")

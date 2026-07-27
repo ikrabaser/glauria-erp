@@ -1,7 +1,7 @@
 <header class="app-topbar">
-
     <div>
-                    {% if request.resolver_match.namespace == "dashboard" %}
+        <h1 class="page-title">
+            {% if request.resolver_match.namespace == "dashboard" %}
                 Dashboard
             {% elif request.resolver_match.namespace == "accounts" and request.resolver_match.url_name == "workspace_members" %}
                 Üyeler ve Roller
@@ -17,6 +17,8 @@
                 Stok Yönetimi
             {% elif request.resolver_match.namespace == "manufacturing" %}
                 Üretim Yönetimi
+            {% elif request.resolver_match.namespace == "core" and request.resolver_match.url_name == "notifications" %}
+                Bildirimler
             {% elif request.resolver_match.namespace == "core" and request.resolver_match.url_name == "billing" %}
                 Plan ve Faturalama
             {% elif request.resolver_match.namespace == "core" and request.resolver_match.url_name == "settings" %}
@@ -28,8 +30,10 @@
             {% else %}
                 Glauria ERP
             {% endif %}
+        </h1>
 
-                    {% if request.resolver_match.namespace == "dashboard" %}
+        <p class="page-subtitle">
+            {% if request.resolver_match.namespace == "dashboard" %}
                 Maison Glauria Management Center
             {% elif request.resolver_match.namespace == "accounts" and request.resolver_match.url_name == "workspace_members" %}
                 Çalışma alanı üyeleri, roller ve erişim seviyeleri
@@ -44,7 +48,9 @@
             {% elif request.resolver_match.namespace == "inventory" %}
                 Ürün, depo ve envanter yönetimi
             {% elif request.resolver_match.namespace == "manufacturing" %}
-                Üretim emirleri ve operasyon yönetimi
+                Üretim emirleri, reçeteler ve kalite süreçleri
+            {% elif request.resolver_match.namespace == "core" and request.resolver_match.url_name == "notifications" %}
+                Operasyon, kalite, stok ve çalışma alanı bildirimleri
             {% elif request.resolver_match.namespace == "core" and request.resolver_match.url_name == "billing" %}
                 Abonelik planı, kapasite ve çalışma alanı kullanım bilgileri
             {% elif request.resolver_match.namespace == "core" and request.resolver_match.url_name == "settings" %}
@@ -56,9 +62,10 @@
             {% else %}
                 Maison Glauria Management Center
             {% endif %}
+        </p>
     </div>
 
-        <div class="topbar-account">
+    <div class="topbar-account">
         <button
             class="topbar-user"
             type="button"
@@ -92,24 +99,31 @@
 
             <div class="user-menu__divider"></div>
 
-            <a href="{% url 'core:billing' %}" class="user-menu__item">
-    Plan ve Faturalama
+            <a href="{% url 'core:notifications' %}" class="user-menu__item">
+    Bildirimler
+    {% if unread_notification_count %}
+        ({{ unread_notification_count }})
+    {% endif %}
 </a>
+
+            <a href="{% url 'core:billing' %}" class="user-menu__item">
+                Plan ve Faturalama
+            </a>
 
             <a href="{% url 'core:settings' %}" class="user-menu__item">
                 Çalışma Alanı Ayarları
             </a>
 
             <a href="{% url 'accounts:profile' %}" class="user-menu__item">
-    Profil ve Güvenlik
-</a>
-<a
-    href="{% url 'accounts:workspace_members' %}"
-    class="user-menu__item"
->
-    Üyeler ve Roller
-</a>
+                Profil ve Güvenlik
+            </a>
+
+            <a
+                href="{% url 'accounts:workspace_members' %}"
+                class="user-menu__item"
+            >
+                Üyeler ve Roller
+            </a>
         </div>
     </div>
-
 </header>
