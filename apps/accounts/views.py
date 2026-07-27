@@ -9,8 +9,9 @@ from django.shortcuts import get_object_or_404
 from django.views.decorators.http import require_POST
 
 
-from .forms import ProfileForm
-from .models import OrganizationMembership
+from .forms import ProfileForm, WorkspaceMemberCreateForm
+from apps.organizations.models import CompanySubscription
+from .models import OrganizationMembership, User
 
 @login_required
 def login_redirect(request):
@@ -111,6 +112,9 @@ def workspace_members(request):
             "user__username",
         )
     )
+    member_form = WorkspaceMemberCreateForm(
+        company=current_membership.company,
+    )
 
     return render(
         request,
@@ -118,8 +122,89 @@ def workspace_members(request):
         {
             "memberships": memberships,
             "current_membership": current_membership,
+            "member_form": member_form,
         },
     )
+
+@login_required
+@require_POST
+def workspace_member_create(request):
+    current_membership = (
+        request.user.organization_memberships
+        .select_related("company")
+        .filter(is_active=True)
+        .order_by("-is_primary", "created_at")
+        .first()
+    )
+
+    if not current_membership:
+        return redirect("dashboard:home")
+
+    if current_membership.role not in {
+        OrganizationMembership.Role.OWNER,
+        OrganizationMembership.Role.ADMIN,
+    }:
+        return HttpResponseForbidden(
+            "Bu işlem için yetkiniz bulunmuyor."
+        )
+
+    subscription = (
+        CompanySubscription.objects
+        .filter(company=current_membership.company)
+        .first()
+    )
+
+    active_member_count = (
+        current_membership.company.memberships
+        .filter(is_active=True)
+        .count()
+    )
+
+    if (
+        subscription
+        and active_member_count >= subscription.member_limit
+    ):
+        return HttpResponseBadRequest(
+            "Çalışma alanı üye limitine ulaşıldı."
+        )
+
+    form = WorkspaceMemberCreateForm(
+        request.POST,
+        company=current_membership.company,
+    )
+
+    if not form.is_valid():
+        return redirect("accounts:workspace_members")
+
+    selected_role = form.cleaned_data["role"]
+
+    if (
+        current_membership.role == OrganizationMembership.Role.ADMIN
+        and selected_role in {
+            OrganizationMembership.Role.OWNER,
+            OrganizationMembership.Role.ADMIN,
+        }
+    ):
+        return HttpResponseForbidden(
+            "Yöneticiler Sahip veya Yönetici rolüyle üye ekleyemez."
+        )
+
+    user = form.save(commit=False)
+    user.user_type = User.UserType.INTERNAL
+    user.save()
+
+    OrganizationMembership.objects.create(
+        user=user,
+        company=current_membership.company,
+        branch=form.cleaned_data["branch"],
+        department=form.cleaned_data["department"],
+        role=selected_role,
+        job_title=form.cleaned_data["job_title"],
+        is_primary=True,
+        is_active=True,
+    )
+
+    return redirect("accounts:workspace_members")
 @login_required
 @require_POST
 def workspace_member_access_update(request, membership_id):

@@ -1052,3 +1052,32 @@ html[data-theme="light"] .billing-status--suspended {
         text-align: left;
     }
 }
+/* Workspace member creation */
+
+.workspace-members__create {
+    margin: 0 0 24px;
+    padding: 0 0 24px;
+    border-bottom: 1px solid var(--color-border);
+}
+
+.workspace-members__create h3 {
+    margin: 0;
+    color: var(--color-text);
+    font-size: 16px;
+}
+
+.workspace-members__create p {
+    margin: 7px 0 0;
+    color: var(--color-text-muted);
+    font-size: 14px;
+    line-height: 1.55;
+}
+
+.workspace-member-create-form {
+    margin-top: 22px;
+}
+
+.workspace-member-create-form input,
+.workspace-member-create-form select {
+    width: 100%;
+}

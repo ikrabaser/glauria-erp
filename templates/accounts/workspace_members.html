@@ -42,6 +42,104 @@
                 </p>
             </div>
         </div>
+                <div class="workspace-members__create">
+            <div>
+                <h3>Yeni üye ekle</h3>
+                <p>
+                    Kullanıcıyı çalışma alanına ekleyin, rolünü ve
+                    bağlı organizasyon birimini belirleyin.
+                </p>
+            </div>
+
+            <form
+                method="post"
+                action="{% url 'accounts:workspace_member_create' %}"
+                class="workspace-member-create-form"
+            >
+                {% csrf_token %}
+
+                <div class="customer-form__grid">
+                    <div class="customer-form__field">
+                        <label for="{{ member_form.first_name.id_for_label }}">
+                            {{ member_form.first_name.label }}
+                        </label>
+                        {{ member_form.first_name }}
+                    </div>
+
+                    <div class="customer-form__field">
+                        <label for="{{ member_form.last_name.id_for_label }}">
+                            {{ member_form.last_name.label }}
+                        </label>
+                        {{ member_form.last_name }}
+                    </div>
+
+                    <div class="customer-form__field">
+                        <label for="{{ member_form.username.id_for_label }}">
+                            {{ member_form.username.label }}
+                        </label>
+                        {{ member_form.username }}
+                    </div>
+
+                    <div class="customer-form__field">
+                        <label for="{{ member_form.email.id_for_label }}">
+                            {{ member_form.email.label }}
+                        </label>
+                        {{ member_form.email }}
+                    </div>
+
+                    <div class="customer-form__field">
+                        <label for="{{ member_form.role.id_for_label }}">
+                            {{ member_form.role.label }}
+                        </label>
+                        {{ member_form.role }}
+                    </div>
+
+                    <div class="customer-form__field">
+                        <label for="{{ member_form.job_title.id_for_label }}">
+                            {{ member_form.job_title.label }}
+                        </label>
+                        {{ member_form.job_title }}
+                    </div>
+
+                    <div class="customer-form__field">
+                        <label for="{{ member_form.branch.id_for_label }}">
+                            {{ member_form.branch.label }}
+                        </label>
+                        {{ member_form.branch }}
+                    </div>
+
+                    <div class="customer-form__field">
+                        <label for="{{ member_form.department.id_for_label }}">
+                            {{ member_form.department.label }}
+                        </label>
+                        {{ member_form.department }}
+                    </div>
+
+                    <div class="customer-form__field">
+                        <label for="{{ member_form.password1.id_for_label }}">
+                            İlk parola
+                        </label>
+                        {{ member_form.password1 }}
+                    </div>
+
+                    <div class="customer-form__field">
+                        <label for="{{ member_form.password2.id_for_label }}">
+                            Parolayı doğrula
+                        </label>
+                        {{ member_form.password2 }}
+                    </div>
+                </div>
+
+                <div class="customer-form__actions">
+                    <button
+                        type="submit"
+                        class="customer-form__submit"
+                    >
+                        Üyeyi Ekle
+                    </button>
+                </div>
+            </form>
+        </div>
 
         <div class="data-table-wrapper">
             <table class="data-table workspace-members__table">

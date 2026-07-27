@@ -4,6 +4,7 @@ from .views import (
     login_redirect,
     profile_settings,
     workspace_members,
+    workspace_member_create,
     workspace_member_access_update,
 )
 
@@ -18,8 +19,13 @@ urlpatterns = [
         name="workspace_members",
     ),
     path(
-        "workspace/members/<uuid:membership_id>/access/",
-        workspace_member_access_update,
-        name="workspace_member_access_update",
+        "workspace/members/create/",
+        workspace_member_create,
+        name="workspace_member_create",
+    ),
+    path(
+    "workspace/members/<int:membership_id>/access/",
+    workspace_member_access_update,
+    name="workspace_member_access_update",
     ),
 ]
