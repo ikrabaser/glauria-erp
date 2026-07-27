@@ -220,3 +220,129 @@ class Notification(UUIDModel, TimeStampedModel):
 
     def __str__(self):
         return f"{self.user} · {self.title}"
+class SupportTicket(UUIDModel, TimeStampedModel):
+    class Category(models.TextChoices):
+        GENERAL = "general", "Genel"
+        SALES = "sales", "Satış"
+        INVENTORY = "inventory", "Stok"
+        MANUFACTURING = "manufacturing", "Üretim"
+        ACCOUNT = "account", "Hesap ve çalışma alanı"
+        BILLING = "billing", "Plan ve faturalama"
+
+    class Priority(models.TextChoices):
+        LOW = "low", "Düşük"
+        NORMAL = "normal", "Normal"
+        HIGH = "high", "Yüksek"
+        URGENT = "urgent", "Acil"
+
+    class Status(models.TextChoices):
+        NEW = "new", "Yeni"
+        IN_PROGRESS = "in_progress", "İnceleniyor"
+        RESOLVED = "resolved", "Çözüldü"
+        CLOSED = "closed", "Kapatıldı"
+
+    class AIStatus(models.TextChoices):
+        PENDING = "pending", "Analiz bekliyor"
+        PROCESSING = "processing", "Analiz ediliyor"
+        COMPLETED = "completed", "Analiz tamamlandı"
+        FAILED = "failed", "Analiz başarısız"
+
+    company = models.ForeignKey(
+        "organizations.Company",
+        on_delete=models.PROTECT,
+        related_name="support_tickets",
+        verbose_name="Şirket",
+    )
+
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="support_tickets",
+        verbose_name="Talebi oluşturan kullanıcı",
+    )
+
+    assigned_to = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="assigned_support_tickets",
+        verbose_name="Atanan kullanıcı",
+    )
+
+    subject = models.CharField(
+        max_length=180,
+        verbose_name="Konu",
+    )
+
+    description = models.TextField(
+        verbose_name="Talep açıklaması",
+    )
+
+    category = models.CharField(
+        max_length=30,
+        choices=Category.choices,
+        default=Category.GENERAL,
+        verbose_name="Kategori",
+    )
+
+    priority = models.CharField(
+        max_length=20,
+        choices=Priority.choices,
+        default=Priority.NORMAL,
+        verbose_name="Öncelik",
+    )
+
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.NEW,
+        verbose_name="Talep durumu",
+    )
+
+    resolution_notes = models.TextField(
+        blank=True,
+        verbose_name="Çözüm notları",
+    )
+
+    ai_status = models.CharField(
+        max_length=20,
+        choices=AIStatus.choices,
+        default=AIStatus.PENDING,
+        verbose_name="AI analiz durumu",
+    )
+
+    ai_summary = models.TextField(
+        blank=True,
+        verbose_name="AI özeti",
+    )
+
+    ai_category = models.CharField(
+        max_length=30,
+        blank=True,
+        verbose_name="AI kategori önerisi",
+    )
+
+    ai_priority = models.CharField(
+        max_length=20,
+        blank=True,
+        verbose_name="AI öncelik önerisi",
+    )
+
+    ai_suggested_response = models.TextField(
+        blank=True,
+        verbose_name="AI ilk çözüm önerisi",
+    )
+
+    ai_error = models.TextField(
+        blank=True,
+        verbose_name="AI analiz hatası",
+    )
+
+    class Meta:
+        ordering = ["-created_at"]
+        verbose_name = "Destek talebi"
+        verbose_name_plural = "Destek talepleri"
+
+    def __str__(self):
+        return f"{self.subject} · {self.get_status_display()}"

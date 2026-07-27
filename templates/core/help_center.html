@@ -103,7 +103,7 @@ Yardım Merkezi | Glauria ERP
             </div>
         </article>
 
-        <article class="settings-card help-center__card help-center__card--support">
+                <article class="settings-card help-center__card help-center__card--support">
             <span class="help-center__eyebrow">
                 Destek
             </span>
@@ -111,12 +111,15 @@ Yardım Merkezi | Glauria ERP
             <h3>Bir sorun mu yaşıyorsunuz?</h3>
 
             <p>
-                Önce Bildirimler ekranındaki operasyon uyarılarını
-                kontrol edin. Destek talebi oluşturma altyapısı bir sonraki
-                adımda bu alana eklenecek.
+                Talebinizi oluşturun; ilk değerlendirme için AI destekli
+                özet, kategori, öncelik ve çözüm önerisi hazırlansın.
             </p>
 
             <div class="help-center__links">
+                <a href="{% url 'core:support_tickets' %}">
+                    Destek talebi oluştur
+                </a>
+
                 <a href="{% url 'core:notifications' %}">
                     Bildirimleri görüntüle
                 </a>

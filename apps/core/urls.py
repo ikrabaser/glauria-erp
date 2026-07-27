@@ -7,6 +7,7 @@ from .views import (
     notifications_home,
     notifications_mark_all_read,
     settings_home,
+    support_tickets,
 )
 
 
@@ -17,6 +18,7 @@ urlpatterns = [
     path("settings/", settings_home, name="settings"),
     path("settings/billing/", billing_home, name="billing"),
     path("help/", help_center, name="help"),
+    path("support/", support_tickets, name="support_tickets"),
     path("notifications/", notifications_home, name="notifications"),
     path(
         "notifications/mark-all-read/",

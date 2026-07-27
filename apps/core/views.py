@@ -1,3 +1,4 @@
+from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.cache import cache
 from django.db import connection
@@ -8,7 +9,9 @@ from django.views.decorators.http import require_POST
 
 from apps.organizations.models import CompanySubscription
 
-from .models import Notification
+from .forms import SupportTicketForm
+from .models import Notification, SupportTicket
+from .tasks import analyze_support_ticket
 
 
 def health_check(request):
@@ -50,6 +53,16 @@ def health_check(request):
     )
 
 
+def get_active_membership(user):
+    return (
+        user.organization_memberships
+        .filter(is_active=True)
+        .select_related("company")
+        .order_by("-is_primary", "created_at")
+        .first()
+    )
+
+
 @login_required
 def settings_home(request):
     return render(
@@ -60,13 +73,7 @@ def settings_home(request):
 
 @login_required
 def billing_home(request):
-    membership = (
-        request.user.organization_memberships
-        .filter(is_active=True)
-        .select_related("company")
-        .order_by("-is_primary", "created_at")
-        .first()
-    )
+    membership = get_active_membership(request.user)
 
     subscription = None
     active_member_count = 0
@@ -132,9 +139,52 @@ def notifications_mark_all_read(request):
 
     return redirect("core:notifications")
 
+
 @login_required
 def help_center(request):
     return render(
         request,
         "core/help_center.html",
+    )
+
+
+@login_required
+def support_tickets(request):
+    membership = get_active_membership(request.user)
+
+    if not membership:
+        return redirect("dashboard:home")
+
+    form = SupportTicketForm(request.POST or None)
+
+    if request.method == "POST" and form.is_valid():
+        support_ticket = form.save(commit=False)
+        support_ticket.company = membership.company
+        support_ticket.created_by = request.user
+        support_ticket.save()
+        analyze_support_ticket.delay(
+            str(support_ticket.id)
+        )
+        messages.success(
+            request,
+            "Destek talebiniz oluşturuldu. AI analizi hazırlanıyor.",
+        )
+
+        return redirect("core:support_tickets")
+
+    tickets = SupportTicket.objects.filter(
+        company=membership.company,
+        created_by=request.user,
+    ).select_related(
+        "assigned_to",
+    )
+
+    return render(
+        request,
+        "core/support_tickets.html",
+        {
+            "form": form,
+            "tickets": tickets,
+            "current_membership": membership,
+        },
     )
