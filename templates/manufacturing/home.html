@@ -5,7 +5,9 @@
 {% endblock %}
 
 {% block content %}
-{% include "components/page_header.html" with eyebrow="Manufacturing Operations" title="Üretim Yönetimi" description="Satış siparişlerinden oluşan üretim emirlerini ve operasyon aşamalarını tek merkezden yönetin." %}
+{% url "manufacturing:boms_home" as boms_url %}
+
+{% include "components/page_header.html" with eyebrow="Manufacturing Operations" title="Üretim Yönetimi" description="Satış siparişlerinden oluşan üretim emirlerini, reçeteleri ve kalite süreçlerini tek merkezden yönetin." action_text="Ürün Reçeteleri" action_url=boms_url %}
 
 {% if production_orders %}
     <div class="data-table-wrapper">
