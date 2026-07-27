@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+
+{% block title %}
+Ürün Reçeteleri | Glauria ERP
+{% endblock %}
+
+{% block content %}
+{% url "manufacturing:bom_create" as bom_create_url %}
+
+{% include "components/page_header.html" with eyebrow="Bill of Materials" title="Ürün Reçeteleri" description="Bitmiş ürünlerin hammadde ve ambalaj bileşenlerini versiyon bazında yönetin." action_text="+ Yeni Reçete" action_url=bom_create_url %}
+
+{% if bills_of_material %}
+    <div class="data-table-wrapper">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Bitmiş ürün</th>
+                    <th>Versiyon</th>
+                    <th>Çıktı miktarı</th>
+                    <th>Bileşen sayısı</th>
+                    <th>Durum</th>
+                    <th>Güncellenme</th>
+                </tr>
+            </thead>
+
+            <tbody>
+                {% for bill_of_material in bills_of_material %}
+                    <tr>
+                        <td>
+                            <a
+                                href="{% url 'manufacturing:bom_detail' bill_of_material.id %}"
+                                class="customer-cell__link"
+                            >
+                                <strong>
+                                    {{ bill_of_material.product.name }}
+                                </strong>
+                            </a>
+                        </td>
+
+                        <td>v{{ bill_of_material.version }}</td>
+
+                        <td>
+                            {{ bill_of_material.yield_quantity }}
+                            {{ bill_of_material.product.unit }}
+                        </td>
+
+                        <td>
+                            {{ bill_of_material.lines.count }}
+                        </td>
+
+                        <td>
+                            <span class="opportunity-card__quote">
+                                {% if bill_of_material.is_active %}
+                                    Aktif
+                                {% else %}
+                                    Pasif
+                                {% endif %}
+                            </span>
+                        </td>
+
+                        <td>
+                            {{ bill_of_material.updated_at|date:"d.m.Y" }}
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+{% else %}
+    {% include "components/empty_state.html" with icon="⚙" title="Henüz ürün reçetesi bulunmuyor" description="Bitmiş bir ürün için ilk reçeteyi oluşturarak üretimde otomatik hammadde tüketimini başlatın." action_text="+ İlk Reçeteyi Oluştur" action_url=bom_create_url %}
+{% endif %}
+{% endblock %}

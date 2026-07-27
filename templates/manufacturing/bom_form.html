@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+
+{% block title %}
+Yeni Ürün Reçetesi | Glauria ERP
+{% endblock %}
+
+{% block content %}
+<section class="customer-detail__header">
+    <div>
+        <a
+            href="{% url 'manufacturing:boms_home' %}"
+            class="customer-detail__back"
+        >
+            ← Reçetelere Dön
+        </a>
+
+        <span class="page-header__eyebrow">
+            Bill of Materials
+        </span>
+
+        <h2 class="customer-detail__title">
+            Yeni Ürün Reçetesi
+        </h2>
+
+        <p class="customer-detail__subtitle">
+            Bitmiş ürünün reçete versiyonunu ve üretim talimatlarını tanımlayın.
+        </p>
+    </div>
+</section>
+
+<form method="post" class="customer-form">
+    {% csrf_token %}
+
+    <article class="customer-form__section">
+        <div class="customer-form__section-heading">
+            <span>Reçete Bilgileri</span>
+        </div>
+
+        <div class="customer-form__grid">
+            <div class="customer-form__field customer-form__field--full">
+                <label for="{{ form.product.id_for_label }}">
+                    {{ form.product.label }}
+                </label>
+                {{ form.product }}
+                {{ form.product.errors }}
+            </div>
+
+            <div class="customer-form__field">
+                <label for="{{ form.version.id_for_label }}">
+                    {{ form.version.label }}
+                </label>
+                {{ form.version }}
+                {{ form.version.errors }}
+            </div>
+
+            <div class="customer-form__field">
+                <label for="{{ form.yield_quantity.id_for_label }}">
+                    {{ form.yield_quantity.label }}
+                </label>
+                {{ form.yield_quantity }}
+                {{ form.yield_quantity.errors }}
+            </div>
+
+            <div class="customer-form__field customer-form__field--full">
+                <label for="{{ form.notes.id_for_label }}">
+                    {{ form.notes.label }}
+                </label>
+                {{ form.notes }}
+                {{ form.notes.errors }}
+            </div>
+
+            <div>
+                {{ form.is_active }}
+                <label for="{{ form.is_active.id_for_label }}">
+                    {{ form.is_active.label }}
+                </label>
+                {{ form.is_active.errors }}
+            </div>
+        </div>
+    </article>
+
+    <div class="customer-form__actions">
+        <a
+            href="{% url 'manufacturing:boms_home' %}"
+            class="customer-form__cancel"
+        >
+            Vazgeç
+        </a>
+
+        <button type="submit" class="customer-form__submit">
+            Reçeteyi Oluştur
+        </button>
+    </div>
+</form>
+{% endblock %}

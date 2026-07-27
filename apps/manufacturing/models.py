@@ -8,7 +8,7 @@ from django.utils import timezone
 
 from apps.organizations.models import Company
 from apps.sales.models import SalesOrder
-
+from apps.inventory.models import Product
 
 def generate_production_number():
     year = timezone.now().year
@@ -158,3 +158,125 @@ class ProductionOrderLine(models.Model):
 
     def __str__(self):
         return self.description
+
+
+class BillOfMaterial(models.Model):
+    id = models.UUIDField(
+        primary_key=True,
+        default=uuid.uuid4,
+        editable=False,
+    )
+
+    company = models.ForeignKey(
+        Company,
+        on_delete=models.CASCADE,
+        related_name="bills_of_material",
+        verbose_name="Şirket",
+    )
+
+    product = models.ForeignKey(
+        Product,
+        on_delete=models.PROTECT,
+        related_name="bills_of_material",
+        verbose_name="Bitmiş ürün",
+    )
+
+    version = models.PositiveIntegerField(
+        default=1,
+        verbose_name="Reçete versiyonu",
+    )
+
+    yield_quantity = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=Decimal("1.00"),
+        verbose_name="Reçete çıktı miktarı",
+    )
+
+    is_active = models.BooleanField(
+        default=True,
+        verbose_name="Aktif",
+    )
+
+    notes = models.TextField(
+        blank=True,
+        verbose_name="Üretim talimatları",
+    )
+
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name="Oluşturulma tarihi",
+    )
+
+    updated_at = models.DateTimeField(
+        auto_now=True,
+        verbose_name="Güncellenme tarihi",
+    )
+
+    class Meta:
+        ordering = ["product__name", "-version"]
+        verbose_name = "Ürün reçetesi"
+        verbose_name_plural = "Ürün reçeteleri"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["product", "version"],
+                name="unique_bom_version_per_product",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.product.name} · v{self.version}"
+
+
+class BillOfMaterialLine(models.Model):
+    id = models.UUIDField(
+        primary_key=True,
+        default=uuid.uuid4,
+        editable=False,
+    )
+
+    bill_of_material = models.ForeignKey(
+        BillOfMaterial,
+        on_delete=models.CASCADE,
+        related_name="lines",
+        verbose_name="Reçete",
+    )
+
+    component = models.ForeignKey(
+        Product,
+        on_delete=models.PROTECT,
+        related_name="bom_components",
+        verbose_name="Bileşen",
+    )
+
+    quantity_per_unit = models.DecimalField(
+        max_digits=12,
+        decimal_places=4,
+        verbose_name="Birim başına miktar",
+    )
+
+    scrap_rate = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=Decimal("0.00"),
+        verbose_name="Fire oranı (%)",
+    )
+
+    line_order = models.PositiveIntegerField(
+        default=0,
+        verbose_name="Sıra",
+    )
+
+    class Meta:
+        ordering = ["line_order", "id"]
+        verbose_name = "Reçete kalemi"
+        verbose_name_plural = "Reçete kalemleri"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["bill_of_material", "component"],
+                name="unique_component_per_bom",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.component.name} · {self.quantity_per_unit}"
