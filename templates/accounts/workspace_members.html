@@ -51,6 +51,7 @@
                         <th>Rol</th>
                         <th>Şube / Departman</th>
                         <th>Pozisyon</th>
+                        <th>Erişim yönetimi</th>
                         <th>Durum</th>
                     </tr>
                 </thead>
@@ -80,6 +81,46 @@
 
                             <td>
                                 {{ membership.job_title|default:"—" }}
+                            </td>
+
+                                                        <td>
+                                {% if membership.id != current_membership.id %}
+                                    <form
+                                        method="post"
+                                        action="{% url 'accounts:workspace_member_access_update' membership.id %}"
+                                        class="workspace-member-access-form"
+                                    >
+                                        {% csrf_token %}
+
+                                        <select name="role" class="workspace-role-select">
+                                            {% for value, label in membership.Role.choices %}
+                                                <option
+                                                    value="{{ value }}"
+                                                    {% if membership.role == value %}selected{% endif %}
+                                                >
+                                                    {{ label }}
+                                                </option>
+                                            {% endfor %}
+                                        </select>
+
+                                        <label class="workspace-member-active">
+                                            <input
+                                                type="checkbox"
+                                                name="is_active"
+                                                {% if membership.is_active %}checked{% endif %}
+                                            >
+                                            Aktif
+                                        </label>
+
+                                        <button type="submit" class="workspace-member-save">
+                                            Kaydet
+                                        </button>
+                                    </form>
+                                {% else %}
+                                    <span class="workspace-member-self">
+                                        Kendi erişimin
+                                    </span>
+                                {% endif %}
                             </td>
 
                             <td>

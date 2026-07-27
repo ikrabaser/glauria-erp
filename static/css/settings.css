@@ -813,3 +813,50 @@ html[data-theme="light"] .customer-detail__list dd {
         grid-template-columns: 1fr;
     }
 }
+.workspace-member-access-form {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.workspace-role-select {
+    min-height: 34px;
+    padding: 0 9px;
+    color: var(--color-text);
+    background: var(--color-bg-soft);
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+}
+
+.workspace-member-active {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    color: var(--color-text-muted);
+    font-size: 12px;
+    white-space: nowrap;
+}
+
+.workspace-member-save {
+    min-height: 34px;
+    padding: 0 10px;
+    color: #2a1a1e;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    background: var(--color-rose-gold);
+    border: 0;
+    border-radius: 8px;
+}
+
+.workspace-member-self {
+    color: var(--color-text-muted);
+    font-size: 12px;
+    white-space: nowrap;
+}
+
+html[data-theme="light"] .workspace-role-select {
+    color: #2b2027;
+    background: #fff;
+    border-color: rgba(67, 42, 53, 0.16);
+}

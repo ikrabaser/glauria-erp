@@ -4,6 +4,7 @@ from .views import (
     login_redirect,
     profile_settings,
     workspace_members,
+    workspace_member_access_update,
 )
 
 app_name = "accounts"
@@ -15,5 +16,10 @@ urlpatterns = [
         "workspace/members/",
         workspace_members,
         name="workspace_members",
+    ),
+    path(
+        "workspace/members/<uuid:membership_id>/access/",
+        workspace_member_access_update,
+        name="workspace_member_access_update",
     ),
 ]

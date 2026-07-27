@@ -4,6 +4,10 @@ from django.contrib.auth.forms import PasswordChangeForm
 from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.http import HttpResponseForbidden
+from django.http import HttpResponseBadRequest
+from django.shortcuts import get_object_or_404
+from django.views.decorators.http import require_POST
+
 
 from .forms import ProfileForm
 from .models import OrganizationMembership
@@ -116,3 +120,79 @@ def workspace_members(request):
             "current_membership": current_membership,
         },
     )
+@login_required
+@require_POST
+def workspace_member_access_update(request, membership_id):
+    current_membership = (
+        request.user.organization_memberships
+        .select_related("company")
+        .filter(is_active=True)
+        .order_by("-is_primary", "created_at")
+        .first()
+    )
+
+    if not current_membership:
+        return redirect("dashboard:home")
+
+    if current_membership.role not in {
+        OrganizationMembership.Role.OWNER,
+        OrganizationMembership.Role.ADMIN,
+    }:
+        return HttpResponseForbidden(
+            "Bu işlem için yetkiniz bulunmuyor."
+        )
+
+    target_membership = get_object_or_404(
+        OrganizationMembership,
+        id=membership_id,
+        company=current_membership.company,
+    )
+
+    if target_membership.id == current_membership.id:
+        return HttpResponseBadRequest(
+            "Kendi rolünüzü veya üyelik durumunuzu bu ekrandan değiştiremezsiniz."
+        )
+
+    if (
+        current_membership.role == OrganizationMembership.Role.ADMIN
+        and target_membership.role in {
+            OrganizationMembership.Role.OWNER,
+            OrganizationMembership.Role.ADMIN,
+        }
+    ):
+        return HttpResponseForbidden(
+            "Yöneticiler Sahip veya diğer Yönetici rollerini değiştiremez."
+        )
+
+    selected_role = request.POST.get("role")
+    is_active = request.POST.get("is_active") == "on"
+
+    allowed_roles = {
+        OrganizationMembership.Role.OWNER,
+        OrganizationMembership.Role.ADMIN,
+        OrganizationMembership.Role.MANAGER,
+        OrganizationMembership.Role.MEMBER,
+        OrganizationMembership.Role.VIEWER,
+    }
+
+    if selected_role not in allowed_roles:
+        return HttpResponseBadRequest("Geçersiz rol seçimi.")
+
+    if (
+        current_membership.role == OrganizationMembership.Role.ADMIN
+        and selected_role in {
+            OrganizationMembership.Role.OWNER,
+            OrganizationMembership.Role.ADMIN,
+        }
+    ):
+        return HttpResponseForbidden(
+            "Yöneticiler Sahip veya Yönetici rolü atayamaz."
+        )
+
+    target_membership.role = selected_role
+    target_membership.is_active = is_active
+    target_membership.save(
+        update_fields=["role", "is_active", "updated_at"]
+    )
+
+    return redirect("accounts:workspace_members")
