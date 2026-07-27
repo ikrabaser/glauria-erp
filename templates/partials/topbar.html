@@ -200,6 +200,17 @@
             >
                 Üyeler ve Roller
             </a>
+            <form
+    method="post"
+    action="{% url 'accounts:logout' %}"
+    class="user-menu__logout-form"
+>
+    {% csrf_token %}
+
+    <button type="submit" class="user-menu__item user-menu__item--danger">
+        Oturumu kapat
+    </button>
+</form>
         </div>
     </div>
 </header>

@@ -1,0 +1,179 @@
+:root {
+    font-family: "Inter", sans-serif;
+    color: #2b2027;
+    background: #f8f4f5;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    min-width: 320px;
+    min-height: 100vh;
+    margin: 0;
+}
+
+.login-page {
+    display: grid;
+    min-height: 100vh;
+    place-items: center;
+    padding: 24px;
+    background:
+        radial-gradient(
+            circle at 15% 15%,
+            rgba(142, 92, 246, 0.14),
+            transparent 30%
+        ),
+        radial-gradient(
+            circle at 85% 80%,
+            rgba(215, 164, 143, 0.20),
+            transparent 34%
+        ),
+        #f8f4f5;
+}
+
+.login-page__main {
+    width: min(100%, 440px);
+}
+
+.login-card {
+    padding: 34px;
+    border: 1px solid rgba(67, 42, 53, 0.12);
+    border-radius: 24px;
+    background:
+        linear-gradient(
+            145deg,
+            rgba(255, 255, 255, 0.95),
+            rgba(250, 244, 247, 0.94)
+        );
+    box-shadow: 0 24px 70px rgba(69, 43, 54, 0.15);
+}
+
+.login-brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.login-brand__mark {
+    display: grid;
+    width: 46px;
+    height: 46px;
+    place-items: center;
+    color: #a87327;
+    border: 1px solid rgba(190, 138, 54, 0.38);
+    border-radius: 15px;
+    background: rgba(215, 164, 143, 0.11);
+    font-family: Georgia, serif;
+    font-size: 23px;
+}
+
+.login-brand strong,
+.login-brand small {
+    display: block;
+}
+
+.login-brand strong {
+    color: #39242e;
+    font-size: 16px;
+    letter-spacing: 0.04em;
+}
+
+.login-brand small {
+    margin-top: 3px;
+    color: #8a7780;
+    font-size: 10px;
+    letter-spacing: 0.10em;
+    text-transform: uppercase;
+}
+
+.login-card__heading {
+    margin: 34px 0 26px;
+}
+
+.login-card__heading span {
+    color: #a05f4a;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+}
+
+.login-card__heading h1 {
+    margin: 10px 0 8px;
+    font-size: 31px;
+    line-height: 1.15;
+}
+
+.login-card__heading p {
+    margin: 0;
+    color: #75636c;
+    font-size: 14px;
+    line-height: 1.6;
+}
+
+.login-form {
+    display: grid;
+    gap: 18px;
+}
+
+.login-form__field {
+    display: grid;
+    gap: 8px;
+}
+
+.login-form__field label {
+    color: #55424b;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.login-form__field input {
+    width: 100%;
+    min-height: 46px;
+    padding: 0 13px;
+    color: #2b2027;
+    border: 1px solid rgba(67, 42, 53, 0.18);
+    border-radius: 10px;
+    outline: 0;
+    background: rgba(255, 255, 255, 0.82);
+    font: inherit;
+}
+
+.login-form__field input:focus {
+    border-color: rgba(142, 92, 246, 0.55);
+    box-shadow: 0 0 0 4px rgba(142, 92, 246, 0.10);
+}
+
+.login-form__submit {
+    min-height: 47px;
+    margin-top: 6px;
+    cursor: pointer;
+    color: #321f27;
+    border: 1px solid rgba(166, 101, 82, 0.36);
+    border-radius: 11px;
+    background:
+        linear-gradient(
+            135deg,
+            #efc8b6,
+            #d9a28b
+        );
+    font: inherit;
+    font-size: 14px;
+    font-weight: 700;
+}
+
+.login-form__submit:hover {
+    filter: brightness(0.98);
+}
+
+.login-form__error,
+.errorlist {
+    margin: 0;
+    padding: 10px 12px;
+    color: #9c3434;
+    border-radius: 10px;
+    background: rgba(192, 72, 72, 0.10);
+    font-size: 13px;
+    list-style: none;
+}

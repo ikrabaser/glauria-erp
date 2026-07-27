@@ -1211,3 +1211,21 @@ html[data-theme="light"] .notification-menu {
     border-color: rgba(67, 42, 53, 0.14);
     box-shadow: 0 18px 42px rgba(69, 43, 54, 0.14);
 }
+.user-menu__logout-form {
+    margin: 0;
+}
+
+.user-menu__item--danger {
+    width: 100%;
+    cursor: pointer;
+    color: #a84545;
+    background: transparent;
+    border: 0;
+    font: inherit;
+    text-align: left;
+}
+
+.user-menu__item--danger:hover {
+    color: #ffffff;
+    background: rgba(192, 72, 72, 0.14);
+}
