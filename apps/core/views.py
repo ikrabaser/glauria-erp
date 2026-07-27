@@ -3,6 +3,7 @@ from django.db import connection
 from django.http import JsonResponse
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import render
+from apps.organizations.models import CompanySubscription
 
 def health_check(request):
     database_status = "ok"
@@ -45,4 +46,45 @@ def settings_home(request):
     return render(
         request,
         "core/settings_home.html",
+    )
+@login_required
+def billing_home(request):
+    membership = (
+        request.user.organization_memberships
+        .filter(is_active=True)
+        .select_related("company")
+        .order_by("-is_primary", "created_at")
+        .first()
+    )
+
+    subscription = None
+    active_member_count = 0
+    remaining_member_count = 0
+
+    if membership:
+        subscription = (
+            CompanySubscription.objects
+            .filter(company=membership.company)
+            .first()
+        )
+
+        active_member_count = membership.company.memberships.filter(
+            is_active=True
+        ).count()
+
+        if subscription:
+            remaining_member_count = max(
+                subscription.member_limit - active_member_count,
+                0,
+            )
+
+    return render(
+        request,
+        "core/billing_home.html",
+        {
+            "current_membership": membership,
+            "subscription": subscription,
+            "active_member_count": active_member_count,
+            "remaining_member_count": remaining_member_count,
+        },
     )

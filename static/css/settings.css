@@ -860,3 +860,195 @@ html[data-theme="light"] .workspace-role-select {
     background: #fff;
     border-color: rgba(67, 42, 53, 0.16);
 }
+/* =========================================================
+   Workspace Billing
+   ========================================================= */
+
+.billing-page__grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.4fr) minmax(280px, 0.8fr);
+    gap: 20px;
+    max-width: 1040px;
+    margin-bottom: 20px;
+}
+
+.billing-plan-card__header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 18px;
+}
+
+.billing-plan-card__eyebrow {
+    display: block;
+    color: var(--color-text-muted);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.billing-plan-card h3 {
+    margin: 7px 0 0;
+    color: var(--color-text);
+    font-size: 28px;
+}
+
+.billing-plan-card__description,
+.billing-capacity-card p,
+.billing-features-card p {
+    margin: 14px 0 0;
+    color: var(--color-text-muted);
+    line-height: 1.6;
+}
+
+.billing-status {
+    display: inline-flex;
+    align-items: center;
+    min-height: 30px;
+    padding: 0 11px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.billing-status--active {
+    color: #79e2b5;
+    background: rgba(78, 210, 156, 0.12);
+}
+
+.billing-status--trial {
+    color: #bda2ff;
+    background: rgba(142, 92, 246, 0.14);
+}
+
+.billing-status--past_due {
+    color: #f0b365;
+    background: rgba(226, 155, 45, 0.14);
+}
+
+.billing-status--canceled,
+.billing-status--suspended {
+    color: var(--color-text-muted);
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.billing-details {
+    display: grid;
+    gap: 13px;
+    margin: 24px 0 0;
+}
+
+.billing-details div {
+    display: flex;
+    justify-content: space-between;
+    gap: 20px;
+    padding-top: 13px;
+    border-top: 1px solid var(--color-border);
+}
+
+.billing-details dt {
+    color: var(--color-text-muted);
+    font-size: 13px;
+}
+
+.billing-details dd {
+    margin: 0;
+    color: var(--color-text);
+    font-weight: 700;
+    text-align: right;
+}
+
+.billing-capacity-card {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.billing-capacity-card__value {
+    display: block;
+    margin-top: 16px;
+    color: var(--color-text);
+    font-size: 38px;
+    letter-spacing: -0.04em;
+}
+
+.billing-capacity-card__remaining {
+    margin-top: 18px;
+    padding: 12px;
+    color: var(--color-rose-gold-light);
+    font-size: 13px;
+    font-weight: 700;
+    background: rgba(215, 164, 143, 0.08);
+    border-radius: var(--radius-sm);
+}
+
+.billing-features-card {
+    display: grid;
+    grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+    gap: 28px;
+    max-width: 1040px;
+}
+
+.billing-features-card h3 {
+    margin: 0;
+    color: var(--color-text);
+    font-size: 16px;
+}
+
+.billing-features-list {
+    display: grid;
+    gap: 11px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.billing-features-list li {
+    color: var(--color-text-soft);
+    font-size: 14px;
+}
+
+.billing-features-list li::before {
+    margin-right: 9px;
+    color: var(--color-rose-gold-light);
+    content: "✓";
+}
+
+html[data-theme="light"] .billing-status--active {
+    color: #16724a;
+    background: rgba(59, 156, 103, 0.13);
+}
+
+html[data-theme="light"] .billing-status--trial {
+    color: #6946b4;
+    background: rgba(142, 92, 246, 0.13);
+}
+
+html[data-theme="light"] .billing-status--past_due {
+    color: #9b5d0a;
+    background: rgba(226, 155, 45, 0.15);
+}
+
+html[data-theme="light"] .billing-status--canceled,
+html[data-theme="light"] .billing-status--suspended {
+    color: #695963;
+    background: rgba(67, 42, 53, 0.08);
+}
+
+@media (max-width: 760px) {
+    .billing-page__grid,
+    .billing-features-card {
+        grid-template-columns: 1fr;
+    }
+
+    .billing-details div {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 6px;
+    }
+
+    .billing-details dd {
+        text-align: left;
+    }
+}

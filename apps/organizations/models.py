@@ -41,6 +41,68 @@ class Company(MasterDataModel):
     def __str__(self):
         return self.name
 
+class CompanySubscription(MasterDataModel):
+    class Plan(models.TextChoices):
+        STARTER = "starter", "Starter"
+        PROFESSIONAL = "professional", "Professional"
+        ENTERPRISE = "enterprise", "Enterprise"
+
+    class Status(models.TextChoices):
+        TRIAL = "trial", "Deneme"
+        ACTIVE = "active", "Aktif"
+        PAST_DUE = "past_due", "Ödeme bekliyor"
+        CANCELED = "canceled", "İptal edildi"
+        SUSPENDED = "suspended", "Askıya alındı"
+
+    company = models.OneToOneField(
+        Company,
+        on_delete=models.CASCADE,
+        related_name="subscription",
+        verbose_name="Şirket",
+    )
+
+    plan = models.CharField(
+        max_length=20,
+        choices=Plan.choices,
+        default=Plan.STARTER,
+        verbose_name="Plan",
+    )
+
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.TRIAL,
+        verbose_name="Abonelik durumu",
+    )
+
+    member_limit = models.PositiveIntegerField(
+        default=5,
+        verbose_name="Üye limiti",
+    )
+
+    started_at = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name="Başlangıç tarihi",
+    )
+
+    current_period_ends_at = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name="Dönem bitiş tarihi",
+    )
+
+    cancel_at_period_end = models.BooleanField(
+        default=False,
+        verbose_name="Dönem sonunda iptal et",
+    )
+
+    class Meta:
+        verbose_name = "Şirket aboneliği"
+        verbose_name_plural = "Şirket abonelikleri"
+
+    def __str__(self):
+        return f"{self.company.name} · {self.get_plan_display()}"
 
 class Branch(MasterDataModel):
     company = models.ForeignKey(

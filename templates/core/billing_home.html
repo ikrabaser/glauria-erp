@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+
+{% block title %}
+Plan ve Faturalama | Glauria ERP
+{% endblock %}
+
+{% block content %}
+<section class="settings-page billing-page">
+    <header class="settings-page__header">
+        <span class="page-header__eyebrow">
+            Workspace Billing
+        </span>
+
+        <h2 class="settings-page__title">
+            Plan ve Faturalama
+        </h2>
+
+        <p class="settings-page__description">
+            Çalışma alanınızın planını, üye kapasitesini ve abonelik
+            dönemini görüntüleyin.
+        </p>
+    </header>
+
+    {% if current_membership and subscription %}
+        <div class="billing-page__grid">
+            <article class="settings-card billing-plan-card">
+                <div class="billing-plan-card__header">
+                    <div>
+                        <span class="billing-plan-card__eyebrow">
+                            Mevcut plan
+                        </span>
+
+                        <h3>{{ subscription.get_plan_display }}</h3>
+                    </div>
+
+                    <span class="billing-status billing-status--{{ subscription.status }}">
+                        {{ subscription.get_status_display }}
+                    </span>
+                </div>
+
+                <p class="billing-plan-card__description">
+                    {{ current_membership.company.name }} çalışma alanı için
+                    tanımlı aktif abonelik planı.
+                </p>
+
+                <dl class="billing-details">
+                    <div>
+                        <dt>Abonelik başlangıcı</dt>
+                        <dd>
+                            {{ subscription.started_at|date:"d.m.Y"|default:"—" }}
+                        </dd>
+                    </div>
+
+                    <div>
+                        <dt>Mevcut dönem bitişi</dt>
+                        <dd>
+                            {{ subscription.current_period_ends_at|date:"d.m.Y"|default:"—" }}
+                        </dd>
+                    </div>
+
+                    <div>
+                        <dt>Dönem sonunda iptal</dt>
+                        <dd>
+                            {% if subscription.cancel_at_period_end %}
+                                Evet
+                            {% else %}
+                                Hayır
+                            {% endif %}
+                        </dd>
+                    </div>
+                </dl>
+            </article>
+
+            <article class="settings-card billing-capacity-card">
+                <span class="billing-plan-card__eyebrow">
+                    Çalışma alanı kapasitesi
+                </span>
+
+                <strong class="billing-capacity-card__value">
+                    {{ active_member_count }} / {{ subscription.member_limit }}
+                </strong>
+
+                <p>
+                    Aktif üye kullanımı
+                </p>
+
+                <div class="billing-capacity-card__remaining">
+                    {{ remaining_member_count }} üye kontenjanı kullanılabilir.
+                </div>
+            </article>
+        </div>
+
+        <article class="settings-card billing-features-card">
+            <div>
+                <h3>Plan kapsamı</h3>
+
+                <p>
+                    Mevcut aboneliğinizle etkin olan operasyon alanları.
+                </p>
+            </div>
+
+            <ul class="billing-features-list">
+                <li>CRM ve satış fırsatı yönetimi</li>
+                <li>Teklif, sipariş ve satış operasyonları</li>
+                <li>Stok, lot ve depo takibi</li>
+                <li>Üretim, reçete ve kalite kontrol süreçleri</li>
+            </ul>
+        </article>
+    {% else %}
+        <article class="settings-card">
+            <h3>Abonelik bilgisi bulunamadı</h3>
+
+            <p class="customer-detail__notes">
+                Bu kullanıcı için aktif bir çalışma alanı veya abonelik
+                kaydı bulunmuyor.
+            </p>
+        </article>
+    {% endif %}
+</section>
+{% endblock %}

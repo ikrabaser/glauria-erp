@@ -1,13 +1,12 @@
 <header class="app-topbar">
 
     <div>
-        <h1 class="page-title">
-            {% if request.resolver_match.namespace == "dashboard" %}
+                    {% if request.resolver_match.namespace == "dashboard" %}
                 Dashboard
             {% elif request.resolver_match.namespace == "accounts" and request.resolver_match.url_name == "workspace_members" %}
-    Üyeler ve Roller
-{% elif request.resolver_match.namespace == "accounts" %}
-    Profil ve Güvenlik
+                Üyeler ve Roller
+            {% elif request.resolver_match.namespace == "accounts" %}
+                Profil ve Güvenlik
             {% elif request.resolver_match.namespace == "crm" %}
                 CRM
             {% elif request.resolver_match.namespace == "sales" %}
@@ -18,6 +17,8 @@
                 Stok Yönetimi
             {% elif request.resolver_match.namespace == "manufacturing" %}
                 Üretim Yönetimi
+            {% elif request.resolver_match.namespace == "core" and request.resolver_match.url_name == "billing" %}
+                Plan ve Faturalama
             {% elif request.resolver_match.namespace == "core" and request.resolver_match.url_name == "settings" %}
                 Ayarlar
             {% elif request.resolver_match.namespace == "finance" %}
@@ -27,15 +28,13 @@
             {% else %}
                 Glauria ERP
             {% endif %}
-        </h1>
 
-        <p class="page-subtitle">
-            {% if request.resolver_match.namespace == "dashboard" %}
+                    {% if request.resolver_match.namespace == "dashboard" %}
                 Maison Glauria Management Center
             {% elif request.resolver_match.namespace == "accounts" and request.resolver_match.url_name == "workspace_members" %}
-    Çalışma alanı üyeleri, roller ve erişim seviyeleri
-{% elif request.resolver_match.namespace == "accounts" %}
-    Hesap, çalışma alanı rolü ve güvenlik tercihleri
+                Çalışma alanı üyeleri, roller ve erişim seviyeleri
+            {% elif request.resolver_match.namespace == "accounts" %}
+                Hesap, çalışma alanı rolü ve güvenlik tercihleri
             {% elif request.resolver_match.namespace == "crm" %}
                 Müşteri ilişkileri ve satış fırsatları
             {% elif request.resolver_match.namespace == "sales" %}
@@ -46,6 +45,10 @@
                 Ürün, depo ve envanter yönetimi
             {% elif request.resolver_match.namespace == "manufacturing" %}
                 Üretim emirleri ve operasyon yönetimi
+            {% elif request.resolver_match.namespace == "core" and request.resolver_match.url_name == "billing" %}
+                Abonelik planı, kapasite ve çalışma alanı kullanım bilgileri
+            {% elif request.resolver_match.namespace == "core" and request.resolver_match.url_name == "settings" %}
+                Maison Glauria Management Center
             {% elif request.resolver_match.namespace == "finance" %}
                 Finans, muhasebe ve cari işlemler
             {% elif request.resolver_match.namespace == "hr" %}
@@ -53,7 +56,6 @@
             {% else %}
                 Maison Glauria Management Center
             {% endif %}
-        </p>
     </div>
 
         <div class="topbar-account">
@@ -89,6 +91,10 @@
             </div>
 
             <div class="user-menu__divider"></div>
+
+            <a href="{% url 'core:billing' %}" class="user-menu__item">
+    Plan ve Faturalama
+</a>
 
             <a href="{% url 'core:settings' %}" class="user-menu__item">
                 Çalışma Alanı Ayarları
