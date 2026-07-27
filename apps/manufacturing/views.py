@@ -203,6 +203,18 @@ def production_detail(request, production_order_id):
             instance=quality_inspection
         )
 
+    material_consumptions = (
+        StockMovement.objects.select_related(
+            "product",
+            "warehouse",
+            "lot",
+        )
+        .filter(
+            reference=production_order.production_number,
+            movement_type=StockMovement.MovementType.ISSUE,
+        )
+    )
+
     return render(
         request,
         "manufacturing/production_detail.html",
@@ -210,6 +222,7 @@ def production_detail(request, production_order_id):
             "production_order": production_order,
             "quality_inspection": quality_inspection,
             "quality_form": quality_form,
+            "material_consumptions": material_consumptions,
             "current_membership": membership,
         },
     )

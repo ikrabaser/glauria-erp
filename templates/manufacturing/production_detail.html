@@ -167,6 +167,44 @@
             </table>
         </div>
     </article>
+        {% if material_consumptions %}
+        <article class="customer-detail__card customer-detail__card--wide">
+            <h3>Hammadde Tüketim Geçmişi</h3>
+
+            <div class="data-table-wrapper">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Hammadde</th>
+                            <th>Stok kodu</th>
+                            <th>Depo</th>
+                            <th>Lot</th>
+                            <th>Tüketilen miktar</th>
+                            <th>İşlem zamanı</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        {% for movement in material_consumptions %}
+                            <tr>
+                                <td>{{ movement.product.name }}</td>
+                                <td>{{ movement.product.sku }}</td>
+                                <td>{{ movement.warehouse.name }}</td>
+                                <td>{{ movement.lot.lot_number|default:"—" }}</td>
+                                <td>
+                                    {{ movement.quantity }}
+                                    {{ movement.product.unit }}
+                                </td>
+                                <td>
+                                    {{ movement.created_at|date:"d.m.Y H:i" }}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </article>
+    {% endif %}
 
         {% if production_order.status == "quality_control" and quality_form %}
         <article class="customer-detail__card customer-detail__card--wide">
