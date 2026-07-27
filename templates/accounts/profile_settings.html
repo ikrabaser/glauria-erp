@@ -1,0 +1,154 @@
+{% extends "base.html" %}
+
+{% block title %}
+Profil ve Güvenlik | Glauria ERP
+{% endblock %}
+
+{% block content %}
+<section class="settings-page">
+    <header class="settings-page__header">
+        <span class="page-header__eyebrow">
+            Account Preferences
+        </span>
+
+        <h2 class="settings-page__title">
+            Profil ve Güvenlik
+        </h2>
+
+        <p class="settings-page__description">
+            Hesap bilgilerinizi, çalışma alanı rolünüzü ve güvenlik tercihlerinizi yönetin.
+        </p>
+    </header>
+
+    {% if request.GET.updated == "profile" %}
+        <div class="settings-feedback settings-feedback--success">
+            Profil bilgileriniz güncellendi.
+        </div>
+    {% elif request.GET.updated == "password" %}
+        <div class="settings-feedback settings-feedback--success">
+            Parolanız güncellendi.
+        </div>
+    {% endif %}
+
+    <div class="profile-settings-grid">
+        <article class="settings-card">
+            <h3>Profil Bilgileri</h3>
+
+            <form method="post" class="customer-form">
+                {% csrf_token %}
+                <input type="hidden" name="form_type" value="profile">
+
+                <div class="customer-form__grid">
+                    <div class="customer-form__field">
+                        <label for="{{ profile_form.first_name.id_for_label }}">
+                            Ad
+                        </label>
+                        {{ profile_form.first_name }}
+                        {{ profile_form.first_name.errors }}
+                    </div>
+
+                    <div class="customer-form__field">
+                        <label for="{{ profile_form.last_name.id_for_label }}">
+                            Soyad
+                        </label>
+                        {{ profile_form.last_name }}
+                        {{ profile_form.last_name.errors }}
+                    </div>
+
+                    <div class="customer-form__field customer-form__field--full">
+                        <label for="{{ profile_form.email.id_for_label }}">
+                            E-posta adresi
+                        </label>
+                        {{ profile_form.email }}
+                        {{ profile_form.email.errors }}
+                    </div>
+                </div>
+
+                <div class="customer-form__actions">
+                    <button type="submit" class="customer-form__submit">
+                        Profili Kaydet
+                    </button>
+                </div>
+            </form>
+        </article>
+
+        <article class="settings-card">
+            <h3>Çalışma Alanı Rolü</h3>
+
+            <dl class="customer-detail__list">
+                <div>
+                    <dt>Kullanıcı adı</dt>
+                    <dd>{{ request.user.username }}</dd>
+                </div>
+
+                <div>
+                    <dt>Kullanıcı türü</dt>
+                    <dd>{{ request.user.get_user_type_display }}</dd>
+                </div>
+
+                <div>
+                    <dt>Çalışma alanı</dt>
+                    <dd>{{ membership.company|default:"—" }}</dd>
+                </div>
+
+                <div>
+                    <dt>Şube / Departman</dt>
+                    <dd>
+                        {% if membership %}
+                            {{ membership.branch }} / {{ membership.department }}
+                        {% else %}
+                            —
+                        {% endif %}
+                    </dd>
+                </div>
+
+                <div>
+                    <dt>Pozisyon</dt>
+                    <dd>{{ membership.job_title|default:"—" }}</dd>
+                </div>
+            </dl>
+        </article>
+
+        <article class="settings-card settings-card--wide">
+            <h3>Parola Değiştir</h3>
+
+            <form method="post" class="customer-form">
+                {% csrf_token %}
+                <input type="hidden" name="form_type" value="password">
+
+                <div class="customer-form__grid">
+                    <div class="customer-form__field">
+                        <label for="{{ password_form.old_password.id_for_label }}">
+                            Mevcut parola
+                        </label>
+                        {{ password_form.old_password }}
+                        {{ password_form.old_password.errors }}
+                    </div>
+
+                    <div class="customer-form__field">
+                        <label for="{{ password_form.new_password1.id_for_label }}">
+                            Yeni parola
+                        </label>
+                        {{ password_form.new_password1 }}
+                        {{ password_form.new_password1.errors }}
+                    </div>
+
+                    <div class="customer-form__field">
+                        <label for="{{ password_form.new_password2.id_for_label }}">
+                            Yeni parolayı doğrula
+                        </label>
+                        {{ password_form.new_password2 }}
+                        {{ password_form.new_password2.errors }}
+                    </div>
+                </div>
+
+                <div class="customer-form__actions">
+                    <button type="submit" class="customer-form__submit">
+                        Parolayı Güncelle
+                    </button>
+                </div>
+            </form>
+        </article>
+    </div>
+</section>
+{% endblock %}

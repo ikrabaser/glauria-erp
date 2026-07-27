@@ -631,3 +631,95 @@ html[data-theme="light"] .user-menu {
     border-color: rgba(67, 42, 53, 0.14);
     box-shadow: 0 18px 42px rgba(69, 43, 54, 0.14);
 }
+/* Profile and security */
+
+.profile-settings-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 20px;
+}
+
+.settings-card--wide {
+    grid-column: 1 / -1;
+}
+
+.settings-feedback {
+    margin-bottom: 20px;
+    padding: 13px 16px;
+    border: 1px solid;
+    border-radius: var(--radius-md);
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.settings-feedback--success {
+    color: #16724a;
+    background: rgba(59, 156, 103, 0.12);
+    border-color: rgba(59, 156, 103, 0.22);
+}
+
+@media (max-width: 860px) {
+    .profile-settings-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .settings-card--wide {
+        grid-column: auto;
+    }
+}
+/* Profile page layout and light-theme form fields */
+
+.profile-settings-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 20px;
+    max-width: 1280px;
+}
+
+.profile-settings-grid > .settings-card {
+    min-width: 0;
+    align-self: start;
+}
+
+.profile-settings-grid > .settings-card--wide {
+    grid-column: 1 / -1;
+}
+
+html[data-theme="light"] .customer-form__field input,
+html[data-theme="light"] .customer-form__field select,
+html[data-theme="light"] .customer-form__field textarea {
+    color: #2b2027;
+    background: #ffffff;
+    border-color: rgba(67, 42, 53, 0.16);
+    box-shadow: none;
+}
+
+html[data-theme="light"] .customer-form__field input::placeholder,
+html[data-theme="light"] .customer-form__field textarea::placeholder {
+    color: #9a8992;
+}
+
+html[data-theme="light"] .customer-form__field input:focus,
+html[data-theme="light"] .customer-form__field select:focus,
+html[data-theme="light"] .customer-form__field textarea:focus {
+    border-color: rgba(166, 101, 82, 0.52);
+    box-shadow: 0 0 0 4px rgba(215, 164, 143, 0.15);
+}
+
+html[data-theme="light"] .customer-detail__list dt {
+    color: #76636d;
+}
+
+html[data-theme="light"] .customer-detail__list dd {
+    color: #2b2027;
+}
+
+@media (max-width: 960px) {
+    .profile-settings-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .profile-settings-grid > .settings-card--wide {
+        grid-column: auto;
+    }
+}

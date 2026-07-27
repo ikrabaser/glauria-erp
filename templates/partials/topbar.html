@@ -4,6 +4,8 @@
         <h1 class="page-title">
             {% if request.resolver_match.namespace == "dashboard" %}
                 Dashboard
+            {% elif request.resolver_match.namespace == "accounts" %}
+                Profil ve Güvenlik
             {% elif request.resolver_match.namespace == "crm" %}
                 CRM
             {% elif request.resolver_match.namespace == "sales" %}
@@ -28,6 +30,8 @@
         <p class="page-subtitle">
             {% if request.resolver_match.namespace == "dashboard" %}
                 Maison Glauria Management Center
+            {% elif request.resolver_match.namespace == "accounts" %}
+                Hesap, çalışma alanı rolü ve güvenlik tercihleri
             {% elif request.resolver_match.namespace == "crm" %}
                 Müşteri ilişkileri ve satış fırsatları
             {% elif request.resolver_match.namespace == "sales" %}
@@ -86,9 +90,9 @@
                 Çalışma Alanı Ayarları
             </a>
 
-            <span class="user-menu__item user-menu__item--disabled">
-                Profil yönetimi · Yakında
-            </span>
+            <a href="{% url 'accounts:profile' %}" class="user-menu__item">
+    Profil ve Güvenlik
+</a>
         </div>
     </div>
 
