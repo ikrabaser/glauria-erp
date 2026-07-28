@@ -13,6 +13,7 @@ from django.urls import reverse
 from apps.core.models import Notification
 
 from apps.sales.models import SalesOrder
+from apps.accounts.data_access import filter_company_records
 
 from apps.inventory.models import InventoryLot, Product, StockMovement
 from apps.inventory.services import (
@@ -160,13 +161,14 @@ def home(request):
     membership = get_active_membership(request.user)
 
     if membership:
-        production_orders = (
+        production_orders = filter_company_records(
             ProductionOrder.objects.select_related(
                 "sales_order",
                 "sales_order__customer",
                 "owner",
-            )
-            .filter(company=membership.company)
+            ),
+            membership,
+            "owner",
         )
     else:
         production_orders = ProductionOrder.objects.none()
@@ -189,14 +191,17 @@ def production_detail(request, production_order_id):
         return redirect("manufacturing:home")
 
     production_order = get_object_or_404(
-        ProductionOrder.objects.select_related(
-            "sales_order",
-            "sales_order__customer",
+        filter_company_records(
+            ProductionOrder.objects.select_related(
+                "sales_order",
+                "sales_order__customer",
+                "owner",
+                "quality_inspection",
+            ).prefetch_related("lines"),
+            membership,
             "owner",
-            "quality_inspection",
-        ).prefetch_related("lines"),
+        ),
         id=production_order_id,
-        company=membership.company,
     )
 
     quality_inspection = getattr(
@@ -209,7 +214,7 @@ def production_detail(request, production_order_id):
 
     if production_order.status == ProductionOrder.Status.QUALITY_CONTROL:
         quality_form = QualityInspectionForm(
-            instance=quality_inspection
+            instance=quality_inspection,
         )
 
     material_consumptions = (
@@ -253,12 +258,15 @@ def production_status_update(request, production_order_id, status):
     }
 
     production_order = get_object_or_404(
-        ProductionOrder.objects.select_related(
-            "sales_order",
-            "quality_inspection",
+        filter_company_records(
+            ProductionOrder.objects.select_related(
+                "sales_order",
+                "quality_inspection",
+            ),
+            membership,
+            "owner",
         ),
         id=production_order_id,
-        company=membership.company,
     )
 
     expected_status = allowed_transitions.get(production_order.status)
@@ -343,9 +351,12 @@ def quality_inspection_update(request, production_order_id):
         return redirect("manufacturing:home")
 
     production_order = get_object_or_404(
-        ProductionOrder,
+        filter_company_records(
+            ProductionOrder.objects,
+            membership,
+            "owner",
+        ),
         id=production_order_id,
-        company=membership.company,
     )
 
     if production_order.status != ProductionOrder.Status.QUALITY_CONTROL:
@@ -379,7 +390,7 @@ def quality_inspection_update(request, production_order_id):
         if quality_inspection.status == QualityInspection.Status.FAILED:
             production_order.status = ProductionOrder.Status.IN_PRODUCTION
             production_order.save(
-                update_fields=["status", "updated_at"]
+                update_fields=["status", "updated_at"],
             )
 
         if (
