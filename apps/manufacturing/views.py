@@ -13,7 +13,8 @@ from django.urls import reverse
 from apps.core.models import Notification
 
 from apps.sales.models import SalesOrder
-from apps.accounts.data_access import filter_company_records
+from apps.accounts.data_access import has_full_company_data_access
+from apps.accounts.models import OrganizationMembership
 
 from apps.inventory.models import InventoryLot, Product, StockMovement
 from apps.inventory.services import (
@@ -37,6 +38,30 @@ def get_active_membership(user):
         .filter(is_active=True)
         .order_by("-is_primary", "created_at")
         .first()
+    )
+def filter_accessible_production_orders(queryset, membership):
+    production_orders = queryset.filter(
+        company=membership.company,
+    )
+
+    if has_full_company_data_access(membership):
+        return production_orders
+
+    if membership.role == OrganizationMembership.Role.MANAGER:
+        return production_orders.filter(
+            branch=membership.branch,
+        )
+
+    if membership.role == OrganizationMembership.Role.MEMBER:
+        return production_orders.filter(
+            branch=membership.branch,
+            department=membership.department,
+        )
+
+    return production_orders.filter(
+        branch=membership.branch,
+        department=membership.department,
+        owner=membership.user,
     )
 def consume_bom_materials(production_order, user):
     production_lines = (
@@ -161,14 +186,15 @@ def home(request):
     membership = get_active_membership(request.user)
 
     if membership:
-        production_orders = filter_company_records(
+                production_orders = filter_accessible_production_orders(
             ProductionOrder.objects.select_related(
                 "sales_order",
                 "sales_order__customer",
                 "owner",
+                "branch",
+                "department",
             ),
             membership,
-            "owner",
         )
     else:
         production_orders = ProductionOrder.objects.none()
@@ -191,15 +217,16 @@ def production_detail(request, production_order_id):
         return redirect("manufacturing:home")
 
     production_order = get_object_or_404(
-        filter_company_records(
+                filter_accessible_production_orders(
             ProductionOrder.objects.select_related(
                 "sales_order",
                 "sales_order__customer",
                 "owner",
+                "branch",
+                "department",
                 "quality_inspection",
             ).prefetch_related("lines"),
             membership,
-            "owner",
         ),
         id=production_order_id,
     )
@@ -258,13 +285,14 @@ def production_status_update(request, production_order_id, status):
     }
 
     production_order = get_object_or_404(
-        filter_company_records(
+            filter_accessible_production_orders(
             ProductionOrder.objects.select_related(
                 "sales_order",
+                "branch",
+                "department",
                 "quality_inspection",
             ),
             membership,
-            "owner",
         ),
         id=production_order_id,
     )
@@ -351,10 +379,12 @@ def quality_inspection_update(request, production_order_id):
         return redirect("manufacturing:home")
 
     production_order = get_object_or_404(
-        filter_company_records(
-            ProductionOrder.objects,
+            filter_accessible_production_orders(
+            ProductionOrder.objects.select_related(
+                "branch",
+                "department",
+            ),
             membership,
-            "owner",
         ),
         id=production_order_id,
     )

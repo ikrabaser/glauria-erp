@@ -28,6 +28,21 @@ def get_active_membership(user):
         .first()
     )
 
+def get_active_membership_for_company(user, company):
+    if not user:
+        return None
+
+    return (
+        user.organization_memberships
+        .filter(
+            company=company,
+            is_active=True,
+        )
+        .select_related("branch", "department")
+        .order_by("-is_primary", "created_at")
+        .first()
+    )
+
 
 @login_required
 def home(request):
@@ -241,13 +256,28 @@ def create_sales_order_from_quote(quote):
 
 
 def create_production_order_from_sales_order(order):
+    membership = get_active_membership_for_company(
+        order.owner,
+        order.company,
+    )
+
+    if not membership:
+        raise ValueError(
+            "Üretim emri oluşturulacak satış siparişinin sorumlu "
+            "kullanıcısı için aktif organizasyon üyeliği bulunamadı."
+        )
+
     with transaction.atomic():
         production_order, created = ProductionOrder.objects.get_or_create(
             sales_order=order,
             defaults={
                 "company": order.company,
+                "branch": membership.branch,
+                "department": membership.department,
                 "status": ProductionOrder.Status.IN_PRODUCTION,
-                "planned_completion_date": order.planned_delivery_date,
+                "planned_completion_date": (
+                    order.planned_delivery_date
+                ),
                 "notes": order.notes,
                 "owner": order.owner,
             },
