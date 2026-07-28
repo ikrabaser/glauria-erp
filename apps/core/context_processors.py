@@ -1,3 +1,5 @@
+from apps.accounts.permissions import get_module_access_context
+
 from .models import Notification
 
 
@@ -21,3 +23,7 @@ def notification_context(request):
             "-created_at",
         )[:5],
     }
+
+
+def module_access_context(request):
+    return get_module_access_context(request.user)

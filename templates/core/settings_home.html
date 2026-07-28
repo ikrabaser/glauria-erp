@@ -56,22 +56,53 @@ Ayarlar | Glauria ERP
             <article id="appearance" class="settings-card">
                 <h3>Görünüm</h3>
 
-                <div class="settings-row">
-                    <div>
-                        <strong>Tema tercihi</strong>
-                        <span>Uygulamanın renk görünümünü belirleyin.</span>
-                    </div>
+                <form method="post">
+                    {% csrf_token %}
 
-                    <select
-                        id="theme-preference"
-                        class="settings-select"
-                        aria-label="Tema tercihi"
-                    >
-                        <option value="system">Sistem</option>
-                        <option value="dark">Koyu</option>
-                        <option value="light">Açık</option>
-                    </select>
-                </div>
+                    <div class="settings-row">
+                        <div>
+                            <strong>Tema tercihi</strong>
+                            <span>
+                                Tercihiniz hesabınıza kaydedilir ve diğer
+                                cihazlarda da uygulanır.
+                            </span>
+                        </div>
+
+                        <div class="settings-theme-control">
+                            <select
+                                id="theme-preference"
+                                name="theme_preference"
+                                class="settings-select"
+                                aria-label="Tema tercihi"
+                            >
+                                <option
+                                    value="system"
+                                    {% if theme_preference == "system" %}selected{% endif %}
+                                >
+                                    Sistem
+                                </option>
+
+                                <option
+                                    value="dark"
+                                    {% if theme_preference == "dark" %}selected{% endif %}
+                                >
+                                    Koyu
+                                </option>
+
+                                <option
+                                    value="light"
+                                    {% if theme_preference == "light" %}selected{% endif %}
+                                >
+                                    Açık
+                                </option>
+                            </select>
+
+                            <button type="submit" class="settings-theme-save">
+                                Temayı Kaydet
+                            </button>
+                        </div>
+                    </div>
+                </form>
             </article>
 
             <article id="notifications" class="settings-card">
@@ -80,7 +111,9 @@ Ayarlar | Glauria ERP
                 <div class="settings-row">
                     <div>
                         <strong>Operasyon bildirimleri</strong>
-                        <span>Üretim, kalite ve stok süreçleri için bildirim alın.</span>
+                        <span>
+                            Üretim, kalite ve stok süreçleri için bildirim alın.
+                        </span>
                     </div>
 
                     <span class="settings-row__coming-soon">

@@ -36,20 +36,20 @@ def notify_if_product_below_reorder_level(product):
     if available_quantity > product.reorder_level:
         return
 
-    recipient_ids = (
+    memberships = (
         OrganizationMembership.objects
         .filter(
             company=product.company,
             is_active=True,
-            role__in=[
-                OrganizationMembership.Role.OWNER,
-                OrganizationMembership.Role.ADMIN,
-                OrganizationMembership.Role.MANAGER,
-            ],
         )
-        .values_list("user_id", flat=True)
-        .distinct()
+        .select_related("user")
     )
+
+    recipient_ids = {
+        membership.user_id
+        for membership in memberships
+        if membership.receives_critical_stock_alerts
+    }
 
     target_url = (
         f"{reverse('inventory:home')}?product={product.id}"

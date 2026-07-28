@@ -1,10 +1,10 @@
 from django.contrib.auth.decorators import login_required
+from django.db import transaction
+from django.http import HttpResponseBadRequest
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
-from django.http import HttpResponseBadRequest
-from django.db import transaction
 
-
+from apps.accounts.data_access import filter_company_records
 from apps.crm.models import Customer, Opportunity
 from apps.inventory.models import Product
 from apps.manufacturing.models import (
@@ -34,10 +34,14 @@ def home(request):
     membership = get_active_membership(request.user)
 
     if membership:
-        quotes = (
-            SalesQuote.objects
-            .select_related("customer", "opportunity", "owner")
-            .filter(company=membership.company)
+        quotes = filter_company_records(
+            SalesQuote.objects.select_related(
+                "customer",
+                "opportunity",
+                "owner",
+            ),
+            membership,
+            "owner",
         )
     else:
         quotes = SalesQuote.objects.none()
@@ -62,10 +66,15 @@ def quote_create(request, opportunity_id=None):
     initial = {}
 
     if opportunity_id:
+        opportunities = filter_company_records(
+            Opportunity.objects,
+            membership,
+            "owner",
+        )
+
         opportunity = get_object_or_404(
-            Opportunity,
+            opportunities,
             id=opportunity_id,
-            company=membership.company,
         )
 
         initial = {
@@ -79,12 +88,16 @@ def quote_create(request, opportunity_id=None):
         initial=initial,
     )
 
-    form.fields["customer"].queryset = Customer.objects.filter(
-        company=membership.company
+    form.fields["customer"].queryset = filter_company_records(
+        Customer.objects,
+        membership,
+        "created_by",
     ).order_by("name")
 
-    form.fields["opportunity"].queryset = Opportunity.objects.filter(
-        company=membership.company
+    form.fields["opportunity"].queryset = filter_company_records(
+        Opportunity.objects,
+        membership,
+        "owner",
     ).order_by("-updated_at")
 
     if request.method == "POST" and form.is_valid():
@@ -116,14 +129,19 @@ def quote_detail(request, quote_id):
     if not membership:
         return redirect("sales:home")
 
-    quote = get_object_or_404(
+    quotes = filter_company_records(
         SalesQuote.objects.select_related(
             "customer",
             "opportunity",
             "owner",
         ).prefetch_related("lines"),
+        membership,
+        "owner",
+    )
+
+    quote = get_object_or_404(
+        quotes,
         id=quote_id,
-        company=membership.company,
     )
 
     line_form = SalesQuoteLineForm()
@@ -142,6 +160,8 @@ def quote_detail(request, quote_id):
             "current_membership": membership,
         },
     )
+
+
 @login_required
 @require_POST
 def quote_line_create(request, quote_id):
@@ -150,10 +170,15 @@ def quote_line_create(request, quote_id):
     if not membership:
         return redirect("sales:home")
 
+    quotes = filter_company_records(
+        SalesQuote.objects,
+        membership,
+        "owner",
+    )
+
     quote = get_object_or_404(
-        SalesQuote,
+        quotes,
         id=quote_id,
-        company=membership.company,
     )
 
     form = SalesQuoteLineForm(request.POST)
@@ -175,6 +200,8 @@ def quote_line_create(request, quote_id):
         "sales:quote_detail",
         quote_id=quote.id,
     )
+
+
 def create_sales_order_from_quote(quote):
     with transaction.atomic():
         order, created = SalesOrder.objects.get_or_create(
@@ -211,6 +238,8 @@ def create_sales_order_from_quote(quote):
             )
 
     return order
+
+
 def create_production_order_from_sales_order(order):
     with transaction.atomic():
         production_order, created = ProductionOrder.objects.get_or_create(
@@ -243,6 +272,7 @@ def create_production_order_from_sales_order(order):
 
     return production_order
 
+
 @login_required
 @require_POST
 def quote_status_update(request, quote_id, status):
@@ -259,14 +289,19 @@ def quote_status_update(request, quote_id, status):
     if status not in allowed_statuses:
         return HttpResponseBadRequest("Geçersiz teklif durumu.")
 
-    quote = get_object_or_404(
+    quotes = filter_company_records(
         SalesQuote.objects.select_related(
             "customer",
             "opportunity",
             "owner",
         ).prefetch_related("lines"),
+        membership,
+        "owner",
+    )
+
+    quote = get_object_or_404(
+        quotes,
         id=quote_id,
-        company=membership.company,
     )
 
     quote.status = status
@@ -274,19 +309,30 @@ def quote_status_update(request, quote_id, status):
 
     if status == SalesQuote.Status.SENT and quote.opportunity:
         quote.opportunity.quote_status = Opportunity.QuoteStatus.SENT
-        quote.opportunity.save(update_fields=["quote_status", "updated_at"])
+        quote.opportunity.save(
+            update_fields=["quote_status", "updated_at"]
+        )
 
     elif status == SalesQuote.Status.ACCEPTED:
         if quote.opportunity:
-            quote.opportunity.quote_status = Opportunity.QuoteStatus.ACCEPTED
+            quote.opportunity.quote_status = (
+                Opportunity.QuoteStatus.ACCEPTED
+            )
             quote.opportunity.stage = Opportunity.Stage.WON
             quote.opportunity.save(
-                update_fields=["quote_status", "stage", "updated_at"]
+                update_fields=[
+                    "quote_status",
+                    "stage",
+                    "updated_at",
+                ]
             )
 
         create_sales_order_from_quote(quote)
 
-    return redirect("sales:quote_detail", quote_id=quote.id)
+    return redirect(
+        "sales:quote_detail",
+        quote_id=quote.id,
+    )
 
 
 @login_required
@@ -297,13 +343,18 @@ def quote_order_create(request, quote_id):
     if not membership:
         return redirect("sales:home")
 
-    quote = get_object_or_404(
+    quotes = filter_company_records(
         SalesQuote.objects.select_related(
             "customer",
             "owner",
         ).prefetch_related("lines"),
+        membership,
+        "owner",
+    )
+
+    quote = get_object_or_404(
+        quotes,
         id=quote_id,
-        company=membership.company,
     )
 
     if quote.status != SalesQuote.Status.ACCEPTED:
@@ -313,21 +364,25 @@ def quote_order_create(request, quote_id):
 
     order = create_sales_order_from_quote(quote)
 
-    return redirect("sales:order_detail", order_id=order.id)
+    return redirect(
+        "sales:order_detail",
+        order_id=order.id,
+    )
 
-    return redirect("sales:quote_detail", quote_id=quote.id)
+
 @login_required
 def orders_home(request):
     membership = get_active_membership(request.user)
 
     if membership:
-        orders = (
+        orders = filter_company_records(
             SalesOrder.objects.select_related(
                 "customer",
                 "quote",
                 "owner",
-            )
-            .filter(company=membership.company)
+            ),
+            membership,
+            "owner",
         )
     else:
         orders = SalesOrder.objects.none()
@@ -340,6 +395,8 @@ def orders_home(request):
             "current_membership": membership,
         },
     )
+
+
 @login_required
 @require_POST
 def order_status_update(request, order_id, status):
@@ -349,28 +406,46 @@ def order_status_update(request, order_id, status):
         return redirect("sales:home")
 
     allowed_transitions = {
-        SalesOrder.Status.CONFIRMED: SalesOrder.Status.IN_PRODUCTION,
-        SalesOrder.Status.IN_PRODUCTION: SalesOrder.Status.READY_TO_SHIP,
-        SalesOrder.Status.READY_TO_SHIP: SalesOrder.Status.COMPLETED,
+        SalesOrder.Status.CONFIRMED: (
+            SalesOrder.Status.IN_PRODUCTION
+        ),
+        SalesOrder.Status.IN_PRODUCTION: (
+            SalesOrder.Status.READY_TO_SHIP
+        ),
+        SalesOrder.Status.READY_TO_SHIP: (
+            SalesOrder.Status.COMPLETED
+        ),
     }
 
+    orders = filter_company_records(
+        SalesOrder.objects,
+        membership,
+        "owner",
+    )
+
     order = get_object_or_404(
-        SalesOrder,
+        orders,
         id=order_id,
-        company=membership.company,
     )
 
     expected_status = allowed_transitions.get(order.status)
 
     if status != expected_status:
-        return HttpResponseBadRequest("Bu sipariş için geçersiz durum geçişi.")
+        return HttpResponseBadRequest(
+            "Bu sipariş için geçersiz durum geçişi."
+        )
 
     order.status = status
     order.save(update_fields=["status", "updated_at"])
 
     if status == SalesOrder.Status.IN_PRODUCTION:
-         create_production_order_from_sales_order(order)
-    return redirect("sales:order_detail", order_id=order.id)
+        create_production_order_from_sales_order(order)
+
+    return redirect(
+        "sales:order_detail",
+        order_id=order.id,
+    )
+
 
 @login_required
 def order_detail(request, order_id):
@@ -379,14 +454,19 @@ def order_detail(request, order_id):
     if not membership:
         return redirect("sales:home")
 
-    order = get_object_or_404(
+    orders = filter_company_records(
         SalesOrder.objects.select_related(
             "customer",
             "quote",
             "owner",
         ).prefetch_related("lines"),
+        membership,
+        "owner",
+    )
+
+    order = get_object_or_404(
+        orders,
         id=order_id,
-        company=membership.company,
     )
 
     return render(

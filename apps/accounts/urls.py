@@ -33,7 +33,7 @@ urlpatterns = [
         name="workspace_member_create",
     ),
     path(
-        "workspace/members/<uuid:membership_id>/access/",
+        "workspace/members/<int:membership_id>/access/",
         workspace_member_access_update,
         name="workspace_member_access_update",
     ),

@@ -166,48 +166,33 @@ svg {
 
 .sidebar-brand {
     display: flex;
+    width: 100%;
+    min-height: 122px;
     align-items: center;
-    gap: 13px;
-    padding: 0 8px 26px;
+    justify-content: center;
+    padding: 0 8px 22px;
+    overflow: hidden;
     border-bottom: 1px solid var(--color-border);
 }
 
-.brand-mark {
-    display: grid;
-    width: 44px;
-    height: 44px;
-    flex: 0 0 44px;
-    place-items: center;
-    color: var(--color-metallic-gold);
-    background:
-        linear-gradient(
-            145deg,
-            rgba(214, 173, 104, 0.16),
-            rgba(142, 92, 246, 0.08)
-        );
-    border: 1px solid rgba(214, 173, 104, 0.42);
-    border-radius: 14px;
-    font-family: Georgia, serif;
-    font-size: 22px;
-}
-
-.sidebar-brand strong {
+.brand-logo {
     display: block;
-    color: var(--color-rose-gold-light);
-    font-size: 16px;
-    font-weight: 600;
-    letter-spacing: 0.06em;
+    width: min(100%, 220px);
+    height: 98px;
+    object-fit: contain;
 }
 
-.sidebar-brand small {
+.brand-logo--light {
+    display: none;
+}
+
+html[data-theme="light"] .brand-logo--dark {
+    display: none;
+}
+
+html[data-theme="light"] .brand-logo--light {
     display: block;
-    margin-top: 2px;
-    color: var(--color-text-muted);
-    font-size: 11px;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
 }
-
 
 /* =========================================================
    SIDEBAR NAVIGATION
@@ -1783,4 +1768,37 @@ svg {
         align-items: flex-start;
         flex-direction: column;
     }
+}
+/* =========================================================
+   THEME-AWARE BRAND LOGO
+   ========================================================= */
+
+.sidebar-brand {
+    display: flex;
+    width: 100%;
+    min-height: 122px;
+    align-items: center;
+    justify-content: center;
+    padding: 0 8px 22px;
+    overflow: hidden;
+    border-bottom: 1px solid var(--color-border);
+}
+
+.brand-logo {
+    display: block;
+    width: min(100%, 220px);
+    height: 98px;
+    object-fit: contain;
+}
+
+.brand-logo--light {
+    display: none;
+}
+
+html[data-theme="light"] .brand-logo--dark {
+    display: none;
+}
+
+html[data-theme="light"] .brand-logo--light {
+    display: block;
 }

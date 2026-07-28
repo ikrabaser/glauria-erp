@@ -1,5 +1,8 @@
 (function () {
     const storageKey = "glauria-theme-preference";
+    const serverPreference = (
+        document.documentElement.dataset.themePreference || "system"
+    );
 
     function resolvedTheme(preference) {
         if (preference === "system") {
@@ -21,9 +24,7 @@
         localStorage.setItem(storageKey, preference);
     }
 
-        const savedPreference = localStorage.getItem(storageKey) || "system";
-
-    applyTheme(savedPreference);
+    applyTheme(serverPreference);
 
     const select = document.querySelector("#theme-preference");
 
@@ -31,7 +32,7 @@
         return;
     }
 
-    select.value = savedPreference;
+    select.value = serverPreference;
 
     select.addEventListener("change", function () {
         applyTheme(select.value);
