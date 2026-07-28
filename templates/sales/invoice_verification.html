@@ -1,0 +1,186 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>
+        {{ invoice.invoice_number }} Doğrulama | Glauria ERP
+    </title>
+
+    <style>
+        :root {
+            color: #2d2027;
+            background: #f8f4f5;
+            font-family: Inter, Arial, sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            display: grid;
+            min-height: 100vh;
+            margin: 0;
+            place-items: center;
+            padding: 24px;
+            background:
+                radial-gradient(
+                    circle at 15% 10%,
+                    rgba(142, 92, 246, 0.14),
+                    transparent 32%
+                ),
+                radial-gradient(
+                    circle at 86% 88%,
+                    rgba(215, 164, 143, 0.19),
+                    transparent 36%
+                ),
+                #f8f4f5;
+        }
+
+        .verification-card {
+            width: min(100%, 560px);
+            padding: 36px;
+            text-align: center;
+            background: rgba(255, 253, 252, 0.96);
+            border: 1px solid rgba(111, 80, 91, 0.16);
+            border-radius: 22px;
+            box-shadow: 0 24px 70px rgba(69, 43, 54, 0.15);
+        }
+
+        .verification-logo {
+            width: 132px;
+            height: 84px;
+            margin: 0 auto 22px;
+            object-fit: contain;
+        }
+
+        .verification-label {
+            color: #a0604a;
+            font-size: 11px;
+            font-weight: 800;
+            letter-spacing: 0.13em;
+        }
+
+        h1 {
+            margin: 10px 0 8px;
+            font-size: 27px;
+        }
+
+        .verification-card > p {
+            margin: 0;
+            color: #75636c;
+            line-height: 1.6;
+        }
+
+        .verification-status {
+            display: inline-flex;
+            margin: 22px 0;
+            padding: 7px 12px;
+            color: #286a4e;
+            font-size: 13px;
+            font-weight: 700;
+            background: #e8f4ed;
+            border-radius: 999px;
+        }
+
+        .verification-details {
+            display: grid;
+            gap: 0;
+            margin: 0;
+            text-align: left;
+            border-top: 1px solid rgba(111, 80, 91, 0.14);
+        }
+
+        .verification-details div {
+            display: flex;
+            justify-content: space-between;
+            gap: 18px;
+            padding: 13px 0;
+            border-bottom: 1px solid rgba(111, 80, 91, 0.14);
+        }
+
+        dt {
+            color: #806b73;
+            font-size: 13px;
+        }
+
+        dd {
+            margin: 0;
+            color: #34242c;
+            font-size: 13px;
+            font-weight: 700;
+            text-align: right;
+        }
+
+        .verification-note {
+            margin-top: 22px !important;
+            color: #9a7470 !important;
+            font-size: 12px;
+        }
+    </style>
+</head>
+
+<body>
+    <main class="verification-card">
+        <img
+            src="{% static 'images/brand/glauria-logo-light.png' %}"
+            alt="Glauria ERP"
+            class="verification-logo"
+        >
+
+        <span class="verification-label">
+            FATURA DOĞRULAMA
+        </span>
+
+        <h1>Fatura kaydı doğrulandı</h1>
+
+        <p>
+            Bu kayıt Glauria ERP satış faturası olarak sistemde bulunmaktadır.
+        </p>
+
+        <span class="verification-status">
+            {{ invoice.get_status_display }}
+        </span>
+
+        <dl class="verification-details">
+            <div>
+                <dt>Fatura no</dt>
+                <dd>{{ invoice.invoice_number }}</dd>
+            </div>
+
+            <div>
+                <dt>Müşteri</dt>
+                <dd>{{ invoice.customer_name }}</dd>
+            </div>
+
+            <div>
+                <dt>Fatura tarihi</dt>
+                <dd>{{ invoice.issue_date|date:"d.m.Y" }}</dd>
+            </div>
+
+            <div>
+                <dt>Toplam tutar</dt>
+                <dd>₺{{ invoice.total_amount|floatformat:2 }}</dd>
+            </div>
+
+            <div>
+                <dt>Doğrulama kodu</dt>
+                <dd>{{ invoice.verification_code }}</dd>
+            </div>
+        </dl>
+
+        <p class="verification-note">
+            Bu doğrulama sayfası Glauria ERP içi kayıt doğrulamasıdır.
+            GİB e-Fatura veya e-Arşiv doğrulaması değildir.
+        </p>
+    </main>
+</body>
+</html>

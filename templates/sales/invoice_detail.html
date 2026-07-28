@@ -46,6 +46,21 @@
                 <span>SALES INVOICE</span>
                 <strong>Satış Faturası</strong>
             </div>
+
+            <a
+                href="{{ verification_url }}"
+                target="_blank"
+                rel="noopener"
+                class="invoice-document__verification"
+                title="Fatura doğrulamasını yeni sekmede aç"
+            >
+                <img
+                    src="{{ verification_qr_data_uri }}"
+                    alt="Fatura doğrulama QR kodu"
+                >
+
+                <span>Faturayı doğrula</span>
+            </a>
         </header>
 
         <section class="invoice-document__parties">

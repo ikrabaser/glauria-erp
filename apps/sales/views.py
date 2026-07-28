@@ -1,8 +1,13 @@
+import base64
+from io import BytesIO
+import qrcode
+
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
 from django.http import HttpResponseBadRequest
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
+from django.urls import reverse
 
 from apps.accounts.data_access import (
     filter_company_records,
@@ -610,6 +615,24 @@ def invoice_detail(request, invoice_id):
         invoices,
         id=invoice_id,
     )
+    verification_url = request.build_absolute_uri(
+        reverse(
+            "sales:invoice_verification",
+            kwargs={
+                "verification_code": invoice.verification_code,
+            },
+        )
+    )
+
+    qr_image = qrcode.make(verification_url)
+
+    qr_buffer = BytesIO()
+    qr_image.save(qr_buffer, format="PNG")
+
+    verification_qr_data_uri = (
+        "data:image/png;base64,"
+        + base64.b64encode(qr_buffer.getvalue()).decode("ascii")
+    )
 
     return render(
         request,
@@ -617,5 +640,24 @@ def invoice_detail(request, invoice_id):
         {
             "invoice": invoice,
             "current_membership": membership,
+            "verification_url": verification_url,
+            "verification_qr_data_uri": verification_qr_data_uri,
+        },
+    )
+
+def invoice_verification(request, verification_code):
+    invoice = get_object_or_404(
+        Invoice.objects.select_related(
+            "company",
+            "customer",
+        ),
+        verification_code=verification_code,
+    )
+
+    return render(
+        request,
+        "sales/invoice_verification.html",
+        {
+            "invoice": invoice,
         },
     )
