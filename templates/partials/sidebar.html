@@ -71,7 +71,7 @@
         {% if module_access.inventory %}
             <a
                 href="{% url 'inventory:home' %}"
-                class="sidebar-link{% if request.resolver_match.namespace == 'inventory' %} active{% endif %}"
+                class="sidebar-link{% if request.resolver_match.namespace == 'inventory' and request.resolver_match.url_name == 'home' %} active{% endif %}"
             >
                 Stok Yönetimi
             </a>

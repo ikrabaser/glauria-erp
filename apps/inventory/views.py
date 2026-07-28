@@ -5,7 +5,7 @@ from django.shortcuts import redirect, render
 from .forms import InventoryLotForm, ProductForm, WarehouseForm
 from .models import InventoryLot, Product, StockMovement, Warehouse
 from .services import notify_if_product_below_reorder_level
-
+from apps.accounts.data_access import has_full_company_data_access
 
 def get_active_membership(user):
     return (
@@ -169,5 +169,62 @@ def lot_create(request):
             "cancel_url": "inventory:home",
             "submit_text": "Lotu Kaydet",
             "current_membership": membership,
+        },
+    )
+
+@login_required
+def stock_movement_history(request):
+    membership = get_active_membership(request.user)
+
+    if not membership:
+        return redirect("inventory:home")
+
+    movements = (
+        StockMovement.objects.select_related(
+            "product",
+            "warehouse",
+            "lot",
+            "created_by",
+        )
+        .filter(
+            warehouse__company=membership.company,
+        )
+    )
+
+    if not has_full_company_data_access(membership):
+        movements = movements.filter(
+            created_by=request.user,
+        )
+
+    selected_movement_type = request.GET.get(
+        "movement_type",
+        "",
+    )
+
+    valid_movement_types = {
+        value
+        for value, _ in StockMovement.MovementType.choices
+    }
+
+    if selected_movement_type in valid_movement_types:
+        movements = movements.filter(
+            movement_type=selected_movement_type,
+        )
+    else:
+        selected_movement_type = ""
+
+    return render(
+        request,
+        "inventory/stock_movement_history.html",
+        {
+            "movements": movements,
+            "movement_type_choices": (
+                StockMovement.MovementType.choices
+            ),
+            "selected_movement_type": selected_movement_type,
+            "current_membership": membership,
+            "has_full_company_data_access": (
+                has_full_company_data_access(membership)
+            ),
         },
     )

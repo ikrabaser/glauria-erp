@@ -1,0 +1,147 @@
+{% extends "base.html" %}
+
+{% block title %}
+Stok Hareketleri | Glauria ERP
+{% endblock %}
+
+{% block content %}
+<section class="settings-page inventory-movements-page">
+    <header class="settings-page__header">
+    <a
+        href="{% url 'inventory:home' %}"
+        class="inventory-movements-back"
+    >
+        ← Stok Yönetimine Dön
+    </a>
+
+    <span class="page-header__eyebrow">
+        Inventory Traceability
+    </span>
+        <h2 class="settings-page__title">
+            Stok Hareketleri
+        </h2>
+
+        <p class="settings-page__description">
+            {% if has_full_company_data_access %}
+                Çalışma alanındaki stok giriş, çıkış ve rezervasyon
+                hareketlerini takip edin.
+            {% else %}
+                Oluşturduğunuz stok hareketlerini takip edin.
+            {% endif %}
+        </p>
+    </header>
+
+    <article class="settings-card inventory-movements-card">
+        <form method="get" class="inventory-movements-filter">
+            <label>
+                Hareket tipi
+
+                <select name="movement_type">
+                    <option value="">Tüm hareketler</option>
+
+                    {% for value, label in movement_type_choices %}
+                        <option
+                            value="{{ value }}"
+                            {% if selected_movement_type == value %}
+                                selected
+                            {% endif %}
+                        >
+                            {{ label }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </label>
+
+        <div class="inventory-movements-filter__actions">
+    <button
+        type="submit"
+        class="inventory-movements-filter__submit"
+    >
+        Filtrele
+    </button>
+
+    {% if selected_movement_type %}
+        <a
+            href="{% url 'inventory:movement_history' %}"
+            class="inventory-movements-filter__clear"
+        >
+            Temizle
+        </a>
+    {% endif %}
+</div>
+        </form>
+
+        {% if movements %}
+            <div class="data-table-wrapper">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Hareket</th>
+                            <th>Ürün / Lot</th>
+                            <th>Depo</th>
+                            <th>Miktar</th>
+                            <th>Referans</th>
+                            <th>Oluşturan</th>
+                            <th>Tarih</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        {% for movement in movements %}
+                            <tr>
+                                <td>
+                                    {{ movement.get_movement_type_display }}
+                                </td>
+
+                                <td>
+                                    <strong>{{ movement.product.name }}</strong>
+
+                                    <small>
+                                        {{ movement.product.sku }}
+
+                                        {% if movement.lot %}
+                                            · {{ movement.lot.lot_number }}
+                                        {% endif %}
+                                    </small>
+                                </td>
+
+                                <td>{{ movement.warehouse.name }}</td>
+
+                                <td>
+                                    {{ movement.quantity }}
+                                    {{ movement.product.unit }}
+                                </td>
+
+                                <td>
+                                    {{ movement.reference|default:"—" }}
+                                </td>
+
+                                <td>
+                                    {% if movement.created_by %}
+                                        {{ movement.created_by.get_full_name|default:movement.created_by.username }}
+                                    {% else %}
+                                        Sistem
+                                    {% endif %}
+                                </td>
+
+                                <td>
+                                    {{ movement.created_at|date:"d.m.Y H:i" }}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="inventory-movements-empty">
+                <strong>Gösterilecek stok hareketi bulunmuyor.</strong>
+
+                <span>
+                    Yeni stok lotu oluşturduğunuzda veya üretim tüketimi
+                    gerçekleştiğinde hareket kayıtları burada görünür.
+                </span>
+            </div>
+        {% endif %}
+    </article>
+</section>
+{% endblock %}
