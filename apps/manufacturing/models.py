@@ -3,10 +3,11 @@ from datetime import date
 from decimal import Decimal
 
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils import timezone
 
-from apps.organizations.models import Company
+from apps.organizations.models import Branch, Company, Department
 from apps.sales.models import SalesOrder
 from apps.inventory.models import Product
 
@@ -43,6 +44,20 @@ class ProductionOrder(models.Model):
         on_delete=models.CASCADE,
         related_name="production_orders",
         verbose_name="Şirket",
+    )
+
+    branch = models.ForeignKey(
+        Branch,
+        on_delete=models.PROTECT,
+        related_name="production_orders",
+        verbose_name="Şube",
+    )
+
+    department = models.ForeignKey(
+        Department,
+        on_delete=models.PROTECT,
+        related_name="production_orders",
+        verbose_name="Departman",
     )
 
     sales_order = models.OneToOneField(
@@ -108,6 +123,32 @@ class ProductionOrder(models.Model):
             models.Index(fields=["company", "status"]),
             models.Index(fields=["company", "sales_order"]),
         ]
+
+
+    def clean(self):
+        errors = {}
+
+        if (
+            self.branch_id
+            and self.company_id
+            and self.branch.company_id != self.company_id
+        ):
+            errors["branch"] = (
+                "Seçilen şube, üretim emrinin şirketiyle "
+                "aynı şirkete ait olmalıdır."
+            )
+
+        if (
+            self.department_id
+            and self.branch_id
+            and self.department.branch_id != self.branch_id
+        ):
+            errors["department"] = (
+                "Seçilen departman, seçilen şubeye ait olmalıdır."
+            )
+
+        if errors:
+            raise ValidationError(errors)
 
     def __str__(self):
         return self.production_number
