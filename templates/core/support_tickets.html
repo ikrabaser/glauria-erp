@@ -6,7 +6,8 @@ Destek Talepleri | Glauria ERP
 
 {% block content %}
 <section class="settings-page support-tickets-page">
-    <header class="settings-page__header">
+    <header class="settings-page__header support-tickets__header">
+    <div>
         <span class="page-header__eyebrow">
             AI Assisted Support
         </span>
@@ -19,8 +20,17 @@ Destek Talepleri | Glauria ERP
             Yaşadığınız sorunu kaydedin. Talebiniz için AI destekli ilk
             değerlendirme ve çözüm önerisi hazırlanır.
         </p>
-    </header>
+    </div>
 
+    {% if is_support_manager %}
+        <a
+            href="{% url 'core:support_queue' %}"
+            class="support-ticket-queue-link"
+        >
+            Destek Operasyon Kuyruğu
+        </a>
+    {% endif %}
+</header>
     <div class="support-tickets-layout">
         <article class="settings-card support-ticket-form-card">
             <div class="support-ticket-form-card__heading">

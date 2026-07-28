@@ -31,12 +31,93 @@ Destek Operasyon Kuyruğu | Glauria ERP
         <div class="support-queue__heading">
             <div>
                 <h3>Tüm destek talepleri</h3>
+
                 <p>
                     Bir talebi açarak atama, öncelik, durum ve çözüm notu
                     işlemlerini yönetin.
                 </p>
             </div>
         </div>
+
+        <form method="get" class="support-queue__filters">
+            <div>
+                <label for="support-queue-status">Durum</label>
+
+                <select id="support-queue-status" name="status">
+                    <option value="">Tüm durumlar</option>
+
+                    {% for value, label in status_choices %}
+                        <option
+                            value="{{ value }}"
+                            {% if selected_status == value %}selected{% endif %}
+                        >
+                            {{ label }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div>
+                <label for="support-queue-priority">Öncelik</label>
+
+                <select id="support-queue-priority" name="priority">
+                    <option value="">Tüm öncelikler</option>
+
+                    {% for value, label in priority_choices %}
+                        <option
+                            value="{{ value }}"
+                            {% if selected_priority == value %}selected{% endif %}
+                        >
+                            {{ label }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div>
+                <label for="support-queue-assigned-to">Atanan kullanıcı</label>
+
+                <select id="support-queue-assigned-to" name="assigned_to">
+                    <option value="">Tüm kullanıcılar</option>
+
+                    {% for item in support_memberships %}
+                        <option
+                            value="{{ item.user_id }}"
+                            {% if selected_assigned_to == item.user_id|stringformat:"s" %}selected{% endif %}
+                        >
+                            {{ item.user.get_full_name|default:item.user.username }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div>
+                <label for="support-queue-ai-status">AI analizi</label>
+
+                <select id="support-queue-ai-status" name="ai_status">
+                    <option value="">Tüm AI durumları</option>
+
+                    {% for value, label in ai_status_choices %}
+                        <option
+                            value="{{ value }}"
+                            {% if selected_ai_status == value %}selected{% endif %}
+                        >
+                            {{ label }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="support-queue__filter-actions">
+                <button type="submit">
+                    Filtrele
+                </button>
+
+                <a href="{% url 'core:support_queue' %}">
+                    Temizle
+                </a>
+            </div>
+        </form>
 
         {% if tickets %}
             <div class="data-table-wrapper">
@@ -129,11 +210,11 @@ Destek Operasyon Kuyruğu | Glauria ERP
             </div>
         {% else %}
             <div class="support-ticket-empty">
-                <strong>Henüz destek talebi bulunmuyor.</strong>
+                <strong>Seçili filtrelere uygun destek talebi bulunmuyor.</strong>
 
                 <span>
-                    Çalışma alanındaki kullanıcılar yeni destek talepleri
-                    oluşturduğunda burada görünür.
+                    Filtreleri temizleyerek tüm çalışma alanı taleplerini
+                    yeniden görüntüleyebilirsiniz.
                 </span>
             </div>
         {% endif %}

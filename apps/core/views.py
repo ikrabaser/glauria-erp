@@ -196,6 +196,10 @@ def support_tickets(request):
             "form": form,
             "tickets": tickets,
             "current_membership": membership,
+            "is_support_manager": membership.role in {
+                OrganizationMembership.Role.OWNER,
+                OrganizationMembership.Role.ADMIN,
+            },
         },
     )
 
@@ -214,6 +218,42 @@ def support_queue(request):
             "Destek operasyon kuyruğunu görüntüleme yetkiniz bulunmuyor."
         )
 
+    support_memberships = (
+        OrganizationMembership.objects
+        .filter(
+            company=membership.company,
+            is_active=True,
+        )
+        .select_related("user")
+        .order_by(
+            "user__first_name",
+            "user__last_name",
+            "user__username",
+        )
+    )
+
+    selected_status = request.GET.get("status", "")
+    selected_priority = request.GET.get("priority", "")
+    selected_ai_status = request.GET.get("ai_status", "")
+    selected_assigned_to = request.GET.get("assigned_to", "")
+
+    valid_statuses = {
+        value
+        for value, _ in SupportTicket.Status.choices
+    }
+    valid_priorities = {
+        value
+        for value, _ in SupportTicket.Priority.choices
+    }
+    valid_ai_statuses = {
+        value
+        for value, _ in SupportTicket.AIStatus.choices
+    }
+    valid_assigned_to_ids = {
+        str(item.user_id)
+        for item in support_memberships
+    }
+
     tickets = (
         SupportTicket.objects
         .filter(company=membership.company)
@@ -221,10 +261,25 @@ def support_queue(request):
             "created_by",
             "assigned_to",
         )
-        .order_by(
-            "status",
-            "-created_at",
+    )
+
+    if selected_status in valid_statuses:
+        tickets = tickets.filter(status=selected_status)
+
+    if selected_priority in valid_priorities:
+        tickets = tickets.filter(priority=selected_priority)
+
+    if selected_ai_status in valid_ai_statuses:
+        tickets = tickets.filter(ai_status=selected_ai_status)
+
+    if selected_assigned_to in valid_assigned_to_ids:
+        tickets = tickets.filter(
+            assigned_to_id=selected_assigned_to
         )
+
+    tickets = tickets.order_by(
+        "status",
+        "-created_at",
     )
 
     return render(
@@ -233,6 +288,14 @@ def support_queue(request):
         {
             "tickets": tickets,
             "current_membership": membership,
+            "support_memberships": support_memberships,
+            "status_choices": SupportTicket.Status.choices,
+            "priority_choices": SupportTicket.Priority.choices,
+            "ai_status_choices": SupportTicket.AIStatus.choices,
+            "selected_status": selected_status,
+            "selected_priority": selected_priority,
+            "selected_ai_status": selected_ai_status,
+            "selected_assigned_to": selected_assigned_to,
         },
     )
 @login_required
