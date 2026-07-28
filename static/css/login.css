@@ -53,43 +53,19 @@ body {
 .login-brand {
     display: flex;
     align-items: center;
-    gap: 12px;
+    justify-content: center;
+    padding-bottom: 4px;
 }
 
-.login-brand__mark {
-    display: grid;
-    width: 46px;
-    height: 46px;
-    place-items: center;
-    color: #a87327;
-    border: 1px solid rgba(190, 138, 54, 0.38);
-    border-radius: 15px;
-    background: rgba(215, 164, 143, 0.11);
-    font-family: Georgia, serif;
-    font-size: 23px;
-}
-
-.login-brand strong,
-.login-brand small {
+.login-brand__logo {
     display: block;
-}
-
-.login-brand strong {
-    color: #39242e;
-    font-size: 16px;
-    letter-spacing: 0.04em;
-}
-
-.login-brand small {
-    margin-top: 3px;
-    color: #8a7780;
-    font-size: 10px;
-    letter-spacing: 0.10em;
-    text-transform: uppercase;
+    width: min(100%, 190px);
+    height: 94px;
+    object-fit: contain;
 }
 
 .login-card__heading {
-    margin: 34px 0 26px;
+    margin: 24px 0 26px;
 }
 
 .login-card__heading span {
