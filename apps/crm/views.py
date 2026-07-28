@@ -1,9 +1,13 @@
 import json
-from django.http import JsonResponse
-from django.views.decorators.http import require_POST
+
 from django.contrib.auth.decorators import login_required
 from django.db.models import Q
+from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.views.decorators.http import require_POST
+
+from apps.accounts.data_access import filter_company_records
+
 from .forms import CustomerForm, OpportunityForm
 from .models import Customer, Opportunity
 
@@ -26,10 +30,13 @@ def home(request):
     selected_status = request.GET.get("status", "")
 
     if membership:
-        customers = (
-            Customer.objects
-            .select_related("company", "created_by")
-            .filter(company=membership.company)
+        customers = filter_company_records(
+            Customer.objects.select_related(
+                "company",
+                "created_by",
+            ),
+            membership,
+            "created_by",
         )
 
         if query:
@@ -95,6 +102,8 @@ def customer_create(request):
             "current_membership": membership,
         },
     )
+
+
 @login_required
 def customer_detail(request, customer_id):
     membership = get_active_membership(request.user)
@@ -102,10 +111,18 @@ def customer_detail(request, customer_id):
     if not membership:
         return redirect("crm:home")
 
+    customers = filter_company_records(
+        Customer.objects.select_related(
+            "company",
+            "created_by",
+        ),
+        membership,
+        "created_by",
+    )
+
     customer = get_object_or_404(
-        Customer.objects.select_related("company", "created_by"),
+        customers,
         id=customer_id,
-        company=membership.company,
     )
 
     return render(
@@ -116,6 +133,8 @@ def customer_detail(request, customer_id):
             "current_membership": membership,
         },
     )
+
+
 @login_required
 def customer_update(request, customer_id):
     membership = get_active_membership(request.user)
@@ -123,10 +142,18 @@ def customer_update(request, customer_id):
     if not membership:
         return redirect("crm:home")
 
+    customers = filter_company_records(
+        Customer.objects.select_related(
+            "company",
+            "created_by",
+        ),
+        membership,
+        "created_by",
+    )
+
     customer = get_object_or_404(
-        Customer.objects.select_related("company", "created_by"),
+        customers,
         id=customer_id,
-        company=membership.company,
     )
 
     if request.method == "POST":
@@ -155,15 +182,20 @@ def customer_update(request, customer_id):
             "is_edit": True,
         },
     )
+
+
 @login_required
 def opportunities_home(request):
     membership = get_active_membership(request.user)
 
     if membership:
-        opportunities = (
-            Opportunity.objects
-            .select_related("customer", "owner")
-            .filter(company=membership.company)
+        opportunities = filter_company_records(
+            Opportunity.objects.select_related(
+                "customer",
+                "owner",
+            ),
+            membership,
+            "owner",
         )
     else:
         opportunities = Opportunity.objects.none()
@@ -200,8 +232,11 @@ def opportunity_create(request):
         return redirect("crm:home")
 
     form = OpportunityForm(request.POST or None)
-    form.fields["customer"].queryset = Customer.objects.filter(
-        company=membership.company
+
+    form.fields["customer"].queryset = filter_company_records(
+        Customer.objects,
+        membership,
+        "created_by",
     ).order_by("name")
 
     if request.method == "POST" and form.is_valid():
@@ -220,6 +255,8 @@ def opportunity_create(request):
             "current_membership": membership,
         },
     )
+
+
 @login_required
 @require_POST
 def opportunity_update_stage(request, opportunity_id):
@@ -249,10 +286,15 @@ def opportunity_update_stage(request, opportunity_id):
             status=400,
         )
 
+    opportunities = filter_company_records(
+        Opportunity.objects,
+        membership,
+        "owner",
+    )
+
     opportunity = get_object_or_404(
-        Opportunity,
+        opportunities,
         id=opportunity_id,
-        company=membership.company,
     )
 
     opportunity.stage = stage
@@ -267,6 +309,8 @@ def opportunity_update_stage(request, opportunity_id):
             "stage_label": opportunity.get_stage_display(),
         }
     )
+
+
 @login_required
 def opportunity_detail(request, opportunity_id):
     membership = get_active_membership(request.user)
@@ -274,14 +318,19 @@ def opportunity_detail(request, opportunity_id):
     if not membership:
         return redirect("crm:opportunities_home")
 
-    opportunity = get_object_or_404(
+    opportunities = filter_company_records(
         Opportunity.objects.select_related(
             "customer",
             "company",
             "owner",
         ),
+        membership,
+        "owner",
+    )
+
+    opportunity = get_object_or_404(
+        opportunities,
         id=opportunity_id,
-        company=membership.company,
     )
 
     return render(
@@ -301,18 +350,26 @@ def opportunity_update(request, opportunity_id):
     if not membership:
         return redirect("crm:opportunities_home")
 
+    opportunities = filter_company_records(
+        Opportunity.objects,
+        membership,
+        "owner",
+    )
+
     opportunity = get_object_or_404(
-        Opportunity,
+        opportunities,
         id=opportunity_id,
-        company=membership.company,
     )
 
     form = OpportunityForm(
         request.POST or None,
         instance=opportunity,
     )
-    form.fields["customer"].queryset = Customer.objects.filter(
-        company=membership.company
+
+    form.fields["customer"].queryset = filter_company_records(
+        Customer.objects,
+        membership,
+        "created_by",
     ).order_by("name")
 
     if request.method == "POST" and form.is_valid():
