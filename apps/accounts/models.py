@@ -1,16 +1,21 @@
-from django.contrib.auth.models import AbstractUser
 from django.conf import settings
+from django.contrib.auth.models import AbstractUser
+from django.core.exceptions import ValidationError
 from django.db import models
 
 from apps.core.models import TimeStampedModel, UUIDModel
 from apps.organizations.models import Branch, Company, Department
-from django.core.exceptions import ValidationError
 
 
 class User(UUIDModel, TimeStampedModel, AbstractUser):
     class UserType(models.TextChoices):
         INTERNAL = "INTERNAL", "İç Kullanıcı"
         PORTAL = "PORTAL", "Portal Kullanıcısı"
+
+    class ThemePreference(models.TextChoices):
+        SYSTEM = "system", "Sistem"
+        DARK = "dark", "Koyu"
+        LIGHT = "light", "Açık"
 
     email = models.EmailField(
         "E-posta adresi",
@@ -23,10 +28,6 @@ class User(UUIDModel, TimeStampedModel, AbstractUser):
         choices=UserType.choices,
         default=UserType.INTERNAL,
     )
-    class ThemePreference(models.TextChoices):
-        SYSTEM = "system", "Sistem"
-        DARK = "dark", "Koyu"
-        LIGHT = "light", "Açık"
 
     theme_preference = models.CharField(
         max_length=10,
@@ -56,6 +57,7 @@ class User(UUIDModel, TimeStampedModel, AbstractUser):
     def is_portal_user(self):
         return self.user_type == self.UserType.PORTAL
 
+
 class OrganizationMembership(TimeStampedModel):
     class Role(models.TextChoices):
         OWNER = "owner", "Sahip"
@@ -63,6 +65,15 @@ class OrganizationMembership(TimeStampedModel):
         MANAGER = "manager", "Müdür"
         MEMBER = "member", "Üye"
         VIEWER = "viewer", "Görüntüleyici"
+
+    class Permission(models.TextChoices):
+        MANAGE_MEMBERS = "manage_members", "Üye ve rol yönetimi"
+        MANAGE_SUPPORT = "manage_support", "Destek operasyonu yönetimi"
+        RECEIVE_STOCK_ALERTS = (
+            "receive_stock_alerts",
+            "Kritik stok uyarılarını alma",
+        )
+
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
@@ -96,11 +107,21 @@ class OrganizationMembership(TimeStampedModel):
         blank=True,
         verbose_name="Pozisyon",
     )
+
     role = models.CharField(
         max_length=20,
         choices=Role.choices,
         default=Role.MEMBER,
         verbose_name="Çalışma alanı rolü",
+    )
+
+    permissions = models.JSONField(
+        default=list,
+        blank=True,
+        verbose_name="Ek izinler",
+        help_text=(
+            "Role ek olarak tanımlanan özel çalışma alanı izinleri."
+        ),
     )
 
     is_primary = models.BooleanField(
@@ -124,6 +145,51 @@ class OrganizationMembership(TimeStampedModel):
             )
         ]
 
+    def get_role_permissions(self):
+        if self.role == self.Role.OWNER:
+            return {
+                value
+                for value, _ in self.Permission.choices
+            }
+
+        if self.role == self.Role.ADMIN:
+            return {
+                self.Permission.MANAGE_MEMBERS,
+                self.Permission.MANAGE_SUPPORT,
+                self.Permission.RECEIVE_STOCK_ALERTS,
+            }
+
+        if self.role == self.Role.MANAGER:
+            return {
+                self.Permission.RECEIVE_STOCK_ALERTS,
+            }
+
+        return set()
+
+    def has_permission(self, permission):
+        return (
+            permission in self.get_role_permissions()
+            or permission in (self.permissions or [])
+        )
+
+    @property
+    def can_manage_members(self):
+        return self.has_permission(
+            self.Permission.MANAGE_MEMBERS
+        )
+
+    @property
+    def can_manage_support(self):
+        return self.has_permission(
+            self.Permission.MANAGE_SUPPORT
+        )
+
+    @property
+    def receives_critical_stock_alerts(self):
+        return self.has_permission(
+            self.Permission.RECEIVE_STOCK_ALERTS
+        )
+
     def clean(self):
         errors = {}
 
@@ -142,6 +208,23 @@ class OrganizationMembership(TimeStampedModel):
         if self.user_id and self.user.user_type == User.UserType.PORTAL:
             errors["user"] = (
                 "Portal kullanıcılarına organizasyon üyeliği atanamaz."
+            )
+
+        valid_permissions = {
+            value
+            for value, _ in self.Permission.choices
+        }
+
+        if not isinstance(self.permissions, list):
+            errors["permissions"] = (
+                "Ek izinler liste formatında olmalıdır."
+            )
+        elif any(
+            permission not in valid_permissions
+            for permission in self.permissions
+        ):
+            errors["permissions"] = (
+                "Geçersiz ek izin seçimi yapıldı."
             )
 
         if errors:

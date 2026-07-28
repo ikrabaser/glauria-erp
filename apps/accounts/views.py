@@ -100,13 +100,8 @@ def workspace_members(request):
     if not current_membership:
         return redirect("dashboard:home")
 
-    allowed_roles = {
-        OrganizationMembership.Role.OWNER,
-        OrganizationMembership.Role.ADMIN,
-    }
-
-    if current_membership.role not in allowed_roles:
-        return HttpResponseForbidden(
+        if not current_membership.can_manage_members:
+            return HttpResponseForbidden(
             "Bu sayfayı görüntüleme yetkiniz bulunmuyor."
         )
 
@@ -154,11 +149,8 @@ def workspace_member_create(request):
     if not current_membership:
         return redirect("dashboard:home")
 
-    if current_membership.role not in {
-        OrganizationMembership.Role.OWNER,
-        OrganizationMembership.Role.ADMIN,
-    }:
-        return HttpResponseForbidden(
+        if not current_membership.can_manage_members:
+         return HttpResponseForbidden(
             "Bu işlem için yetkiniz bulunmuyor."
         )
 
@@ -256,11 +248,8 @@ def workspace_member_access_update(request, membership_id):
     if not current_membership:
         return redirect("dashboard:home")
 
-    if current_membership.role not in {
-        OrganizationMembership.Role.OWNER,
-        OrganizationMembership.Role.ADMIN,
-    }:
-        return HttpResponseForbidden(
+        if not current_membership.can_manage_members:
+         return HttpResponseForbidden(
             "Bu işlem için yetkiniz bulunmuyor."
         )
 
