@@ -16,11 +16,19 @@ Stok Yönetimi | Glauria ERP
         </h2>
 
         <p class="page-header__description">
-            Ürünleri, depoları, lotları ve kullanılabilir stok miktarlarını tek merkezden yönetin.
+            Ürünleri, depoları, lotları ve kullanılabilir stok miktarlarını
+            tek merkezden yönetin.
         </p>
     </div>
 
     <div class="customer-detail__header-actions">
+        <a
+            href="{% url 'inventory:movement_history' %}"
+            class="inventory-home__movement-link"
+        >
+            Stok Hareketleri
+        </a>
+
         <a
             href="{% url 'inventory:product_create' %}"
             class="opportunity-detail__quote-action"
@@ -47,6 +55,7 @@ Stok Yönetimi | Glauria ERP
 <section class="customer-detail__grid">
     <article class="customer-detail__card">
         <h3>Aktif Ürünler</h3>
+
         <p class="customer-detail__title">
             {{ products_count }}
         </p>
@@ -54,6 +63,7 @@ Stok Yönetimi | Glauria ERP
 
     <article class="customer-detail__card">
         <h3>Aktif Depolar</h3>
+
         <p class="customer-detail__title">
             {{ warehouses_count }}
         </p>
@@ -88,10 +98,21 @@ Stok Yönetimi | Glauria ERP
 
                         <td>{{ lot.warehouse.name }}</td>
                         <td>{{ lot.lot_number }}</td>
-                        <td>{{ lot.quantity_on_hand }} {{ lot.product.unit }}</td>
-                        <td>{{ lot.quantity_reserved }} {{ lot.product.unit }}</td>
-                        <td>{{ lot.available_quantity }} {{ lot.product.unit }}</td>
-                        <td>{{ lot.expiry_date|date:"d.m.Y"|default:"—" }}</td>
+                        <td>
+                            {{ lot.quantity_on_hand }}
+                            {{ lot.product.unit }}
+                        </td>
+                        <td>
+                            {{ lot.quantity_reserved }}
+                            {{ lot.product.unit }}
+                        </td>
+                        <td>
+                            {{ lot.available_quantity }}
+                            {{ lot.product.unit }}
+                        </td>
+                        <td>
+                            {{ lot.expiry_date|date:"d.m.Y"|default:"—" }}
+                        </td>
 
                         <td>
                             <span class="opportunity-card__quote">
