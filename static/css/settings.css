@@ -2168,3 +2168,99 @@ html[data-theme="light"] .notification-menu {
         width: 100%;
     }
 }
+/* =========================================================
+   WORKSPACE MEMBER CUSTOM PERMISSIONS
+   ========================================================= */
+
+.workspace-member-access-form {
+    display: grid;
+    grid-template-columns: minmax(120px, 1fr) auto;
+    gap: 10px 12px;
+    align-items: center;
+}
+
+.workspace-member-access-form select {
+    width: 100%;
+    min-height: 34px;
+    padding: 0 9px;
+    color: var(--color-text);
+    background: var(--color-bg-soft);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+}
+
+.workspace-member-permissions {
+    display: grid;
+    grid-column: 1 / -1;
+    gap: 7px;
+    padding: 10px;
+    background: rgba(142, 92, 246, 0.05);
+    border: 1px solid rgba(142, 92, 246, 0.16);
+    border-radius: var(--radius-sm);
+}
+
+.workspace-member-permissions > span {
+    color: var(--color-text-muted);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.workspace-member-permissions label {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    color: var(--color-text-soft);
+    font-size: 12px;
+    line-height: 1.35;
+    cursor: pointer;
+}
+
+.workspace-member-permissions input[type="checkbox"] {
+    width: 15px;
+    height: 15px;
+    margin: 0;
+    accent-color: var(--color-purple);
+}
+
+.workspace-member-active {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    color: var(--color-text-soft);
+    font-size: 12px;
+    white-space: nowrap;
+}
+
+.workspace-member-save {
+    min-height: 34px;
+    padding: 0 11px;
+    color: #1a1014;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    background: linear-gradient(
+        135deg,
+        var(--color-rose-gold-light),
+        var(--color-rose-gold)
+    );
+    border: 0;
+    border-radius: var(--radius-sm);
+}
+
+.workspace-member-save:hover {
+    filter: brightness(1.04);
+}
+
+@media (max-width: 1100px) {
+    .workspace-member-access-form {
+        grid-template-columns: 1fr;
+    }
+
+    .workspace-member-active,
+    .workspace-member-save {
+        width: 100%;
+        justify-content: center;
+    }
+}

@@ -248,8 +248,8 @@ def workspace_member_access_update(request, membership_id):
     if not current_membership:
         return redirect("dashboard:home")
 
-        if not current_membership.can_manage_members:
-         return HttpResponseForbidden(
+    if not current_membership.can_manage_members:
+        return HttpResponseForbidden(
             "Bu işlem için yetkiniz bulunmuyor."
         )
 
@@ -300,28 +300,83 @@ def workspace_member_access_update(request, membership_id):
             "Yöneticiler Sahip veya Yönetici rolü atayamaz."
         )
 
+    permissions_submitted = (
+        request.POST.get("permissions_submitted") == "1"
+    )
+
+    selected_permissions = set()
+
+    if permissions_submitted:
+        if (
+            current_membership.role
+            != OrganizationMembership.Role.OWNER
+        ):
+            return HttpResponseForbidden(
+                "Ek izinleri yalnızca Sahip rolü yönetebilir."
+            )
+
+        selected_permissions = set(
+            request.POST.getlist("permissions")
+        )
+
+        allowed_permissions = {
+            value
+            for value, _ in OrganizationMembership.Permission.choices
+        }
+
+        if not selected_permissions.issubset(
+            allowed_permissions
+        ):
+            return HttpResponseBadRequest(
+                "Geçersiz ek izin seçimi."
+            )
+
     previous_role = target_membership.role
     previous_is_active = target_membership.is_active
+    previous_permissions = set(
+        target_membership.permissions or []
+    )
 
     with transaction.atomic():
         target_membership.role = selected_role
         target_membership.is_active = is_active
+
+        update_fields = [
+            "role",
+            "is_active",
+            "updated_at",
+        ]
+
+        if permissions_submitted:
+            target_membership.permissions = sorted(
+                selected_permissions
+            )
+            update_fields.append("permissions")
+
         target_membership.save(
-            update_fields=["role", "is_active", "updated_at"]
+            update_fields=update_fields
         )
 
         changes = []
 
         if previous_role != selected_role:
             changes.append(
-                f"Rolünüz {target_membership.get_role_display()} olarak güncellendi."
+                f"Rolünüz {target_membership.get_role_display()} "
+                "olarak güncellendi."
             )
 
         if previous_is_active != is_active:
             status_text = "aktif" if is_active else "pasif"
             changes.append(
-                f"Çalışma alanı erişiminiz {status_text} duruma alındı."
+                f"Çalışma alanı erişiminiz {status_text} "
+                "duruma alındı."
             )
+
+        if (
+            permissions_submitted
+            and previous_permissions != selected_permissions
+        ):
+            changes.append("Ek çalışma alanı izinleriniz güncellendi.")
 
         if changes:
             Notification.objects.create(
