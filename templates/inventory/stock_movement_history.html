@@ -7,10 +7,16 @@ Stok Hareketleri | Glauria ERP
 {% block content %}
 <section class="settings-page inventory-movements-page">
     <header class="settings-page__header">
-        <span class="page-header__eyebrow">
-            Inventory Traceability
-        </span>
+    <a
+        href="{% url 'inventory:home' %}"
+        class="inventory-movements-back"
+    >
+        ← Stok Yönetimine Dön
+    </a>
 
+    <span class="page-header__eyebrow">
+        Inventory Traceability
+    </span>
         <h2 class="settings-page__title">
             Stok Hareketleri
         </h2>

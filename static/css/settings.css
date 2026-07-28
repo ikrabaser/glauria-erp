@@ -2394,3 +2394,18 @@ html[data-theme="light"] .notification-menu {
         grid-template-columns: 1fr 1fr;
     }
 }
+.inventory-movements-back {
+    display: inline-flex;
+    margin-bottom: 10px;
+    color: var(--color-text-muted);
+    font-size: 13px;
+    font-weight: 600;
+    transition:
+        color var(--transition-fast),
+        transform var(--transition-fast);
+}
+
+.inventory-movements-back:hover {
+    color: var(--color-rose-gold-light);
+    transform: translateX(-2px);
+}
