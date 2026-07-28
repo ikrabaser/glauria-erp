@@ -1,5 +1,6 @@
 from django import forms
 
+from apps.organizations.models import Branch
 from .models import InventoryLot, Product, Warehouse
 
 
@@ -34,9 +35,16 @@ class ProductForm(forms.ModelForm):
 
 
 class WarehouseForm(forms.ModelForm):
+    branch = forms.ModelChoiceField(
+        queryset=Branch.objects.none(),
+        label="Şube",
+        required=True,
+    )
+
     class Meta:
         model = Warehouse
         fields = [
+            "branch",
             "code",
             "name",
             "location",
@@ -53,7 +61,6 @@ class WarehouseForm(forms.ModelForm):
                 attrs={"placeholder": "Örn. Ankara Merkez / Blok A"}
             ),
         }
-
 
 class InventoryLotForm(forms.ModelForm):
     class Meta:

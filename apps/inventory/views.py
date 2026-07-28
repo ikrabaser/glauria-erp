@@ -2,10 +2,14 @@ from django.contrib.auth.decorators import login_required
 from django.db import transaction
 from django.shortcuts import redirect, render
 
+from apps.accounts.data_access import has_full_company_data_access
+from apps.accounts.models import OrganizationMembership
+from apps.organizations.models import Branch
+
 from .forms import InventoryLotForm, ProductForm, WarehouseForm
 from .models import InventoryLot, Product, StockMovement, Warehouse
 from .services import notify_if_product_below_reorder_level
-from apps.accounts.data_access import has_full_company_data_access
+
 
 def get_active_membership(user):
     return (
@@ -16,17 +20,51 @@ def get_active_membership(user):
     )
 
 
+def get_accessible_branches(membership):
+    branches = Branch.objects.filter(
+        company=membership.company,
+        is_active=True,
+    ).order_by("name")
+
+    if has_full_company_data_access(membership):
+        return branches
+
+    return branches.filter(id=membership.branch_id)
+
+
+def get_accessible_warehouses(membership):
+    return (
+        Warehouse.objects.filter(
+            company=membership.company,
+            branch__in=get_accessible_branches(membership),
+            is_active=True,
+        )
+        .select_related("branch")
+        .order_by("name")
+    )
+
+
+def can_view_branch_inventory_data(membership):
+    return membership.role == OrganizationMembership.Role.MANAGER
+
+
 @login_required
 def home(request):
     membership = get_active_membership(request.user)
 
     if membership:
+        accessible_warehouses = get_accessible_warehouses(membership)
+
         lots = (
             InventoryLot.objects.select_related(
                 "product",
                 "warehouse",
+                "warehouse__branch",
             )
-            .filter(product__company=membership.company)
+            .filter(
+                product__company=membership.company,
+                warehouse__in=accessible_warehouses,
+            )
         )
 
         products_count = Product.objects.filter(
@@ -34,10 +72,7 @@ def home(request):
             is_active=True,
         ).count()
 
-        warehouses_count = Warehouse.objects.filter(
-            company=membership.company,
-            is_active=True,
-        ).count()
+        warehouses_count = accessible_warehouses.count()
     else:
         lots = InventoryLot.objects.none()
         products_count = 0
@@ -78,7 +113,10 @@ def product_create(request):
             "form": form,
             "eyebrow": "Inventory Catalog",
             "title": "Yeni Ürün",
-            "description": "Stok, reçete ve üretim süreçlerinde kullanılacak ürün kartını oluşturun.",
+            "description": (
+                "Stok, reçete ve üretim süreçlerinde kullanılacak "
+                "ürün kartını oluşturun."
+            ),
             "section_title": "Ürün Bilgileri",
             "cancel_url": "inventory:home",
             "submit_text": "Ürünü Kaydet",
@@ -95,6 +133,9 @@ def warehouse_create(request):
         return redirect("inventory:home")
 
     form = WarehouseForm(request.POST or None)
+    form.fields["branch"].queryset = get_accessible_branches(
+        membership
+    )
 
     if request.method == "POST" and form.is_valid():
         warehouse = form.save(commit=False)
@@ -110,7 +151,10 @@ def warehouse_create(request):
             "form": form,
             "eyebrow": "Warehouse Management",
             "title": "Yeni Depo",
-            "description": "Hammadde, ambalaj veya bitmiş ürün stoklarının tutulacağı depoyu tanımlayın.",
+            "description": (
+                "Hammadde, ambalaj veya bitmiş ürün stoklarının "
+                "tutulacağı depoyu tanımlayın."
+            ),
             "section_title": "Depo Bilgileri",
             "cancel_url": "inventory:home",
             "submit_text": "Depoyu Kaydet",
@@ -133,10 +177,9 @@ def lot_create(request):
         is_active=True,
     ).order_by("name")
 
-    form.fields["warehouse"].queryset = Warehouse.objects.filter(
-        company=membership.company,
-        is_active=True,
-    ).order_by("name")
+    form.fields["warehouse"].queryset = get_accessible_warehouses(
+        membership
+    )
 
     if request.method == "POST" and form.is_valid():
         with transaction.atomic():
@@ -164,13 +207,17 @@ def lot_create(request):
             "form": form,
             "eyebrow": "Lot Traceability",
             "title": "Yeni Stok Lotu",
-            "description": "Ürün, depo, lot numarası ve miktar bilgilerini kaydederek izlenebilir stok oluşturun.",
+            "description": (
+                "Ürün, depo, lot numarası ve miktar bilgilerini "
+                "kaydederek izlenebilir stok oluşturun."
+            ),
             "section_title": "Lot Bilgileri",
             "cancel_url": "inventory:home",
             "submit_text": "Lotu Kaydet",
             "current_membership": membership,
         },
     )
+
 
 @login_required
 def stock_movement_history(request):
@@ -183,6 +230,7 @@ def stock_movement_history(request):
         StockMovement.objects.select_related(
             "product",
             "warehouse",
+            "warehouse__branch",
             "lot",
             "created_by",
         )
@@ -191,8 +239,15 @@ def stock_movement_history(request):
         )
     )
 
-    if not has_full_company_data_access(membership):
+    if has_full_company_data_access(membership):
+        pass
+    elif can_view_branch_inventory_data(membership):
         movements = movements.filter(
+            warehouse__branch=membership.branch,
+        )
+    else:
+        movements = movements.filter(
+            warehouse__branch=membership.branch,
             created_by=request.user,
         )
 

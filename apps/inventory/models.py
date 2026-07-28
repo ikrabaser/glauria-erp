@@ -3,8 +3,9 @@ from decimal import Decimal
 
 from django.conf import settings
 from django.db import models
+from django.core.exceptions import ValidationError
 
-from apps.organizations.models import Company
+from apps.organizations.models import Branch, Company
 
 
 class Product(models.Model):
@@ -104,6 +105,12 @@ class Warehouse(models.Model):
         related_name="warehouses",
         verbose_name="Şirket",
     )
+    branch = models.ForeignKey(
+        Branch,
+        on_delete=models.PROTECT,
+        related_name="warehouses",
+        verbose_name="Şube",
+    )
 
     code = models.CharField(
         max_length=30,
@@ -146,6 +153,21 @@ class Warehouse(models.Model):
                 name="unique_warehouse_code_per_company",
             ),
         ]
+
+    def clean(self):
+        if (
+            self.company_id
+            and self.branch_id
+            and self.branch.company_id != self.company_id
+        ):
+            raise ValidationError(
+                {
+                    "branch": (
+                        "Seçilen şube, deponun şirketiyle "
+                        "aynı şirkete ait olmalıdır."
+                    ),
+                }
+            )
 
     def __str__(self):
         return f"{self.code} · {self.name}"
