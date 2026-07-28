@@ -2725,3 +2725,46 @@ html[data-theme="light"] .notification-menu {
         align-self: flex-start;
     }
 }
+
+/* =========================================================
+   INVOICE PDF DOWNLOAD
+   ========================================================= */
+
+.invoice-page__actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.invoice-page__download {
+    display: inline-flex;
+    min-height: 38px;
+    align-items: center;
+    justify-content: center;
+    padding: 0 14px;
+    color: #2d1b20;
+    font-size: 12px;
+    font-weight: 800;
+    background: linear-gradient(
+        135deg,
+        var(--color-rose-gold-light),
+        var(--color-rose-gold)
+    );
+    border: 1px solid rgba(166, 101, 82, 0.28);
+    border-radius: var(--radius-sm);
+    transition:
+        filter var(--transition-fast),
+        transform var(--transition-fast);
+}
+
+.invoice-page__download:hover {
+    filter: brightness(1.04);
+    transform: translateY(-1px);
+}
+
+@media (max-width: 760px) {
+    .invoice-page__actions {
+        width: 100%;
+        justify-content: space-between;
+    }
+}

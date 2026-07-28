@@ -13,6 +13,7 @@ from .views import (
     invoice_create_from_order,
     invoice_detail,
     invoice_verification,
+    invoice_pdf_download,
 )
 
 
@@ -45,6 +46,11 @@ path(
         "invoices/verify/<uuid:verification_code>/",
         invoice_verification,
         name="invoice_verification",
+),
+path(
+    "invoices/<uuid:invoice_id>/pdf/",
+    invoice_pdf_download,
+    name="invoice_pdf_download",
 ),
 path(
         "invoices/<uuid:invoice_id>/",

@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+
+    <style>
+        @page {
+            size: A4;
+            margin: 13mm;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            color: #34252a;
+            background: #ffffff;
+            font-family: DejaVu Sans, Arial, sans-serif;
+            font-size: 9pt;
+            line-height: 1.45;
+        }
+
+        .invoice {
+            overflow: hidden;
+            border: 1px solid #e5d8d4;
+            border-radius: 8px;
+        }
+
+        .masthead {
+            display: table;
+            width: 100%;
+            min-height: 120px;
+            padding: 17px 20px;
+            color: #ffffff;
+            background: linear-gradient(135deg, #2b1a22, #553540);
+            border-bottom: 3px solid #dda68f;
+        }
+
+        .masthead__logo,
+        .masthead__title,
+        .masthead__qr {
+            display: table-cell;
+            vertical-align: middle;
+        }
+
+        .masthead__logo {
+            width: 30%;
+        }
+
+        .masthead__logo img {
+            display: block;
+            width: 126px;
+            height: 63px;
+            object-fit: contain;
+            background: #fffaf8;
+            border-radius: 7px;
+        }
+
+        .masthead__title {
+            width: 45%;
+            text-align: center;
+        }
+
+        .masthead__title span {
+            display: block;
+            color: #efc7b5;
+            font-size: 7pt;
+            font-weight: 700;
+            letter-spacing: 0.16em;
+        }
+
+        .masthead__title strong {
+            display: block;
+            margin-top: 5px;
+            font-size: 20pt;
+        }
+
+        .masthead__qr {
+            width: 25%;
+            text-align: right;
+        }
+
+        .masthead__qr img {
+            display: inline-block;
+            width: 62px;
+            height: 62px;
+            padding: 4px;
+            background: #ffffff;
+            border-radius: 4px;
+        }
+
+        .masthead__qr span {
+            display: block;
+            margin-top: 3px;
+            color: #f4c3b1;
+            font-size: 7pt;
+            font-weight: 700;
+        }
+
+        .parties {
+            display: table;
+            width: 100%;
+            padding: 20px;
+            border-bottom: 1px solid #e8dfdc;
+        }
+
+        .party {
+            display: table-cell;
+            width: 33.333%;
+            padding: 0 13px;
+            vertical-align: top;
+            border-right: 1px solid #e8dfdc;
+        }
+
+        .party:first-child {
+            padding-left: 0;
+        }
+
+        .party:last-child {
+            padding-right: 0;
+            border-right: 0;
+        }
+
+        .label {
+            display: block;
+            margin-bottom: 7px;
+            color: #a95f4a;
+            font-size: 7pt;
+            font-weight: 700;
+            letter-spacing: 0.11em;
+        }
+
+        .party strong {
+            display: block;
+            margin-bottom: 7px;
+            font-size: 10pt;
+        }
+
+        .party p {
+            margin: 0 0 7px;
+            color: #654d55;
+        }
+
+        .meta {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .meta td {
+            padding: 5px 0;
+            border-bottom: 1px solid #eee6e3;
+        }
+
+        .meta td:first-child {
+            color: #7b626a;
+            font-weight: 700;
+        }
+
+        .meta td:last-child {
+            text-align: right;
+            font-weight: 700;
+        }
+
+        .lines {
+            width: calc(100% - 40px);
+            margin: 20px;
+            border-collapse: collapse;
+        }
+
+        .lines th {
+            padding: 9px 8px;
+            color: #624b53;
+            background: #f4edef;
+            font-size: 7pt;
+            letter-spacing: 0.07em;
+            text-align: left;
+            text-transform: uppercase;
+        }
+
+        .lines td {
+            padding: 10px 8px;
+            border-bottom: 1px solid #eee6e3;
+        }
+
+        .lines th:nth-child(n+3),
+        .lines td:nth-child(n+3) {
+            text-align: right;
+        }
+
+        .footer {
+            display: table;
+            width: 100%;
+            padding: 18px 20px;
+            background: #fdfafa;
+            border-top: 1px solid #e8dfdc;
+        }
+
+        .notes,
+        .totals {
+            display: table-cell;
+            vertical-align: top;
+        }
+
+        .notes {
+            width: 62%;
+            padding-right: 30px;
+        }
+
+        .notes p {
+            margin: 0 0 11px;
+            color: #654d55;
+        }
+
+        .notes small {
+            color: #9a7a70;
+            font-size: 7pt;
+        }
+
+        .totals {
+            width: 38%;
+            padding: 12px 15px;
+            border: 1px solid #ead8d2;
+            border-radius: 7px;
+            background: #ffffff;
+        }
+
+        .total-row {
+            display: table;
+            width: 100%;
+            padding: 6px 0;
+            border-bottom: 1px solid #eee6e3;
+        }
+
+        .total-row span {
+            display: table-cell;
+        }
+
+        .total-row span:last-child {
+            text-align: right;
+            font-weight: 700;
+        }
+
+        .total-row--final {
+            margin-top: 4px;
+            padding-top: 10px;
+            border-bottom: 0;
+            font-size: 11pt;
+            font-weight: 700;
+        }
+
+        .total-row--final span:last-child {
+            color: #3a2028;
+            font-size: 12pt;
+        }
+
+        .verification {
+            margin: 10px 20px 20px;
+            color: #9a7a70;
+            font-size: 7pt;
+            text-align: center;
+        }
+    </style>
+</head>
+
+<body>
+    <main class="invoice">
+        <header class="masthead">
+            <div class="masthead__logo">
+                <img
+                    src="{{ seller_logo_uri }}"
+                    alt="Glauria ERP"
+                >
+            </div>
+
+            <div class="masthead__title">
+                <span>SALES INVOICE</span>
+                <strong>Satış Faturası</strong>
+            </div>
+
+            <div class="masthead__qr">
+                <img
+                    src="{{ verification_qr_data_uri }}"
+                    alt="Fatura doğrulama QR kodu"
+                >
+                <span>Faturayı doğrula</span>
+            </div>
+        </header>
+
+        <section class="parties">
+            <div class="party">
+                <span class="label">SATICI</span>
+
+                <strong>
+                    {{ invoice.seller_legal_name|default:invoice.seller_name }}
+                </strong>
+
+                <p>
+                    {{ invoice.seller_address|default:"Adres bilgisi girilmedi."|linebreaksbr }}
+                </p>
+
+                <p>
+                    VKN: {{ invoice.seller_tax_number|default:"—" }}<br>
+                    Vergi dairesi: {{ invoice.seller_tax_office|default:"—" }}<br>
+                    {{ invoice.seller_email|default:"" }}
+                </p>
+            </div>
+
+            <div class="party">
+                <span class="label">FATURA BİLGİLERİ</span>
+
+                <table class="meta">
+                    <tr>
+                        <td>Fatura no</td>
+                        <td>{{ invoice.invoice_number }}</td>
+                    </tr>
+                    <tr>
+                        <td>Fatura tarihi</td>
+                        <td>{{ invoice.issue_date|date:"d.m.Y" }}</td>
+                    </tr>
+                    <tr>
+                        <td>Vade tarihi</td>
+                        <td>{{ invoice.due_date|date:"d.m.Y"|default:"—" }}</td>
+                    </tr>
+                    <tr>
+                        <td>Sipariş no</td>
+                        <td>{{ invoice.sales_order.order_number }}</td>
+                    </tr>
+                </table>
+            </div>
+
+            <div class="party">
+                <span class="label">FATURA ADRESİ</span>
+
+                <strong>{{ invoice.customer_name }}</strong>
+
+                <p>
+                    {{ invoice.customer_address|default:"Adres bilgisi girilmedi."|linebreaksbr }}
+                </p>
+
+                <p>
+                    VKN: {{ invoice.customer_tax_number|default:"—" }}<br>
+                    Vergi dairesi: {{ invoice.customer_tax_office|default:"—" }}<br>
+                    {{ invoice.customer_email|default:"" }}
+                </p>
+            </div>
+        </section>
+
+        <table class="lines">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Mal / Hizmet</th>
+                    <th>Miktar</th>
+                    <th>Birim fiyat</th>
+                    <th>KDV</th>
+                    <th>Toplam</th>
+                </tr>
+            </thead>
+
+            <tbody>
+                {% for line in invoice.lines.all %}
+                    <tr>
+                        <td>{{ forloop.counter }}</td>
+                        <td>{{ line.description }}</td>
+                        <td>{{ line.quantity }}</td>
+                        <td>₺{{ line.unit_price|floatformat:2 }}</td>
+                        <td>%{{ line.tax_rate|floatformat:2 }}</td>
+                        <td>₺{{ line.total_amount|floatformat:2 }}</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <section class="footer">
+            <div class="notes">
+                <span class="label">NOTLAR</span>
+
+                <p>
+                    {{ invoice.notes|default:"Bu fatura için not eklenmedi."|linebreaksbr }}
+                </p>
+
+                <small>
+                    Bu belge Glauria ERP içindeki satış faturasıdır.
+                    GİB e-Fatura veya e-Arşiv belgesi değildir.
+                </small>
+            </div>
+
+            <div class="totals">
+                <div class="total-row">
+                    <span>Ara toplam</span>
+                    <span>₺{{ invoice.subtotal|floatformat:2 }}</span>
+                </div>
+
+                <div class="total-row">
+                    <span>KDV</span>
+                    <span>₺{{ invoice.tax_amount|floatformat:2 }}</span>
+                </div>
+
+                <div class="total-row total-row--final">
+                    <span>Ödenecek tutar</span>
+                    <span>₺{{ invoice.total_amount|floatformat:2 }}</span>
+                </div>
+            </div>
+        </section>
+
+        <p class="verification">
+            Doğrulama bağlantısı:
+            {{ verification_url }}
+        </p>
+    </main>
+</body>
+</html>

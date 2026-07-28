@@ -1,13 +1,12 @@
-import base64
-from io import BytesIO
-import qrcode
+
 
 from django.contrib.auth.decorators import login_required
+from django.core.files.base import ContentFile
 from django.db import transaction
-from django.http import HttpResponseBadRequest
+from django.http import FileResponse, HttpResponseBadRequest
 from django.shortcuts import get_object_or_404, redirect, render
-from django.views.decorators.http import require_POST
 from django.urls import reverse
+from django.views.decorators.http import require_POST
 
 from apps.accounts.data_access import (
     filter_company_records,
@@ -28,6 +27,10 @@ from .models import (
     SalesQuote,
 )
 
+from .services import (
+    build_invoice_qr_data_uri,
+    render_invoice_pdf,
+)
 
 def get_active_membership(user):
     return (
@@ -624,15 +627,9 @@ def invoice_detail(request, invoice_id):
         )
     )
 
-    qr_image = qrcode.make(verification_url)
-
-    qr_buffer = BytesIO()
-    qr_image.save(qr_buffer, format="PNG")
-
-    verification_qr_data_uri = (
-        "data:image/png;base64,"
-        + base64.b64encode(qr_buffer.getvalue()).decode("ascii")
-    )
+    verification_qr_data_uri = build_invoice_qr_data_uri(
+        verification_url
+)
 
     return render(
         request,
@@ -660,4 +657,64 @@ def invoice_verification(request, verification_code):
         {
             "invoice": invoice,
         },
+    )
+
+@login_required
+def invoice_pdf_download(request, invoice_id):
+    membership = get_active_membership(request.user)
+
+    if not membership:
+        return redirect("sales:home")
+
+    invoices = (
+        Invoice.objects.select_related(
+            "company",
+            "customer",
+            "sales_order",
+            "sales_order__owner",
+        )
+        .prefetch_related("lines")
+        .filter(
+            company=membership.company,
+        )
+    )
+
+    if not has_full_company_data_access(membership):
+        invoices = invoices.filter(
+            sales_order__owner=request.user,
+        )
+
+    invoice = get_object_or_404(
+        invoices,
+        id=invoice_id,
+    )
+
+    if not invoice.pdf_file:
+        verification_url = request.build_absolute_uri(
+            reverse(
+                "sales:invoice_verification",
+                kwargs={
+                    "verification_code": (
+                        invoice.verification_code
+                    ),
+                },
+            )
+        )
+
+        pdf_content = render_invoice_pdf(
+            invoice,
+            verification_url,
+        )
+
+        invoice.pdf_file.save(
+            f"{invoice.invoice_number}.pdf",
+            ContentFile(pdf_content),
+            save=True,
+        )
+
+    return FileResponse(
+        invoice.pdf_file.open("rb"),
+        as_attachment=True,
+        filename=f"{invoice.invoice_number}.pdf",
+        content_type="application/pdf",
     )

@@ -29,9 +29,18 @@
             </p>
         </div>
 
-        <span class="opportunity-card__quote">
-            {{ invoice.get_status_display }}
-        </span>
+        <div class="invoice-page__actions">
+            <a
+                href="{% url 'sales:invoice_pdf_download' invoice.id %}"
+                class="invoice-page__download"
+            >
+                PDF İndir
+            </a>
+
+            <span class="opportunity-card__quote">
+                {{ invoice.get_status_display }}
+            </span>
+        </div>
     </header>
 
     <article class="invoice-document">
