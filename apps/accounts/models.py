@@ -66,12 +66,43 @@ class OrganizationMembership(TimeStampedModel):
         MEMBER = "member", "Üye"
         VIEWER = "viewer", "Görüntüleyici"
 
+    class Module(models.TextChoices):
+        CRM = "crm", "CRM"
+        SALES = "sales", "Satış Yönetimi"
+        PURCHASING = "purchasing", "Satın Alma"
+        INVENTORY = "inventory", "Stok Yönetimi"
+        MANUFACTURING = "manufacturing", "Üretim Yönetimi"
+        FINANCE = "finance", "Finans Yönetimi"
+        HR = "hr", "İnsan Kaynakları"
+
     class Permission(models.TextChoices):
         MANAGE_MEMBERS = "manage_members", "Üye ve rol yönetimi"
         MANAGE_SUPPORT = "manage_support", "Destek operasyonu yönetimi"
         RECEIVE_STOCK_ALERTS = (
             "receive_stock_alerts",
             "Kritik stok uyarılarını alma",
+        )
+        ACCESS_CRM = "access_crm", "CRM modülüne erişim"
+        ACCESS_SALES = "access_sales", "Satış Yönetimi modülüne erişim"
+        ACCESS_PURCHASING = (
+            "access_purchasing",
+            "Satın Alma modülüne erişim",
+        )
+        ACCESS_INVENTORY = (
+            "access_inventory",
+            "Stok Yönetimi modülüne erişim",
+        )
+        ACCESS_MANUFACTURING = (
+            "access_manufacturing",
+            "Üretim Yönetimi modülüne erişim",
+        )
+        ACCESS_FINANCE = (
+            "access_finance",
+            "Finans Yönetimi modülüne erişim",
+        )
+        ACCESS_HR = (
+            "access_hr",
+            "İnsan Kaynakları modülüne erişim",
         )
 
     user = models.ForeignKey(
@@ -146,17 +177,13 @@ class OrganizationMembership(TimeStampedModel):
         ]
 
     def get_role_permissions(self):
-        if self.role == self.Role.OWNER:
+        if self.role in {
+            self.Role.OWNER,
+            self.Role.ADMIN,
+        }:
             return {
                 value
                 for value, _ in self.Permission.choices
-            }
-
-        if self.role == self.Role.ADMIN:
-            return {
-                self.Permission.MANAGE_MEMBERS,
-                self.Permission.MANAGE_SUPPORT,
-                self.Permission.RECEIVE_STOCK_ALERTS,
             }
 
         if self.role == self.Role.MANAGER:
@@ -171,6 +198,26 @@ class OrganizationMembership(TimeStampedModel):
             permission in self.get_role_permissions()
             or permission in (self.permissions or [])
         )
+
+    def has_module_access(self, module):
+        module_permission_map = {
+            self.Module.CRM: self.Permission.ACCESS_CRM,
+            self.Module.SALES: self.Permission.ACCESS_SALES,
+            self.Module.PURCHASING: self.Permission.ACCESS_PURCHASING,
+            self.Module.INVENTORY: self.Permission.ACCESS_INVENTORY,
+            self.Module.MANUFACTURING: (
+                self.Permission.ACCESS_MANUFACTURING
+            ),
+            self.Module.FINANCE: self.Permission.ACCESS_FINANCE,
+            self.Module.HR: self.Permission.ACCESS_HR,
+        }
+
+        required_permission = module_permission_map.get(module)
+
+        if not required_permission:
+            return False
+
+        return self.has_permission(required_permission)
 
     @property
     def can_manage_members(self):
