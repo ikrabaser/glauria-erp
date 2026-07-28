@@ -23,6 +23,17 @@ class User(UUIDModel, TimeStampedModel, AbstractUser):
         choices=UserType.choices,
         default=UserType.INTERNAL,
     )
+    class ThemePreference(models.TextChoices):
+        SYSTEM = "system", "Sistem"
+        DARK = "dark", "Koyu"
+        LIGHT = "light", "Açık"
+
+    theme_preference = models.CharField(
+        max_length=10,
+        choices=ThemePreference.choices,
+        default=ThemePreference.SYSTEM,
+        verbose_name="Tema tercihi",
+    )
 
     class Meta:
         verbose_name = "Kullanıcı"

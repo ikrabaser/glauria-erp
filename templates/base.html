@@ -1,7 +1,10 @@
 {% load static %}
 
 <!DOCTYPE html>
-<html lang="tr">
+<html
+    lang="tr"
+    data-theme-preference="{{ request.user.theme_preference|default:'system' }}"
+>
     <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 

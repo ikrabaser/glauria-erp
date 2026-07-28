@@ -2127,3 +2127,44 @@ html[data-theme="light"] .notification-menu {
         width: 100%;
     }
 }
+.settings-theme-control {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.settings-theme-save {
+    min-height: 42px;
+    padding: 0 15px;
+    color: #241b21;
+    font-weight: 700;
+    cursor: pointer;
+    background:
+        linear-gradient(
+            135deg,
+            var(--color-rose-gold-light),
+            var(--color-rose-gold)
+        );
+    border: 0;
+    border-radius: var(--radius-sm);
+    transition:
+        transform var(--transition-fast),
+        filter var(--transition-fast);
+}
+
+.settings-theme-save:hover {
+    filter: brightness(1.05);
+    transform: translateY(-1px);
+}
+
+@media (max-width: 760px) {
+    .settings-theme-control {
+        width: 100%;
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .settings-theme-save {
+        width: 100%;
+    }
+}

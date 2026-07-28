@@ -9,6 +9,7 @@ from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from apps.accounts.models import OrganizationMembership
+from apps.accounts.models import User
 from apps.organizations.models import CompanySubscription
 
 from .forms import SupportTicketForm, SupportTicketUpdateForm
@@ -66,9 +67,34 @@ def health_check(request):
 
 @login_required
 def settings_home(request):
+    if request.method == "POST":
+        theme_preference = request.POST.get(
+            "theme_preference",
+            User.ThemePreference.SYSTEM,
+        )
+
+        valid_preferences = {
+            value
+            for value, _ in User.ThemePreference.choices
+        }
+
+        if theme_preference in valid_preferences:
+            request.user.theme_preference = theme_preference
+            request.user.save(
+                update_fields=[
+                    "theme_preference",
+                    "updated_at",
+                ]
+            )
+
+        return redirect("core:settings")
+
     return render(
         request,
         "core/settings_home.html",
+        {
+            "theme_preference": request.user.theme_preference,
+        },
     )
 
 
