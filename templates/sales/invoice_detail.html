@@ -1,0 +1,206 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}
+{{ invoice.invoice_number }} | Satış Faturası | Glauria ERP
+{% endblock %}
+
+{% block content %}
+<section class="invoice-page">
+    <header class="invoice-page__header">
+        <div>
+            <a
+                href="{% url 'sales:order_detail' invoice.sales_order.id %}"
+                class="customer-detail__back"
+            >
+                ← Siparişe Dön
+            </a>
+
+            <span class="page-header__eyebrow">
+                Sales Invoicing
+            </span>
+
+            <h2 class="settings-page__title">
+                {{ invoice.invoice_number }}
+            </h2>
+
+            <p class="settings-page__description">
+                {{ invoice.customer_name }} için oluşturulan satış faturası taslağı.
+            </p>
+        </div>
+
+        <div class="invoice-page__actions">
+            <a
+                href="{% url 'sales:invoice_pdf_download' invoice.id %}"
+                class="invoice-page__download"
+            >
+                PDF İndir
+            </a>
+
+            <span class="opportunity-card__quote">
+                {{ invoice.get_status_display }}
+            </span>
+        </div>
+    </header>
+
+    <article class="invoice-document">
+        <header class="invoice-document__masthead">
+            <img
+                src="{% static 'images/brand/glauria-logo-light.png' %}"
+                alt="Glauria ERP"
+                class="invoice-document__logo"
+            >
+
+            <div>
+                <span>SALES INVOICE</span>
+                <strong>Satış Faturası</strong>
+            </div>
+
+            <a
+                href="{{ verification_url }}"
+                target="_blank"
+                rel="noopener"
+                class="invoice-document__verification"
+                title="Fatura doğrulamasını yeni sekmede aç"
+            >
+                <img
+                    src="{{ verification_qr_data_uri }}"
+                    alt="Fatura doğrulama QR kodu"
+                >
+
+                <span>Faturayı doğrula</span>
+            </a>
+        </header>
+
+        <section class="invoice-document__parties">
+            <div>
+                <span class="invoice-document__label">
+                    SATICI
+                </span>
+
+                <strong>
+                    {{ invoice.seller_legal_name|default:invoice.seller_name }}
+                </strong>
+
+                <p>
+                    {{ invoice.seller_address|default:"Adres bilgisi girilmedi."|linebreaksbr }}
+                </p>
+
+                <p>
+                    VKN: {{ invoice.seller_tax_number|default:"—" }}<br>
+                    Vergi dairesi: {{ invoice.seller_tax_office|default:"—" }}<br>
+                    {{ invoice.seller_email|default:"" }}
+                </p>
+            </div>
+
+            <div>
+                <span class="invoice-document__label">
+                    FATURA BİLGİLERİ
+                </span>
+
+                <dl class="invoice-document__meta">
+                    <div>
+                        <dt>Fatura no</dt>
+                        <dd>{{ invoice.invoice_number }}</dd>
+                    </div>
+
+                    <div>
+                        <dt>Fatura tarihi</dt>
+                        <dd>{{ invoice.issue_date|date:"d.m.Y" }}</dd>
+                    </div>
+
+                    <div>
+                        <dt>Vade tarihi</dt>
+                        <dd>{{ invoice.due_date|date:"d.m.Y"|default:"—" }}</dd>
+                    </div>
+
+                    <div>
+                        <dt>Sipariş no</dt>
+                        <dd>{{ invoice.sales_order.order_number }}</dd>
+                    </div>
+                </dl>
+            </div>
+
+            <div>
+                <span class="invoice-document__label">
+                    FATURA ADRESİ
+                </span>
+
+                <strong>{{ invoice.customer_name }}</strong>
+
+                <p>
+                    {{ invoice.customer_address|default:"Adres bilgisi girilmedi."|linebreaksbr }}
+                </p>
+
+                <p>
+                    VKN: {{ invoice.customer_tax_number|default:"—" }}<br>
+                    Vergi dairesi: {{ invoice.customer_tax_office|default:"—" }}<br>
+                    {{ invoice.customer_email|default:"" }}
+                </p>
+            </div>
+        </section>
+
+        <div class="data-table-wrapper">
+            <table class="data-table invoice-document__table">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Mal / Hizmet</th>
+                        <th>Miktar</th>
+                        <th>Birim fiyat</th>
+                        <th>KDV</th>
+                        <th>Toplam</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    {% for line in invoice.lines.all %}
+                        <tr>
+                            <td>{{ forloop.counter }}</td>
+                            <td>{{ line.description }}</td>
+                            <td>{{ line.quantity }}</td>
+                            <td>₺{{ line.unit_price|floatformat:2 }}</td>
+                            <td>%{{ line.tax_rate|floatformat:2 }}</td>
+                            <td>₺{{ line.total_amount|floatformat:2 }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <section class="invoice-document__footer">
+            <div>
+                <span class="invoice-document__label">
+                    NOTLAR
+                </span>
+
+                <p>
+                    {{ invoice.notes|default:"Bu fatura için not eklenmedi."|linebreaksbr }}
+                </p>
+
+                <small>
+                    Bu belge Glauria ERP içindeki satış faturası taslağıdır.
+                    GİB e-Fatura veya e-Arşiv belgesi değildir.
+                </small>
+            </div>
+
+            <dl class="invoice-document__totals">
+                <div>
+                    <dt>Ara toplam</dt>
+                    <dd>₺{{ invoice.subtotal|floatformat:2 }}</dd>
+                </div>
+
+                <div>
+                    <dt>KDV</dt>
+                    <dd>₺{{ invoice.tax_amount|floatformat:2 }}</dd>
+                </div>
+
+                <div class="invoice-document__total">
+                    <dt>Ödenecek tutar</dt>
+                    <dd>₺{{ invoice.total_amount|floatformat:2 }}</dd>
+                </div>
+            </dl>
+        </section>
+    </article>
+</section>
+{% endblock %}

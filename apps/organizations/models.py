@@ -19,6 +19,11 @@ class Company(MasterDataModel):
         blank=True,
         verbose_name="Vergi Numarası",
     )
+    tax_office = models.CharField(
+        max_length=120,
+        blank=True,
+        verbose_name="Vergi dairesi",
+    )
     email = models.EmailField(
         blank=True,
         verbose_name="E-posta",

@@ -10,6 +10,10 @@ from .views import (
     quote_order_create,
     orders_home,
     order_status_update,
+    invoice_create_from_order,
+    invoice_detail,
+    invoice_verification,
+    invoice_pdf_download,
 )
 
 
@@ -37,6 +41,26 @@ path(
     "quotes/<uuid:quote_id>/status/<str:status>/",
     quote_status_update,
     name="quote_status_update",
+),
+path(
+        "invoices/verify/<uuid:verification_code>/",
+        invoice_verification,
+        name="invoice_verification",
+),
+path(
+    "invoices/<uuid:invoice_id>/pdf/",
+    invoice_pdf_download,
+    name="invoice_pdf_download",
+),
+path(
+        "invoices/<uuid:invoice_id>/",
+        invoice_detail,
+        name="invoice_detail",
+),
+path(
+        "orders/<uuid:order_id>/invoice/create/",
+        invoice_create_from_order,
+        name="invoice_create_from_order",
 ),
 path(
     "quotes/<uuid:quote_id>/order/new/",

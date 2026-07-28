@@ -1,10 +1,17 @@
+
+
 from django.contrib.auth.decorators import login_required
+from django.core.files.base import ContentFile
 from django.db import transaction
-from django.http import HttpResponseBadRequest
+from django.http import FileResponse, HttpResponseBadRequest
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.views.decorators.http import require_POST
 
-from apps.accounts.data_access import filter_company_records
+from apps.accounts.data_access import (
+    filter_company_records,
+    has_full_company_data_access,
+)
 from apps.crm.models import Customer, Opportunity
 from apps.inventory.models import Product
 from apps.manufacturing.models import (
@@ -14,11 +21,16 @@ from apps.manufacturing.models import (
 
 from .forms import SalesQuoteForm, SalesQuoteLineForm
 from .models import (
+    Invoice,
     SalesOrder,
     SalesOrderLine,
     SalesQuote,
 )
 
+from .services import (
+    build_invoice_qr_data_uri,
+    render_invoice_pdf,
+)
 
 def get_active_membership(user):
     return (
@@ -489,6 +501,53 @@ def order_detail(request, order_id):
             "customer",
             "quote",
             "owner",
+        ).select_related(
+            "invoice",
+        ).prefetch_related("lines"),
+        membership,
+        "owner",
+    )
+
+    order = get_object_or_404(
+        orders,
+        id=order_id,
+    )
+    invoice = getattr(
+        order,
+        "invoice",
+        None,
+    )
+
+    invoiceable_statuses = {
+        SalesOrder.Status.READY_TO_SHIP,
+        SalesOrder.Status.COMPLETED,
+    }
+
+    return render(
+        request,
+        "sales/order_detail.html",
+        {
+            "order": order,
+            "current_membership": membership,
+            "invoice": invoice,
+            "can_create_invoice": (
+                invoice is None
+                and order.status in invoiceable_statuses
+            ),
+        },
+    )
+@login_required
+@require_POST
+def invoice_create_from_order(request, order_id):
+    membership = get_active_membership(request.user)
+
+    if not membership:
+        return redirect("sales:home")
+
+    orders = filter_company_records(
+        SalesOrder.objects.select_related(
+            "company",
+            "customer",
         ).prefetch_related("lines"),
         membership,
         "owner",
@@ -499,11 +558,163 @@ def order_detail(request, order_id):
         id=order_id,
     )
 
+    existing_invoice = Invoice.objects.filter(
+        sales_order=order,
+    ).first()
+
+    if existing_invoice:
+        return redirect(
+            "sales:invoice_detail",
+            invoice_id=existing_invoice.id,
+        )
+
+    invoiceable_statuses = {
+        SalesOrder.Status.READY_TO_SHIP,
+        SalesOrder.Status.COMPLETED,
+    }
+
+    if order.status not in invoiceable_statuses:
+        return HttpResponseBadRequest(
+            "Fatura taslağı yalnızca sevkiyata hazır veya "
+            "tamamlanmış siparişler için oluşturulabilir."
+        )
+
+    invoice, _ = Invoice.create_from_sales_order(
+        order,
+        user=request.user,
+    )
+
+    return redirect(
+        "sales:invoice_detail",
+        invoice_id=invoice.id,
+    )
+
+
+@login_required
+def invoice_detail(request, invoice_id):
+    membership = get_active_membership(request.user)
+
+    if not membership:
+        return redirect("sales:home")
+
+    invoices = (
+        Invoice.objects.select_related(
+            "company",
+            "customer",
+            "sales_order",
+            "sales_order__owner",
+            "created_by",
+        )
+        .prefetch_related("lines")
+        .filter(company=membership.company)
+    )
+
+    if not has_full_company_data_access(membership):
+        invoices = invoices.filter(
+            sales_order__owner=request.user,
+        )
+
+    invoice = get_object_or_404(
+        invoices,
+        id=invoice_id,
+    )
+    verification_url = request.build_absolute_uri(
+        reverse(
+            "sales:invoice_verification",
+            kwargs={
+                "verification_code": invoice.verification_code,
+            },
+        )
+    )
+
+    verification_qr_data_uri = build_invoice_qr_data_uri(
+        verification_url
+)
+
     return render(
         request,
-        "sales/order_detail.html",
+        "sales/invoice_detail.html",
         {
-            "order": order,
+            "invoice": invoice,
             "current_membership": membership,
+            "verification_url": verification_url,
+            "verification_qr_data_uri": verification_qr_data_uri,
         },
+    )
+
+def invoice_verification(request, verification_code):
+    invoice = get_object_or_404(
+        Invoice.objects.select_related(
+            "company",
+            "customer",
+        ),
+        verification_code=verification_code,
+    )
+
+    return render(
+        request,
+        "sales/invoice_verification.html",
+        {
+            "invoice": invoice,
+        },
+    )
+
+@login_required
+def invoice_pdf_download(request, invoice_id):
+    membership = get_active_membership(request.user)
+
+    if not membership:
+        return redirect("sales:home")
+
+    invoices = (
+        Invoice.objects.select_related(
+            "company",
+            "customer",
+            "sales_order",
+            "sales_order__owner",
+        )
+        .prefetch_related("lines")
+        .filter(
+            company=membership.company,
+        )
+    )
+
+    if not has_full_company_data_access(membership):
+        invoices = invoices.filter(
+            sales_order__owner=request.user,
+        )
+
+    invoice = get_object_or_404(
+        invoices,
+        id=invoice_id,
+    )
+
+    if not invoice.pdf_file:
+        verification_url = request.build_absolute_uri(
+            reverse(
+                "sales:invoice_verification",
+                kwargs={
+                    "verification_code": (
+                        invoice.verification_code
+                    ),
+                },
+            )
+        )
+
+        pdf_content = render_invoice_pdf(
+            invoice,
+            verification_url,
+        )
+
+        invoice.pdf_file.save(
+            f"{invoice.invoice_number}.pdf",
+            ContentFile(pdf_content),
+            save=True,
+        )
+
+    return FileResponse(
+        invoice.pdf_file.open("rb"),
+        as_attachment=True,
+        filename=f"{invoice.invoice_number}.pdf",
+        content_type="application/pdf",
     )

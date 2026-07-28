@@ -24,7 +24,11 @@ def get_active_membership(user):
         .order_by("-is_primary", "created_at")
         .first()
     )
+def root_redirect(request):
+    if request.user.is_authenticated:
+        return redirect("dashboard:home")
 
+    return redirect("accounts:login")
 
 def health_check(request):
     database_status = "ok"

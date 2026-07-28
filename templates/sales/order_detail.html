@@ -72,6 +72,29 @@
             </button>
         </form>
     {% endif %}
+        {% if invoice %}
+        <a
+            href="{% url 'sales:invoice_detail' invoice.id %}"
+            class="customer-detail__edit"
+        >
+            Faturayı Görüntüle
+        </a>
+
+    {% elif can_create_invoice %}
+        <form
+            method="post"
+            action="{% url 'sales:invoice_create_from_order' order.id %}"
+        >
+            {% csrf_token %}
+
+            <button
+                type="submit"
+                class="customer-detail__edit"
+            >
+                Fatura Taslağı Oluştur
+            </button>
+        </form>
+    {% endif %}
 </div>
         </div>
 
