@@ -82,6 +82,24 @@ services:
       redis:
         condition: service_healthy
 
+  flower:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: glauria_flower
+    restart: unless-stopped
+    env_file:
+      - .env
+    command: >
+      sh -c 'celery -A config flower
+      --port=5555
+      --basic_auth="$FLOWER_BASIC_AUTH"'
+    ports:
+      - "127.0.0.1:5555:5555"
+    depends_on:
+      redis:
+        condition: service_healthy
+
   nginx:
     image: nginx:1.28-alpine
     container_name: glauria_nginx
