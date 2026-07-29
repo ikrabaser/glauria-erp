@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+</head>
+
+<body style="margin: 0; padding: 0; background: #f8f4f5; font-family: Arial, sans-serif; color: #302128;">
+    <table
+        role="presentation"
+        width="100%"
+        cellspacing="0"
+        cellpadding="0"
+        border="0"
+        style="padding: 32px 16px; background: #f8f4f5;"
+    >
+        <tr>
+            <td align="center">
+                <table
+                    role="presentation"
+                    width="100%"
+                    cellspacing="0"
+                    cellpadding="0"
+                    border="0"
+                    style="max-width: 620px; overflow: hidden; background: #fffdfc; border: 1px solid #eadde0; border-radius: 16px;"
+                >
+                    <tr>
+                        <td
+                            style="padding: 30px 34px; background: linear-gradient(135deg, #2b1d25, #52333e); border-bottom: 4px solid #d7a48f;"
+                        >
+                            <p
+                                style="margin: 0 0 8px; color: #eec6b3; font-size: 11px; font-weight: 700; letter-spacing: 1.5px;"
+                            >
+                                GLAURIA ERP · SALES INVOICE
+                            </p>
+
+                            <h1
+                                style="margin: 0; color: #ffffff; font-size: 26px;"
+                            >
+                                Faturanız hazır
+                            </h1>
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <td style="padding: 30px 34px;">
+                            <p style="margin: 0 0 16px; line-height: 1.6;">
+                                Merhaba,
+                            </p>
+
+                            <p style="margin: 0 0 22px; line-height: 1.6;">
+                                <strong>{{ invoice.invoice_number }}</strong>
+                                numaralı satış faturanız hazırlanmıştır.
+                                PDF kopyası bu e-postaya eklenmiştir.
+                            </p>
+
+                            <table
+                                role="presentation"
+                                width="100%"
+                                cellspacing="0"
+                                cellpadding="0"
+                                border="0"
+                                style="margin-bottom: 24px; border-collapse: collapse;"
+                            >
+                                <tr>
+                                    <td style="padding: 10px 0; border-bottom: 1px solid #eadde0; color: #7b626b;">
+                                        Fatura no
+                                    </td>
+                                    <td
+                                        align="right"
+                                        style="padding: 10px 0; border-bottom: 1px solid #eadde0; font-weight: 700;"
+                                    >
+                                        {{ invoice.invoice_number }}
+                                    </td>
+                                </tr>
+
+                                <tr>
+                                    <td style="padding: 10px 0; border-bottom: 1px solid #eadde0; color: #7b626b;">
+                                        Fatura tarihi
+                                    </td>
+                                    <td
+                                        align="right"
+                                        style="padding: 10px 0; border-bottom: 1px solid #eadde0; font-weight: 700;"
+                                    >
+                                        {{ invoice.issue_date|date:"d.m.Y" }}
+                                    </td>
+                                </tr>
+
+                                <tr>
+                                    <td style="padding: 10px 0; color: #7b626b;">
+                                        Ödenecek tutar
+                                    </td>
+                                    <td
+                                        align="right"
+                                        style="padding: 10px 0; color: #5d322b; font-size: 16px; font-weight: 800;"
+                                    >
+                                        ₺{{ invoice.total_amount|floatformat:2 }}
+                                    </td>
+                                </tr>
+                            </table>
+
+                            <a
+                                href="{{ verification_url }}"
+                                style="display: inline-block; padding: 12px 18px; color: #2d1b20; background: #efc8b6; border-radius: 8px; font-weight: 700; text-decoration: none;"
+                            >
+                                Faturayı doğrula
+                            </a>
+
+                            <p
+                                style="margin: 28px 0 0; color: #8d7379; font-size: 12px; line-height: 1.6;"
+                            >
+                                Bu mesaj Glauria ERP üzerinden oluşturulmuştur.
+                                Doğrulama bağlantısı Glauria ERP iç doğrulamasıdır;
+                                GİB e-Fatura veya e-Arşiv doğrulaması değildir.
+                            </p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>

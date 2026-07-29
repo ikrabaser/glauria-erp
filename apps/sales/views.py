@@ -7,6 +7,7 @@ from django.http import FileResponse, HttpResponseBadRequest
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.views.decorators.http import require_POST
+from django.contrib import messages
 
 from apps.accounts.data_access import (
     filter_company_records,
@@ -31,6 +32,7 @@ from .services import (
     build_invoice_qr_data_uri,
     render_invoice_pdf,
 )
+from .tasks import send_invoice_email
 
 def get_active_membership(user):
     return (
@@ -582,6 +584,57 @@ def invoice_create_from_order(request, order_id):
     invoice, _ = Invoice.create_from_sales_order(
         order,
         user=request.user,
+    )
+
+    return redirect(
+        "sales:invoice_detail",
+        invoice_id=invoice.id,
+    )
+
+@login_required
+@require_POST
+def invoice_email_send(request, invoice_id):
+    membership = get_active_membership(request.user)
+
+    if not membership:
+        return redirect("sales:home")
+
+    invoices = (
+        Invoice.objects.select_related(
+            "company",
+            "customer",
+            "sales_order",
+            "sales_order__owner",
+        )
+        .filter(company=membership.company)
+    )
+
+    if not has_full_company_data_access(membership):
+        invoices = invoices.filter(
+            sales_order__owner=request.user,
+        )
+
+    invoice = get_object_or_404(
+        invoices,
+        id=invoice_id,
+    )
+
+    if not invoice.customer_email:
+        messages.error(
+            request,
+            "Bu fatura için müşteri e-posta adresi bulunmuyor.",
+        )
+
+        return redirect(
+            "sales:invoice_detail",
+            invoice_id=invoice.id,
+        )
+
+    send_invoice_email.delay(str(invoice.id))
+
+    messages.success(
+        request,
+        "Fatura e-posta gönderim kuyruğuna alındı.",
     )
 
     return redirect(

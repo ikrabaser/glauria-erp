@@ -30,19 +30,34 @@
         </div>
 
         <div class="invoice-page__actions">
-            <a
-                href="{% url 'sales:invoice_pdf_download' invoice.id %}"
-                class="invoice-page__download"
+    <a
+        href="{% url 'sales:invoice_pdf_download' invoice.id %}"
+        class="invoice-page__download"
+    >
+        PDF İndir
+    </a>
+
+    {% if invoice.customer_email %}
+        <form
+            method="post"
+            action="{% url 'sales:invoice_email_send' invoice.id %}"
+        >
+            {% csrf_token %}
+
+            <button
+                type="submit"
+                class="invoice-page__email-send"
             >
-                PDF İndir
-            </a>
+                E-posta ile Gönder
+            </button>
+        </form>
+    {% endif %}
 
-            <span class="opportunity-card__quote">
-                {{ invoice.get_status_display }}
-            </span>
-        </div>
-    </header>
-
+    <span class="opportunity-card__quote">
+        {{ invoice.get_status_display }}
+    </span>
+</div>
+</header>
     <article class="invoice-document">
         <header class="invoice-document__masthead">
             <img
