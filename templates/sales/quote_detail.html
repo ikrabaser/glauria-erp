@@ -7,7 +7,10 @@
 {% block content %}
 <section class="customer-detail__header">
     <div>
-        <a href="{% url 'sales:home' %}" class="customer-detail__back">
+        <a
+            href="{% url 'sales:home' %}"
+            class="customer-detail__back"
+        >
             ← Tekliflere Dön
         </a>
 
@@ -23,64 +26,65 @@
             </div>
 
             <div class="customer-detail__header-actions">
-    <span class="opportunity-card__quote">
-        {{ quote.get_status_display }}
-    </span>
-    {% if quote.status == "accepted" %}
-    {% if quote.sales_order %}
-        <a
-            href="{% url 'sales:order_detail' quote.sales_order.id %}"
-            class="customer-detail__edit"
-        >
-            Siparişi Görüntüle
-        </a>
-    {% else %}
-        <form
-            method="post"
-            action="{% url 'sales:quote_order_create' quote.id %}"
-        >
-            {% csrf_token %}
+                <span class="opportunity-card__quote">
+                    {{ quote.get_status_display }}
+                </span>
 
-            <button
-                type="submit"
-                class="customer-detail__edit"
-            >
-                Satış Siparişi Oluştur
-            </button>
-        </form>
-    {% endif %}
-{% endif %}
+                {% if quote.status == "accepted" %}
+                    {% if quote.sales_order %}
+                        <a
+                            href="{% url 'sales:order_detail' quote.sales_order.id %}"
+                            class="customer-detail__edit"
+                        >
+                            Siparişi Görüntüle
+                        </a>
+                    {% else %}
+                        <form
+                            method="post"
+                            action="{% url 'sales:quote_order_create' quote.id %}"
+                        >
+                            {% csrf_token %}
 
-    {% if quote.status == "draft" %}
-        <form
-            method="post"
-            action="{% url 'sales:quote_status_update' quote.id 'sent' %}"
-        >
-            {% csrf_token %}
+                            <button
+                                type="submit"
+                                class="customer-detail__edit"
+                            >
+                                Satış Siparişi Oluştur
+                            </button>
+                        </form>
+                    {% endif %}
+                {% endif %}
 
-            <button
-                type="submit"
-                class="opportunity-detail__quote-action"
-            >
-                Teklifi Gönder
-            </button>
-        </form>
-    {% elif quote.status == "sent" %}
-        <form
-            method="post"
-            action="{% url 'sales:quote_status_update' quote.id 'accepted' %}"
-        >
-            {% csrf_token %}
+                {% if quote.status == "draft" %}
+                    <form
+                        method="post"
+                        action="{% url 'sales:quote_status_update' quote.id 'sent' %}"
+                    >
+                        {% csrf_token %}
 
-            <button
-                type="submit"
-                class="customer-detail__edit"
-            >
-                Teklifi Onayla
-            </button>
-        </form>
-    {% endif %}
-</div>
+                        <button
+                            type="submit"
+                            class="opportunity-detail__quote-action"
+                        >
+                            Teklifi Gönder
+                        </button>
+                    </form>
+                {% elif quote.status == "sent" %}
+                    <form
+                        method="post"
+                        action="{% url 'sales:quote_status_update' quote.id 'accepted' %}"
+                    >
+                        {% csrf_token %}
+
+                        <button
+                            type="submit"
+                            class="customer-detail__edit"
+                        >
+                            Teklifi Onayla
+                        </button>
+                    </form>
+                {% endif %}
+            </div>
         </div>
 
         <p class="customer-detail__subtitle">
@@ -121,14 +125,14 @@
             </div>
 
             <div>
-    <span>İskonto</span>
-    <strong>−₺{{ quote.discount_amount|floatformat:2 }}</strong>
-</div>
+                <dt>İskonto</dt>
+                <dd>−₺{{ quote.discount_amount|floatformat:2 }}</dd>
+            </div>
 
-<div>
-    <span>KDV matrahı</span>
-    <strong>₺{{ quote.taxable_amount|floatformat:2 }}</strong>
-</div>
+            <div>
+                <dt>KDV matrahı</dt>
+                <dd>₺{{ quote.taxable_amount|floatformat:2 }}</dd>
+            </div>
 
             <div>
                 <dt>KDV</dt>
@@ -143,118 +147,255 @@
     </article>
 
     <article class="customer-detail__card customer-detail__card--wide">
-    <h3>Teklif Kalemleri</h3>
+        <h3>Teklif Kalemleri</h3>
 
-    {% if quote.lines.all %}
-        <div class="data-table-wrapper">
-            <table class="data-table">
-                <thead>
-                    <tr>
-                        <th>Ürün / Hizmet</th>
-                        <th>Miktar</th>
-                        <th>Birim fiyat</th>
-                        <th>KDV</th>
-                        <th>Toplam</th>
-                    </tr>
-                </thead>
+        {% if quote.status == "draft" %}
+            <form
+                method="post"
+                action="{% url 'sales:quote_lines_update' quote.id %}"
+                class="quote-lines-editor"
+            >
+                {% csrf_token %}
+                {{ line_formset.management_form }}
 
-                <tbody>
-                    {% for line in quote.lines.all %}
-                        <tr>
-                            <td>
-    <div class="customer-cell">
-        <strong>{{ line.description }}</strong>
+                <div
+                    id="quote-lines-editor"
+                    class="quote-lines-editor__rows"
+                >
+                    {% for line_form in line_formset %}
+                        <div class="quote-lines-editor__row">
+                            {% for hidden_field in line_form.hidden_fields %}
+                                {{ hidden_field }}
+                            {% endfor %}
 
-        {% if line.product %}
-            <span>
-                {{ line.product.sku }} · {{ line.product.name }}
-            </span>
-        {% else %}
-            <span>Serbest hizmet kalemi</span>
-        {% endif %}
-    </div>
-</td>
-                            <td>{{ line.quantity }}</td>
-                            <td>₺{{ line.unit_price|floatformat:2 }}</td>
-                            <td>%{{ line.tax_rate|floatformat:2 }}</td>
-                            <td>₺{{ line.total_amount|floatformat:2 }}</td>
-                        </tr>
+                            <div class="quote-lines-editor__field">
+                                <label
+                                    for="{{ line_form.product.id_for_label }}"
+                                >
+                                    Ürün kartı
+                                </label>
+
+                                {{ line_form.product }}
+                                {{ line_form.product.errors }}
+                            </div>
+
+                            <div class="quote-lines-editor__field">
+                                <label
+                                    for="{{ line_form.description.id_for_label }}"
+                                >
+                                    Ürün veya hizmet
+                                </label>
+
+                                {{ line_form.description }}
+                                {{ line_form.description.errors }}
+                            </div>
+
+                            <div class="quote-lines-editor__field">
+                                <label
+                                    for="{{ line_form.quantity.id_for_label }}"
+                                >
+                                    Miktar
+                                </label>
+
+                                {{ line_form.quantity }}
+                                {{ line_form.quantity.errors }}
+                            </div>
+
+                            <div class="quote-lines-editor__field">
+                                <label
+                                    for="{{ line_form.unit_price.id_for_label }}"
+                                >
+                                    Birim fiyat
+                                </label>
+
+                                {{ line_form.unit_price }}
+                                {{ line_form.unit_price.errors }}
+                            </div>
+
+                            <div class="quote-lines-editor__field">
+                                <label
+                                    for="{{ line_form.tax_rate.id_for_label }}"
+                                >
+                                    KDV
+                                </label>
+
+                                {{ line_form.tax_rate }}
+                                {{ line_form.tax_rate.errors }}
+                            </div>
+
+                            <div class="quote-lines-editor__field">
+                                <label
+                                    for="{{ line_form.discount_rate.id_for_label }}"
+                                >
+                                    İskonto
+                                </label>
+
+                                {{ line_form.discount_rate }}
+                                {{ line_form.discount_rate.errors }}
+                            </div>
+
+                            <div class="quote-lines-editor__remove">
+                                {{ line_form.DELETE.as_hidden }}
+
+                                <button
+                                    type="button"
+                                    class="quote-lines-editor__remove-button"
+                                    data-remove-quote-line
+                                >
+                                    Satırı Kaldır
+                                </button>
+                            </div>
+                        </div>
                     {% endfor %}
-                </tbody>
-            </table>
-        </div>
-    {% else %}
-        <p class="customer-detail__notes">
-            Bu teklife henüz ürün veya hizmet kalemi eklenmedi.
-        </p>
-    {% endif %}
-</article>
+                </div>
 
-<article class="customer-detail__card customer-detail__card--wide">
-    <h3>Yeni Kalem Ekle</h3>
+                <template id="quote-line-empty-form">
+                    <div class="quote-lines-editor__row">
+                        {% for hidden_field in line_formset.empty_form.hidden_fields %}
+                            {{ hidden_field }}
+                        {% endfor %}
 
-    <form
-        method="post"
-        action="{% url 'sales:quote_line_create' quote.id %}"
-    >
-        {% csrf_token %}
+                        <div class="quote-lines-editor__field">
+                            <label
+                                for="{{ line_formset.empty_form.product.id_for_label }}"
+                            >
+                                Ürün kartı
+                            </label>
 
-        <div class="customer-form__grid">
-                        <div class="customer-form__field customer-form__field--full">
-                <label for="{{ line_form.product.id_for_label }}">
-                    {{ line_form.product.label }}
-                </label>
-                {{ line_form.product }}
-                {{ line_form.product.errors }}
+                            {{ line_formset.empty_form.product }}
+                        </div>
+
+                        <div class="quote-lines-editor__field">
+                            <label
+                                for="{{ line_formset.empty_form.description.id_for_label }}"
+                            >
+                                Ürün veya hizmet
+                            </label>
+
+                            {{ line_formset.empty_form.description }}
+                        </div>
+
+                        <div class="quote-lines-editor__field">
+                            <label
+                                for="{{ line_formset.empty_form.quantity.id_for_label }}"
+                            >
+                                Miktar
+                            </label>
+
+                            {{ line_formset.empty_form.quantity }}
+                        </div>
+
+                        <div class="quote-lines-editor__field">
+                            <label
+                                for="{{ line_formset.empty_form.unit_price.id_for_label }}"
+                            >
+                                Birim fiyat
+                            </label>
+
+                            {{ line_formset.empty_form.unit_price }}
+                        </div>
+
+                        <div class="quote-lines-editor__field">
+                            <label
+                                for="{{ line_formset.empty_form.tax_rate.id_for_label }}"
+                            >
+                                KDV
+                            </label>
+
+                            {{ line_formset.empty_form.tax_rate }}
+                        </div>
+
+                        <div class="quote-lines-editor__field">
+                            <label
+                                for="{{ line_formset.empty_form.discount_rate.id_for_label }}"
+                            >
+                                İskonto
+                            </label>
+
+                            {{ line_formset.empty_form.discount_rate }}
+                        </div>
+
+                        <div class="quote-lines-editor__remove">
+                            {{ line_formset.empty_form.DELETE.as_hidden }}
+
+                            <button
+                                type="button"
+                                class="quote-lines-editor__remove-button"
+                                data-remove-quote-line
+                            >
+                                Satırı Kaldır
+                            </button>
+                        </div>
+                    </div>
+                </template>
+
+                <div class="quote-lines-editor__actions">
+                    <button
+                        type="button"
+                        class="quote-lines-editor__add"
+                        id="quote-line-add"
+                    >
+                        + Kalem Ekle
+                    </button>
+
+                    <button
+                        type="submit"
+                        class="customer-form__submit"
+                    >
+                        Kalemleri Kaydet
+                    </button>
+                </div>
+            </form>
+        {% else %}
+            <div class="data-table-wrapper">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Ürün / Hizmet</th>
+                            <th>Miktar</th>
+                            <th>Birim fiyat</th>
+                            <th>İskonto</th>
+                            <th>KDV</th>
+                            <th>Toplam</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        {% for line in quote.lines.all %}
+                            <tr>
+                                <td>
+                                    <div class="customer-cell">
+                                        <strong>
+                                            {{ line.description }}
+                                        </strong>
+
+                                        {% if line.product %}
+                                            <span>
+                                                {{ line.product.sku }}
+                                                ·
+                                                {{ line.product.name }}
+                                            </span>
+                                        {% else %}
+                                            <span>
+                                                Serbest hizmet kalemi
+                                            </span>
+                                        {% endif %}
+                                    </div>
+                                </td>
+
+                                <td>{{ line.quantity }}</td>
+                                <td>₺{{ line.unit_price|floatformat:2 }}</td>
+                                <td>%{{ line.discount_rate|floatformat:2 }}</td>
+                                <td>%{{ line.tax_rate|floatformat:2 }}</td>
+                                <td>₺{{ line.total_amount|floatformat:2 }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
             </div>
-            <div class="customer-form__field customer-form__field--full">
-                <label for="{{ line_form.description.id_for_label }}">
-                    {{ line_form.description.label }}
-                </label>
-                {{ line_form.description }}
-                {{ line_form.description.errors }}
-            </div>
+        {% endif %}
+    </article>
 
-            <div class="customer-form__field">
-                <label for="{{ line_form.quantity.id_for_label }}">
-                    {{ line_form.quantity.label }}
-                </label>
-                {{ line_form.quantity }}
-                {{ line_form.quantity.errors }}
-            </div>
-
-            <div class="customer-form__field">
-                <label for="{{ line_form.unit_price.id_for_label }}">
-                    {{ line_form.unit_price.label }}
-                </label>
-                {{ line_form.unit_price }}
-                {{ line_form.unit_price.errors }}
-            </div>
-
-            <div class="customer-form__field">
-                <label for="{{ line_form.tax_rate.id_for_label }}">
-                    {{ line_form.tax_rate.label }}
-                </label>
-                {{ line_form.tax_rate }}
-                {{ line_form.tax_rate.errors }}
-            </div>
-
-            <div class="customer-form__field">
-                <label for="{{ line_form.discount_rate.id_for_label }}">
-                    {{ line_form.discount_rate.label }}
-                </label>
-                {{ line_form.discount_rate }}
-                {{ line_form.discount_rate.errors }}
-            </div>
-        </div>
-
-        <div class="customer-form__actions">
-            <button type="submit" class="customer-form__submit">
-                Kalemi Ekle
-            </button>
-        </div>
-    </form>
-</article>
     <article class="customer-detail__card customer-detail__card--wide">
         <h3>Notlar</h3>
 
@@ -263,4 +404,82 @@
         </p>
     </article>
 </section>
+
+<script>
+    document.addEventListener(
+        "DOMContentLoaded",
+        function () {
+            const editor = document.getElementById(
+                "quote-lines-editor"
+            );
+
+            const addButton = document.getElementById(
+                "quote-line-add"
+            );
+
+            const template = document.getElementById(
+                "quote-line-empty-form"
+            );
+
+            const totalForms = document.getElementById(
+                "id_form-TOTAL_FORMS"
+            );
+
+            if (
+                !editor
+                || !addButton
+                || !template
+                || !totalForms
+            ) {
+                return;
+            }
+
+            addButton.addEventListener(
+                "click",
+                function () {
+                    const index = Number(totalForms.value);
+
+                    const formHtml = template.innerHTML.replace(
+                        /__prefix__/g,
+                        index
+                    );
+
+                    editor.insertAdjacentHTML(
+                        "beforeend",
+                        formHtml
+                    );
+
+                    totalForms.value = index + 1;
+                }
+            );
+
+            editor.addEventListener(
+                "click",
+                function (event) {
+                    const removeButton = event.target.closest(
+                        "[data-remove-quote-line]"
+                    );
+
+                    if (!removeButton) {
+                        return;
+                    }
+
+                    const row = removeButton.closest(
+                        ".quote-lines-editor__row"
+                    );
+
+                    const deleteField = row.querySelector(
+                        'input[name$="-DELETE"]'
+                    );
+
+                    if (deleteField) {
+                        deleteField.value = "on";
+                    }
+
+                    row.hidden = true;
+                }
+            );
+        }
+    );
+</script>
 {% endblock %}

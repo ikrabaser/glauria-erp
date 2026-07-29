@@ -20,7 +20,11 @@ from apps.manufacturing.models import (
     ProductionOrderLine,
 )
 
-from .forms import SalesQuoteForm, SalesQuoteLineForm
+from .forms import (
+    SalesQuoteForm,
+    SalesQuoteLineForm,
+    SalesQuoteLineFormSet,
+)
 from .models import (
     Invoice,
     SalesOrder,
@@ -173,22 +177,35 @@ def quote_detail(request, quote_id):
         id=quote_id,
     )
 
-    line_form = SalesQuoteLineForm()
-
-    line_form.fields["product"].queryset = Product.objects.filter(
+    product_queryset = Product.objects.filter(
         company=membership.company,
         is_active=True,
     ).order_by("name")
+
+    line_formset = SalesQuoteLineFormSet(
+        queryset=quote.lines.select_related(
+            "product"
+        ).order_by(
+            "line_order",
+            "created_at",
+        )
+    )
+
+    for line_form in line_formset:
+        line_form.fields["product"].queryset = (
+            product_queryset
+        )
 
     return render(
         request,
         "sales/quote_detail.html",
         {
             "quote": quote,
-            "line_form": line_form,
+            "line_formset": line_formset,
             "current_membership": membership,
         },
     )
+
 
 
 @login_required
@@ -230,6 +247,77 @@ def quote_line_create(request, quote_id):
         quote_id=quote.id,
     )
 
+@login_required
+@require_POST
+def quote_lines_update(request, quote_id):
+    membership = get_active_membership(request.user)
+
+    if not membership:
+        return redirect("sales:home")
+
+    quotes = filter_company_records(
+        SalesQuote.objects,
+        membership,
+        "owner",
+    )
+
+    quote = get_object_or_404(
+        quotes,
+        id=quote_id,
+    )
+
+    if quote.status != SalesQuote.Status.DRAFT:
+        return HttpResponseBadRequest(
+            "Yalnızca taslak teklif kalemleri düzenlenebilir."
+        )
+
+    product_queryset = Product.objects.filter(
+        company=membership.company,
+        is_active=True,
+    ).order_by("name")
+
+    line_formset = SalesQuoteLineFormSet(
+        request.POST,
+        queryset=quote.lines.order_by(
+            "line_order",
+            "created_at",
+        ),
+    )
+
+    for line_form in line_formset:
+        line_form.fields["product"].queryset = (
+            product_queryset
+        )
+
+    if line_formset.is_valid():
+        with transaction.atomic():
+            for line_form in line_formset.deleted_forms:
+                if line_form.instance.pk:
+                    line_form.instance.delete()
+
+            for line in line_formset.save(commit=False):
+                line.quote = quote
+                line.save()
+
+            for index, line in enumerate(
+                quote.lines.order_by(
+                    "created_at",
+                    "id",
+                ),
+                start=1,
+            ):
+                if line.line_order != index:
+                    line.line_order = index
+                    line.save(
+                        update_fields=["line_order"]
+                    )
+
+            quote.recalculate_totals()
+
+    return redirect(
+        "sales:quote_detail",
+        quote_id=quote.id,
+    )
 
 def create_sales_order_from_quote(quote):
     with transaction.atomic():
