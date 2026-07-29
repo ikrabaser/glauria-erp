@@ -24,7 +24,9 @@ Cari Hesaplar | Glauria ERP
                     <tr>
                         <td>
                             <div class="customer-cell">
-                                <strong>{{ account.customer.name }}</strong>
+                                <a href="{% url 'finance:customer_account_detail' account.id %}">
+    {{ account.customer.name }}
+</a>
                                 <span>{{ account.customer.email|default:"E-posta bilgisi yok" }}</span>
                             </div>
                         </td>

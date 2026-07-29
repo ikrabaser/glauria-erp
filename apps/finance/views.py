@@ -3,9 +3,13 @@ from decimal import Decimal
 from django.contrib.auth.decorators import login_required
 from django.db.models import DecimalField, ExpressionWrapper, F, Q, Sum, Value
 from django.db.models.functions import Coalesce, TruncMonth
-from django.shortcuts import redirect, render
 from django.utils import timezone
 from datetime import date
+from django.contrib import messages
+from django.shortcuts import get_object_or_404, redirect, render
+from django.views.decorators.http import require_POST
+
+from .forms import CollectionForm
 
 from apps.accounts.data_access import has_full_company_data_access
 from apps.finance.models import (
@@ -372,4 +376,94 @@ def finance_section(request, section):
             "current_membership": membership,
             "section_title": title,
         },
+    )
+@login_required
+def customer_account_detail(request, account_id):
+    membership = get_active_membership(request.user)
+
+    if not membership or not has_full_company_data_access(membership):
+        return redirect("finance:home")
+
+    account = get_object_or_404(
+        CustomerAccount.objects.select_related("customer"),
+        id=account_id,
+        company=membership.company,
+        is_active=True,
+    )
+
+    transactions = account.transactions.select_related(
+        "invoice",
+    ).order_by(
+        "-transaction_date",
+        "-created_at",
+    )
+
+    return render(
+        request,
+        "finance/customer_account_detail.html",
+        {
+            "current_membership": membership,
+            "account": account,
+            "transactions": transactions,
+            "collection_form": CollectionForm(),
+        },
+    )
+
+
+@login_required
+@require_POST
+def customer_account_collection(request, account_id):
+    membership = get_active_membership(request.user)
+
+    if not membership or not has_full_company_data_access(membership):
+        return redirect("finance:home")
+
+    account = get_object_or_404(
+        CustomerAccount.objects.select_related("customer"),
+        id=account_id,
+        company=membership.company,
+        is_active=True,
+    )
+
+    form = CollectionForm(request.POST)
+
+    if not form.is_valid():
+        messages.error(
+            request,
+            "Tahsilat kaydı için form alanlarını kontrol edin.",
+        )
+        return redirect(
+            "finance:customer_account_detail",
+            account_id=account.id,
+        )
+
+    if form.cleaned_data["amount"] > account.balance:
+        messages.error(
+            request,
+            "Tahsilat tutarı açık cari bakiyeyi aşamaz.",
+        )
+        return redirect(
+            "finance:customer_account_detail",
+            account_id=account.id,
+        )
+
+    collection = form.save(commit=False)
+    collection.account = account
+    collection.company = membership.company
+    collection.direction = CustomerAccountTransaction.Direction.CREDIT
+    collection.transaction_type = (
+        CustomerAccountTransaction.TransactionType.COLLECTION
+    )
+    collection.currency = account.currency
+    collection.created_by = request.user
+    collection.save()
+
+    messages.success(
+        request,
+        "Tahsilat kaydı oluşturuldu ve cari bakiye güncellendi.",
+    )
+
+    return redirect(
+        "finance:customer_account_detail",
+        account_id=account.id,
     )

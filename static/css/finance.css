@@ -396,3 +396,52 @@ html[data-theme="light"] .finance-chart-legend {
         height: 220px;
     }
 }
+.finance-collection-form {
+    display: grid;
+    gap: 14px;
+}
+
+.finance-collection-form p {
+    display: grid;
+    gap: 7px;
+    margin: 0;
+}
+
+.finance-collection-form label {
+    color: rgba(255, 255, 255, 0.58);
+    font-size: 0.78rem;
+    font-weight: 700;
+}
+
+.finance-collection-form input {
+    width: 100%;
+    min-height: 46px;
+    padding: 0 13px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    outline: none;
+    color: #fff;
+    background: rgba(255, 255, 255, 0.045);
+}
+
+.finance-collection-form input:focus {
+    border-color: rgba(215, 164, 143, 0.5);
+    box-shadow: 0 0 0 4px rgba(215, 164, 143, 0.08);
+}
+
+.finance-collection-form .page-header__action {
+    width: 100%;
+    margin-top: 5px;
+    border: 0;
+    cursor: pointer;
+}
+
+html[data-theme="light"] .finance-collection-form label {
+    color: rgba(55, 35, 44, 0.65);
+}
+
+html[data-theme="light"] .finance-collection-form input {
+    border-color: rgba(74, 43, 57, 0.13);
+    color: #3b2530;
+    background: rgba(255, 255, 255, 0.75);
+}
