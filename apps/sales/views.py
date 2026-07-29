@@ -244,6 +244,8 @@ def create_sales_order_from_quote(quote):
                 "total_amount": quote.total_amount,
                 "notes": quote.notes,
                 "owner": quote.owner,
+                "discount_amount": quote.discount_amount,
+                "taxable_amount": quote.taxable_amount,
             },
         )
 
@@ -257,6 +259,7 @@ def create_sales_order_from_quote(quote):
                         quantity=line.quantity,
                         unit_price=line.unit_price,
                         tax_rate=line.tax_rate,
+                        discount_rate=line.discount_rate,
                         line_order=index,
                     )
                     for index, line in enumerate(

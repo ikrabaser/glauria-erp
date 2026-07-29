@@ -116,9 +116,19 @@
 
         <dl class="customer-detail__list">
             <div>
-                <dt>Ara toplam</dt>
+                <dt>Brüt toplam</dt>
                 <dd>₺{{ quote.subtotal|floatformat:2 }}</dd>
             </div>
+
+            <div>
+    <span>İskonto</span>
+    <strong>−₺{{ quote.discount_amount|floatformat:2 }}</strong>
+</div>
+
+<div>
+    <span>KDV matrahı</span>
+    <strong>₺{{ quote.taxable_amount|floatformat:2 }}</strong>
+</div>
 
             <div>
                 <dt>KDV</dt>
@@ -227,6 +237,14 @@
                 </label>
                 {{ line_form.tax_rate }}
                 {{ line_form.tax_rate.errors }}
+            </div>
+
+            <div class="customer-form__field">
+                <label for="{{ line_form.discount_rate.id_for_label }}">
+                    {{ line_form.discount_rate.label }}
+                </label>
+                {{ line_form.discount_rate }}
+                {{ line_form.discount_rate.errors }}
             </div>
         </div>
 

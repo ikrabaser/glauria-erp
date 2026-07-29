@@ -354,6 +354,7 @@
                     <th>Mal / Hizmet</th>
                     <th>Miktar</th>
                     <th>Birim fiyat</th>
+                    <th>İskonto</th>
                     <th>KDV</th>
                     <th>Toplam</th>
                 </tr>
@@ -366,6 +367,7 @@
                         <td>{{ line.description }}</td>
                         <td>{{ line.quantity }}</td>
                         <td>₺{{ line.unit_price|floatformat:2 }}</td>
+                        <td>%{{ line.discount_rate|floatformat:2 }}</td>
                         <td>%{{ line.tax_rate|floatformat:2 }}</td>
                         <td>₺{{ line.total_amount|floatformat:2 }}</td>
                     </tr>
@@ -389,14 +391,24 @@
 
             <div class="totals">
                 <div class="total-row">
-                    <span>Ara toplam</span>
+                    <span>Brüt toplam</span>
                     <span>₺{{ invoice.subtotal|floatformat:2 }}</span>
                 </div>
 
                 <div class="total-row">
-                    <span>KDV</span>
-                    <span>₺{{ invoice.tax_amount|floatformat:2 }}</span>
+    <span>İskonto</span>
+    <span>−₺{{ invoice.discount_amount|floatformat:2 }}</span>
+</div>
+
+                <div class="total-row">
+                    <span>KDV matrahı</span>
+                    <span>₺{{ invoice.taxable_amount|floatformat:2 }}</span>
                 </div>
+
+                <div class="total-row">
+    <span>KDV</span>
+    <span>₺{{ invoice.tax_amount|floatformat:2 }}</span>
+</div>
 
                 <div class="total-row total-row--final">
                     <span>Ödenecek tutar</span>

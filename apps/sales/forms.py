@@ -38,6 +38,7 @@ class SalesQuoteLineForm(forms.ModelForm):
             "quantity",
             "unit_price",
             "tax_rate",
+            "discount_rate",
         ]
         widgets = {
             "description": forms.TextInput(
@@ -58,6 +59,14 @@ class SalesQuoteLineForm(forms.ModelForm):
                 }
             ),
             "tax_rate": forms.NumberInput(
+                attrs={
+                    "min": "0",
+                    "max": "100",
+                    "step": "0.01",
+                }
+            ),
+
+            "discount_rate": forms.NumberInput(
                 attrs={
                     "min": "0",
                     "max": "100",
