@@ -8,6 +8,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.views.decorators.http import require_POST
 from django.contrib import messages
+from django.utils import timezone
 
 from apps.accounts.data_access import (
     filter_company_records,
@@ -15,6 +16,9 @@ from apps.accounts.data_access import (
 )
 from apps.crm.models import Customer, Opportunity
 from apps.inventory.models import Product
+from apps.finance.services import (
+    create_invoice_receivable_transaction,
+)
 from apps.manufacturing.models import (
     ProductionOrder,
     ProductionOrderLine,
@@ -681,6 +685,76 @@ def invoice_create_from_order(request, order_id):
         "sales:invoice_detail",
         invoice_id=invoice.id,
     )
+@login_required
+@require_POST
+def invoice_issue(request, invoice_id):
+    membership = get_active_membership(request.user)
+
+    if not membership:
+        return redirect("sales:home")
+
+    invoices = (
+        Invoice.objects.select_related(
+            "company",
+            "customer",
+            "sales_order",
+            "sales_order__owner",
+        )
+        .filter(company=membership.company)
+    )
+
+    if not has_full_company_data_access(membership):
+        invoices = invoices.filter(
+            sales_order__owner=request.user,
+        )
+
+    invoice = get_object_or_404(
+        invoices,
+        id=invoice_id,
+    )
+
+    if invoice.status != Invoice.Status.DRAFT:
+        messages.info(
+            request,
+            "Bu fatura zaten kesilmiş veya işleme alınmış durumda.",
+        )
+        return redirect(
+            "sales:invoice_detail",
+            invoice_id=invoice.id,
+        )
+
+    with transaction.atomic():
+        invoice.status = Invoice.Status.ISSUED
+        invoice.issued_at = timezone.now()
+        invoice.save(
+            update_fields=[
+                "status",
+                "issued_at",
+                "updated_at",
+            ]
+        )
+
+        _, created = create_invoice_receivable_transaction(
+            invoice,
+            user=request.user,
+        )
+
+    if created:
+        messages.success(
+            request,
+            "Fatura kesildi ve müşterinin cari hesabına borç kaydı eklendi.",
+        )
+    else:
+        messages.success(
+            request,
+            "Fatura kesildi.",
+        )
+
+    return redirect(
+        "sales:invoice_detail",
+        invoice_id=invoice.id,
+    )
+
 
 @login_required
 @require_POST
@@ -709,6 +783,15 @@ def invoice_email_send(request, invoice_id):
         invoices,
         id=invoice_id,
     )
+    if invoice.status == Invoice.Status.DRAFT:
+        messages.error(
+            request,
+            "Taslak faturalar e-posta ile gönderilemez. Önce faturayı kesin.",
+        )
+        return redirect(
+            "sales:invoice_detail",
+            invoice_id=invoice.id,
+        )
 
     if not invoice.customer_email:
         messages.error(

@@ -16,6 +16,7 @@ from .views import (
     invoice_pdf_download,
     invoice_email_send,
     quote_lines_update,
+    invoice_issue,
 )
 
 
@@ -59,6 +60,11 @@ path(
     "invoices/<uuid:invoice_id>/pdf/",
     invoice_pdf_download,
     name="invoice_pdf_download",
+),
+path(
+    "invoices/<uuid:invoice_id>/issue/",
+    invoice_issue,
+    name="invoice_issue",
 ),
 path(
     "invoices/<uuid:invoice_id>/email/",

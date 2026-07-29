@@ -7,56 +7,76 @@
 
 {% block content %}
 <section class="invoice-page">
-    <header class="invoice-page__header">
-        <div>
-            <a
-                href="{% url 'sales:order_detail' invoice.sales_order.id %}"
-                class="customer-detail__back"
-            >
-                ← Siparişe Dön
-            </a>
-
-            <span class="page-header__eyebrow">
-                Sales Invoicing
-            </span>
-
-            <h2 class="settings-page__title">
-                {{ invoice.invoice_number }}
-            </h2>
-
-            <p class="settings-page__description">
-                {{ invoice.customer_name }} için oluşturulan satış faturası taslağı.
-            </p>
-        </div>
-
-        <div class="invoice-page__actions">
-    <a
-        href="{% url 'sales:invoice_pdf_download' invoice.id %}"
-        class="invoice-page__download"
-    >
-        PDF İndir
-    </a>
-
-    {% if invoice.customer_email %}
-        <form
-            method="post"
-            action="{% url 'sales:invoice_email_send' invoice.id %}"
+<header class="invoice-page__header">
+    <div>
+        <a
+            href="{% url 'sales:order_detail' invoice.sales_order.id %}"
+            class="customer-detail__back"
         >
-            {% csrf_token %}
+            ← Siparişe Dön
+        </a>
 
-            <button
-                type="submit"
-                class="invoice-page__email-send"
+        <span class="page-header__eyebrow">
+            Sales Invoicing
+        </span>
+
+        <h2 class="settings-page__title">
+            {{ invoice.invoice_number }}
+        </h2>
+
+        <p class="settings-page__description">
+            {% if invoice.status == "draft" %}
+                {{ invoice.customer_name }} için oluşturulan satış faturası taslağı.
+            {% else %}
+                {{ invoice.customer_name }} için kesilmiş satış faturası.
+            {% endif %}
+        </p>
+    </div>
+
+    <div class="invoice-page__actions">
+        {% if invoice.status == "draft" %}
+            <form
+                method="post"
+                action="{% url 'sales:invoice_issue' invoice.id %}"
             >
-                E-posta ile Gönder
-            </button>
-        </form>
-    {% endif %}
+                {% csrf_token %}
 
-    <span class="opportunity-card__quote">
-        {{ invoice.get_status_display }}
-    </span>
-</div>
+                <button
+                    type="submit"
+                    class="invoice-page__email-send"
+                >
+                    Faturayı Kes
+                </button>
+            </form>
+        {% endif %}
+
+        <a
+            href="{% url 'sales:invoice_pdf_download' invoice.id %}"
+            class="invoice-page__download"
+        >
+            PDF İndir
+        </a>
+
+        {% if invoice.customer_email and invoice.status != "draft" %}
+            <form
+                method="post"
+                action="{% url 'sales:invoice_email_send' invoice.id %}"
+            >
+                {% csrf_token %}
+
+                <button
+                    type="submit"
+                    class="invoice-page__email-send"
+                >
+                    E-posta ile Gönder
+                </button>
+            </form>
+        {% endif %}
+
+        <span class="opportunity-card__quote">
+            {{ invoice.get_status_display }}
+        </span>
+    </div>
 </header>
     <article class="invoice-document">
         <header class="invoice-document__masthead">
