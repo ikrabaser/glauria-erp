@@ -317,3 +317,59 @@ def home(request):
             "cash_flow_chart": cash_flow_chart,
         },
     )
+@login_required
+def customer_accounts(request):
+    membership = get_active_membership(request.user)
+
+    if not membership:
+        return redirect("sales:home")
+
+    if not has_full_company_data_access(membership):
+        return redirect("finance:home")
+
+    accounts = (
+        CustomerAccount.objects.filter(
+            company=membership.company,
+            is_active=True,
+        )
+        .select_related("customer")
+        .order_by("customer__name")
+    )
+
+    return render(
+        request,
+        "finance/customer_accounts.html",
+        {
+            "current_membership": membership,
+            "accounts": accounts,
+        },
+    )
+
+
+@login_required
+def finance_section(request, section):
+    membership = get_active_membership(request.user)
+
+    if not membership:
+        return redirect("sales:home")
+
+    section_titles = {
+        "kasa-banka": "Kasa & Banka",
+        "nakit-akisi": "Nakit Akışı",
+        "odeme-planlari": "Ödeme Planları",
+        "butce-raporlar": "Bütçe ve Raporlar",
+    }
+
+    title = section_titles.get(section)
+
+    if not title:
+        return redirect("finance:home")
+
+    return render(
+        request,
+        "finance/section_placeholder.html",
+        {
+            "current_membership": membership,
+            "section_title": title,
+        },
+    )

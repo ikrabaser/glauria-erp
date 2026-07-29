@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+
+{% block title %}
+{{ section_title }} | Glauria ERP
+{% endblock %}
+
+{% block content %}
+<section class="module-page">
+    {% include "components/page_header.html" with eyebrow="FİNANS VE MUHASEBE" title=section_title description="Bu finans bileşeni için altyapı hazırlanıyor." %}
+
+    <div class="module-empty-wrapper">
+        {% include "components/empty_state.html" with icon="₺" title=section_title description="Bu alan, Finans Merkezi altyapısı üzerinden adım adım geliştirilecek." %}
+    </div>
+</section>
+{% endblock %}
