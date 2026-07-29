@@ -45,8 +45,21 @@
             {% include "partials/topbar.html" %}
 
             <main class="app-content">
-                {% block content %}{% endblock %}
-            </main>
+    {% if messages %}
+        <div class="app-messages">
+            {% for message in messages %}
+                <div
+                    class="app-message app-message--{{ message.tags|default:'info' }}"
+                    role="status"
+                >
+                    {{ message }}
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+
+    {% block content %}{% endblock %}
+</main>
         </div>
     </div>
 
