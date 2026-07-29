@@ -212,3 +212,203 @@ class CustomerAccountTransaction(BaseModel):
 
     def __str__(self):
         return f"{self.get_transaction_type_display()} · {self.amount} {self.currency}"
+
+class FinancialAccount(BaseModel):
+    """
+    Şirketin kasa veya banka hesabını temsil eder.
+    Bakiye hareketlerden hesaplanır.
+    """
+
+    class AccountType(models.TextChoices):
+        CASH = "cash", "Kasa"
+        BANK = "bank", "Banka"
+
+    company = models.ForeignKey(
+        Company,
+        on_delete=models.PROTECT,
+        related_name="financial_accounts",
+        verbose_name="Şirket",
+    )
+
+    name = models.CharField(
+        max_length=120,
+        verbose_name="Hesap adı",
+    )
+
+    account_type = models.CharField(
+        max_length=10,
+        choices=AccountType.choices,
+        verbose_name="Hesap tipi",
+    )
+
+    currency = models.CharField(
+        max_length=3,
+        default="TRY",
+        verbose_name="Para birimi",
+    )
+
+    bank_name = models.CharField(
+        max_length=120,
+        blank=True,
+        verbose_name="Banka adı",
+    )
+
+    iban = models.CharField(
+        max_length=34,
+        blank=True,
+        verbose_name="IBAN",
+    )
+
+    is_active = models.BooleanField(
+        default=True,
+        verbose_name="Aktif mi?",
+    )
+
+    class Meta:
+        ordering = ["account_type", "name"]
+        verbose_name = "Kasa / banka hesabı"
+        verbose_name_plural = "Kasa / banka hesapları"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["company", "name", "currency"],
+                name="unique_financial_account_name_per_currency",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.name} · {self.currency}"
+
+    @property
+    def balance(self):
+        incoming = (
+            self.transactions.filter(
+                direction=FinancialAccountTransaction.Direction.IN,
+                status=FinancialAccountTransaction.Status.ACTIVE,
+            ).aggregate(total=Sum("amount"))["total"]
+            or Decimal("0.00")
+        )
+
+        outgoing = (
+            self.transactions.filter(
+                direction=FinancialAccountTransaction.Direction.OUT,
+                status=FinancialAccountTransaction.Status.ACTIVE,
+            ).aggregate(total=Sum("amount"))["total"]
+            or Decimal("0.00")
+        )
+
+        return incoming - outgoing
+
+
+class FinancialAccountTransaction(BaseModel):
+    """
+    Kasa veya banka hesabındaki para giriş-çıkış hareketi.
+    """
+
+    class Direction(models.TextChoices):
+        IN = "in", "Giriş"
+        OUT = "out", "Çıkış"
+
+    class TransactionType(models.TextChoices):
+        COLLECTION = "collection", "Tahsilat"
+        PAYMENT = "payment", "Ödeme"
+        MANUAL_IN = "manual_in", "Manuel giriş"
+        MANUAL_OUT = "manual_out", "Manuel çıkış"
+
+    class Status(models.TextChoices):
+        ACTIVE = "active", "Aktif"
+        REVERSED = "reversed", "Ters kayıt"
+        CANCELLED = "cancelled", "İptal"
+
+    account = models.ForeignKey(
+        FinancialAccount,
+        on_delete=models.PROTECT,
+        related_name="transactions",
+        verbose_name="Kasa / banka hesabı",
+    )
+
+    company = models.ForeignKey(
+        Company,
+        on_delete=models.PROTECT,
+        related_name="financial_account_transactions",
+        verbose_name="Şirket",
+    )
+
+    customer_account_transaction = models.OneToOneField(
+        CustomerAccountTransaction,
+        on_delete=models.PROTECT,
+        related_name="financial_account_transaction",
+        null=True,
+        blank=True,
+        verbose_name="Bağlı cari hareket",
+    )
+
+    direction = models.CharField(
+        max_length=5,
+        choices=Direction.choices,
+        verbose_name="Hareket yönü",
+    )
+
+    transaction_type = models.CharField(
+        max_length=20,
+        choices=TransactionType.choices,
+        verbose_name="Hareket tipi",
+    )
+
+    status = models.CharField(
+        max_length=12,
+        choices=Status.choices,
+        default=Status.ACTIVE,
+        verbose_name="Durum",
+    )
+
+    transaction_date = models.DateField(
+        default=timezone.localdate,
+        verbose_name="İşlem tarihi",
+    )
+
+    amount = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        verbose_name="Tutar",
+    )
+
+    description = models.CharField(
+        max_length=255,
+        verbose_name="Açıklama",
+    )
+
+    reference_number = models.CharField(
+        max_length=80,
+        blank=True,
+        verbose_name="Referans numarası",
+    )
+
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="created_financial_account_transactions",
+        verbose_name="Oluşturan kullanıcı",
+    )
+
+    class Meta:
+        ordering = ["-transaction_date", "-created_at"]
+        verbose_name = "Kasa / banka hareketi"
+        verbose_name_plural = "Kasa / banka hareketleri"
+        indexes = [
+            models.Index(fields=["company", "transaction_date"]),
+            models.Index(fields=["account", "status"]),
+        ]
+        constraints = [
+            models.CheckConstraint(
+                condition=Q(amount__gt=0),
+                name="financial_account_transaction_amount_positive",
+            ),
+        ]
+
+    def __str__(self):
+        return (
+            f"{self.get_transaction_type_display()} "
+            f"· {self.amount} {self.account.currency}"
+        )

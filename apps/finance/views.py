@@ -9,12 +9,17 @@ from django.contrib import messages
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
-from .forms import CollectionForm
+from .forms import (
+    CollectionForm,
+    FinancialAccountForm,
+)
 
 from apps.accounts.data_access import has_full_company_data_access
 from apps.finance.models import (
     CustomerAccount,
     CustomerAccountTransaction,
+    FinancialAccount,
+    FinancialAccountTransaction,
 )
 from apps.sales.models import Invoice
 
@@ -405,7 +410,9 @@ def customer_account_detail(request, account_id):
             "current_membership": membership,
             "account": account,
             "transactions": transactions,
-            "collection_form": CollectionForm(),
+            "collection_form": CollectionForm(
+                company=membership.company,
+            ),
         },
     )
 
@@ -425,7 +432,10 @@ def customer_account_collection(request, account_id):
         is_active=True,
     )
 
-    form = CollectionForm(request.POST)
+    form = CollectionForm(
+    request.POST,
+    company=membership.company,
+)
 
     if not form.is_valid():
         messages.error(
@@ -457,6 +467,22 @@ def customer_account_collection(request, account_id):
     collection.currency = account.currency
     collection.created_by = request.user
     collection.save()
+    financial_account = form.cleaned_data["financial_account"]
+
+    FinancialAccountTransaction.objects.create(
+        account=financial_account,
+        company=membership.company,
+        customer_account_transaction=collection,
+        direction=FinancialAccountTransaction.Direction.IN,
+        transaction_type=(
+            FinancialAccountTransaction.TransactionType.COLLECTION
+        ),
+        transaction_date=collection.transaction_date,
+        amount=collection.amount,
+        description=collection.description,
+        reference_number=collection.reference_number,
+        created_by=request.user,
+    )
 
     messages.success(
         request,
@@ -466,4 +492,42 @@ def customer_account_collection(request, account_id):
     return redirect(
         "finance:customer_account_detail",
         account_id=account.id,
+    )
+@login_required
+def cash_bank_accounts(request):
+    membership = get_active_membership(request.user)
+
+    if not membership or not has_full_company_data_access(membership):
+        return redirect("finance:home")
+
+    accounts = FinancialAccount.objects.filter(
+        company=membership.company,
+        is_active=True,
+    ).prefetch_related("transactions")
+
+    if request.method == "POST":
+        form = FinancialAccountForm(request.POST)
+
+        if form.is_valid():
+            account = form.save(commit=False)
+            account.company = membership.company
+            account.save()
+
+            messages.success(
+                request,
+                "Kasa / banka hesabı oluşturuldu.",
+            )
+
+            return redirect("finance:cash_bank_accounts")
+    else:
+        form = FinancialAccountForm()
+
+    return render(
+        request,
+        "finance/cash_bank_accounts.html",
+        {
+            "current_membership": membership,
+            "accounts": accounts,
+            "form": form,
+        },
     )

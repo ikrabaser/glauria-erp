@@ -112,11 +112,11 @@
             </a>
 
             <a
-                href="{% url 'finance:section' 'kasa-banka' %}"
-                class="sidebar-group__link"
-            >
-                Kasa &amp; Banka
-            </a>
+    href="{% url 'finance:cash_bank_accounts' %}"
+    class="sidebar-group__link{% if request.resolver_match.url_name == 'cash_bank_accounts' %} active{% endif %}"
+>
+    Kasa &amp; Banka
+</a>
 
             <a
                 href="{% url 'finance:section' 'nakit-akisi' %}"

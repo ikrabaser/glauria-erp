@@ -6,6 +6,7 @@ from .views import (
     home,
     customer_account_collection,
     customer_account_detail,
+    cash_bank_accounts,
 )
 
 
@@ -27,6 +28,11 @@ urlpatterns = [
         "cari-hesaplar/<uuid:account_id>/tahsilat/",
         customer_account_collection,
         name="customer_account_collection",
+    ),
+    path(
+        "kasa-banka/",
+        cash_bank_accounts,
+        name="cash_bank_accounts",
     ),
     path(
         "<slug:section>/",
