@@ -1,19 +1,359 @@
 {% extends "base.html" %}
+{% load static %}
 
 {% block title %}
-Finans Yönetimi | Glauria ERP
+Finans Merkezi | Glauria ERP
+{% endblock %}
+
+{% block extra_css %}
+    <link
+        rel="stylesheet"
+        href="{% static 'css/finance.css' %}?v=1"
+    >
 {% endblock %}
 
 {% block content %}
-<section class="module-page">
+<section class="module-page finance-dashboard">
+    {% if not can_access_finance %}
+        {% include "components/page_header.html" with eyebrow="FİNANS VE MUHASEBE" title="Finans Merkezi" description="Finansal veriler rol bazlı erişim koruması altındadır." %}
 
-    {% include "components/page_header.html" with eyebrow="FİNANS VE MUHASEBE YÖNETİMİ" title="Finans Yönetimi" description="Gelir, gider, fatura, kasa, banka ve cari hesap süreçlerini tek merkezden yönetin." action_text="+ Yeni Finans Kaydı" action_url="#" %}
+        <div class="module-empty-wrapper">
+            {% include "components/empty_state.html" with icon="₺" title="Finans verilerine erişim yetkiniz bulunmuyor" description="Cari hesaplar, tahsilatlar ve finansal raporlar yalnızca Sahip veya Yönetici rolüyle görüntülenebilir." %}
+        </div>
+    {% else %}
+        {% include "components/page_header.html" with eyebrow="FİNANS VE MUHASEBE" title="Finans Merkezi" description="Cari hesaplar, tahsilatlar ve finansal durumunuzu tek merkezden takip edin." %}
 
-    {% include "components/list_toolbar.html" with search_placeholder="Fatura, cari hesap veya işlem ara..." filter_text="Filtrele" %}
+        <div class="finance-metrics">
+            <article class="finance-metric-card finance-metric-card--primary">
+                <span class="finance-metric-card__label">
+                    Açık Cari Bakiye
+                </span>
+                <strong class="finance-metric-card__value">
+                    ₺{{ outstanding_receivables|floatformat:2 }}
+                </strong>
+                <span class="finance-metric-card__meta">
+                    {{ account_count }} aktif cari hesap
+                </span>
+            </article>
 
-    <div class="module-empty-wrapper">
-        {% include "components/empty_state.html" with icon="₺" title="Henüz finans kaydı bulunmuyor" description="İlk gelir, gider veya finans işlemini oluşturarak finans yönetimine başlayabilirsiniz." action_text="+ Yeni Finans Kaydı" action_url="#" %}
+            <article class="finance-metric-card">
+                <span class="finance-metric-card__label">
+                    Tahsilatlar
+                </span>
+                <strong class="finance-metric-card__value finance-metric-card__value--positive">
+                    ₺{{ collection_total|floatformat:2 }}
+                </strong>
+                <span class="finance-metric-card__meta">
+                    Kaydedilen toplam alacak hareketi
+                </span>
+            </article>
+
+            <article class="finance-metric-card">
+                <span class="finance-metric-card__label">
+                    Vadesi Geçen Tahsilat
+                </span>
+                <strong class="finance-metric-card__value finance-metric-card__value--warning">
+                    ₺{{ overdue_total|floatformat:2 }}
+                </strong>
+                <span class="finance-metric-card__meta">
+                    {{ overdue_count }} açık borç hareketi
+                </span>
+            </article>
+
+            <article class="finance-metric-card">
+                <span class="finance-metric-card__label">
+                    Kesilmiş Faturalar
+                </span>
+                <strong class="finance-metric-card__value">
+                    ₺{{ issued_invoice_total|floatformat:2 }}
+                </strong>
+                <span class="finance-metric-card__meta">
+                    Cari hesaba yansıtılmış satışlar
+                </span>
+            </article>
+        </div>
+        <section class="finance-chart-panel">
+    <div class="finance-panel__heading">
+        <div>
+            <span class="finance-panel__eyebrow">
+                SON 6 AY
+            </span>
+            <h3 class="finance-panel__title">
+                Cari Akış
+            </h3>
+        </div>
+
+        <span class="finance-panel__count">
+            Fatura ve tahsilat hareketleri
+        </span>
     </div>
 
+    <div class="finance-chart-panel__legend">
+        <span class="finance-chart-legend finance-chart-legend--debit">
+            Fatura Borcu
+        </span>
+        <span class="finance-chart-legend finance-chart-legend--credit">
+            Tahsilat
+        </span>
+        <span class="finance-chart-legend finance-chart-legend--net">
+            Net Pozisyon
+        </span>
+    </div>
+
+    <div class="finance-chart-panel__canvas">
+        <canvas id="finance-cash-flow-chart"></canvas>
+    </div>
 </section>
+
+{{ cash_flow_chart|json_script:"finance-cash-flow-data" }}
+
+        <div class="finance-dashboard__grid">
+            <section class="finance-panel finance-panel--wide">
+                <div class="finance-panel__heading">
+                    <div>
+                        <span class="finance-panel__eyebrow">
+                            CARİ HESAPLAR
+                        </span>
+                        <h3 class="finance-panel__title">
+                            Açık Hesap Özeti
+                        </h3>
+                    </div>
+
+                    <span class="finance-panel__count">
+                        {{ account_count }} hesap
+                    </span>
+                </div>
+
+                {% if accounts %}
+                    <div class="data-table-wrapper">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Cari</th>
+                                    <th>Borç</th>
+                                    <th>Alacak</th>
+                                    <th>Bakiye</th>
+                                    <th>Durum</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for account in accounts %}
+                                    <tr>
+                                        <td>
+                                            <div class="customer-cell">
+                                                <strong>
+                                                    {{ account.customer.name }}
+                                                </strong>
+                                                <span>
+                                                    {{ account.currency }}
+                                                </span>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            ₺{{ account.ledger_debit_total|floatformat:2 }}
+                                        </td>
+                                        <td>
+                                            ₺{{ account.ledger_credit_total|floatformat:2 }}
+                                        </td>
+                                        <td class="finance-table__balance">
+                                            ₺{{ account.ledger_balance|floatformat:2 }}
+                                        </td>
+                                        <td>
+                                            {% if account.ledger_balance > 0 %}
+                                                <span class="status-pill status-pill--lead">
+                                                    Tahsilat Bekliyor
+                                                </span>
+                                            {% else %}
+                                                <span class="status-pill status-pill--active">
+                                                    Dengede
+                                                </span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="finance-panel__empty">
+                        Henüz kesilmiş faturadan oluşan bir cari hareket bulunmuyor.
+                    </div>
+                {% endif %}
+            </section>
+
+            <section class="finance-panel">
+               <div class="finance-panel__heading">
+    <div>
+        <span class="finance-panel__eyebrow">
+            SON HAREKETLER
+        </span>
+
+        <h3 class="finance-panel__title">
+            Cari Akış
+        </h3>
+    </div>
+</div>
+
+                {% if recent_transactions %}
+                    <div class="finance-activity-list">
+                        {% for item in recent_transactions %}
+                            <article class="finance-activity">
+                                <div class="finance-activity__icon">
+                                    ₺
+                                </div>
+
+                                <div class="finance-activity__content">
+                                    <strong>
+                                        {{ item.account.customer.name }}
+                                    </strong>
+                                    <span>
+                                        {{ item.get_transaction_type_display }}
+                                        {% if item.invoice %}
+                                            · {{ item.invoice.invoice_number }}
+                                        {% endif %}
+                                    </span>
+                                </div>
+
+                                <div class="finance-activity__amount">
+                                    <strong>
+                                        {% if item.direction == "debit" %}+{% else %}−{% endif %}₺{{ item.amount|floatformat:2 }}
+                                    </strong>
+                                    <span>
+                                        {{ item.transaction_date|date:"d.m.Y" }}
+                                    </span>
+                                </div>
+                            </article>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="finance-panel__empty">
+                        Finansal hareket oluştuğunda burada görünecek.
+                    </div>
+                {% endif %}
+            </section>
+        </div>
+    {% endif %}
+</section>
+{% endblock %}
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
+
+<script>
+    const chartDataElement = document.getElementById(
+        "finance-cash-flow-data"
+    );
+
+    const chartCanvas = document.getElementById(
+        "finance-cash-flow-chart"
+    );
+
+    if (chartDataElement && chartCanvas) {
+        const chartData = JSON.parse(
+            chartDataElement.textContent
+        );
+
+        new Chart(
+            chartCanvas,
+            {
+                type: "line",
+                data: {
+                    labels: chartData.labels,
+                    datasets: [
+                        {
+                            label: "Fatura Borcu",
+                            data: chartData.debits,
+                            borderColor: "#53c5cc",
+                            backgroundColor: "rgba(83, 197, 204, 0.12)",
+                            borderWidth: 3,
+                            pointRadius: 4,
+                            pointHoverRadius: 6,
+                            tension: 0.38,
+                        },
+                        {
+                            label: "Tahsilat",
+                            data: chartData.credits,
+                            borderColor: "#e7899c",
+                            backgroundColor: "rgba(231, 137, 156, 0.1)",
+                            borderWidth: 3,
+                            pointRadius: 4,
+                            pointHoverRadius: 6,
+                            tension: 0.38,
+                        },
+                        {
+                            label: "Net Pozisyon",
+                            data: chartData.net_positions,
+                            borderColor: "#d7a48f",
+                            backgroundColor: "rgba(215, 164, 143, 0.1)",
+                            borderWidth: 3,
+                            pointRadius: 4,
+                            pointHoverRadius: 6,
+                            tension: 0.38,
+                        },
+                    ],
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        mode: "index",
+                        intersect: false,
+                    },
+                    plugins: {
+                        legend: {
+                            display: false,
+                        },
+                        tooltip: {
+                            backgroundColor: "#211a2a",
+                            titleColor: "#ffffff",
+                            bodyColor: "#f4d9cd",
+                            padding: 14,
+                            callbacks: {
+                                label(context) {
+                                    return (
+                                        context.dataset.label
+                                        + ": ₺"
+                                        + new Intl.NumberFormat(
+                                            "tr-TR",
+                                            {
+                                                minimumFractionDigits: 2,
+                                                maximumFractionDigits: 2,
+                                            }
+                                        ).format(context.parsed.y)
+                                    );
+                                },
+                            },
+                        },
+                    },
+                    scales: {
+                        x: {
+                            grid: {
+                                display: false,
+                            },
+                            ticks: {
+                                color: "rgba(255, 255, 255, 0.48)",
+                            },
+                            border: {
+                                display: false,
+                            },
+                        },
+                        y: {
+                            grid: {
+                                color: "rgba(255, 255, 255, 0.08)",
+                            },
+                            ticks: {
+                                color: "rgba(255, 255, 255, 0.48)",
+                                callback(value) {
+                                    return "₺" + value;
+                                },
+                            },
+                            border: {
+                                display: false,
+                            },
+                        },
+                    },
+                },
+            }
+        );
+    }
+</script>
 {% endblock %}
