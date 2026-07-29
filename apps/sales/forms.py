@@ -66,11 +66,12 @@ class SalesQuoteLineForm(forms.ModelForm):
                     "step": "0.01",
                 }
             ),
-            SalesQuoteLineFormSet = modelformset_factory(
+   
+        }
+
+SalesQuoteLineFormSet = modelformset_factory(
     SalesQuoteLine,
     form=SalesQuoteLineForm,
     extra=1,
     can_delete=True,
-    )
-   
-        }
+)
