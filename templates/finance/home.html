@@ -215,7 +215,7 @@ Finans Merkezi | Glauria ERP
     </div>
 </section>
  </div>
-         <section class="finance-panel finance-panel--upcoming">
+                 <section class="finance-panel finance-panel--upcoming">
             <div class="finance-panel__heading">
                 <div>
                     <span class="finance-panel__eyebrow">
@@ -228,60 +228,61 @@ Finans Merkezi | Glauria ERP
                 </div>
 
                 <span class="finance-panel__count">
-                    {{ upcoming_transactions|length }} kayıt
+                    {{ upcoming_installments|length }} kayıt
                 </span>
             </div>
 
-            {% if upcoming_transactions %}
+            {% if upcoming_installments %}
                 <div class="data-table-wrapper">
                     <table class="data-table">
                         <thead>
                             <tr>
                                 <th>Cari</th>
                                 <th>Vade</th>
-                                <th>Referans</th>
-                                <th>Tutar</th>
+                                <th>Plan</th>
+                                <th>Kalan Tutar</th>
                                 <th>Durum</th>
                             </tr>
                         </thead>
                         <tbody>
-                            {% for transaction in upcoming_transactions %}
+                            {% for installment in upcoming_installments %}
                                 <tr>
                                     <td>
                                         <div class="customer-cell">
                                             <strong>
-                                                {{ transaction.account.customer.name }}
+                                                {{ installment.payment_plan.customer_account.customer.name }}
                                             </strong>
                                             <span>
-                                                {{ transaction.get_transaction_type_display }}
+                                                {{ installment.installment_number }}. taksit
                                             </span>
                                         </div>
                                     </td>
                                     <td>
-                                        {{ transaction.due_date|date:"d.m.Y" }}
+                                        {{ installment.due_date|date:"d.m.Y" }}
                                     </td>
                                     <td>
-                                        {% if transaction.invoice %}
-                                            {{ transaction.invoice.invoice_number }}
-                                        {% else %}
-                                            {{ transaction.reference_number|default:"—" }}
-                                        {% endif %}
+                                        <a
+                                            href="{% url 'finance:payment_plan_detail' installment.payment_plan.id %}"
+                                            class="finance-plan-link"
+                                        >
+                                            {{ installment.payment_plan.plan_number }}
+                                        </a>
                                     </td>
                                     <td class="finance-table__balance">
-                                        ₺{{ transaction.amount|floatformat:2 }}
+                                        ₺{{ installment.remaining_amount|floatformat:2 }}
                                     </td>
                                     <td>
-                                        {% if transaction.days_until_due == 0 %}
+                                        {% if installment.days_until_due == 0 %}
                                             <span class="status-pill status-pill--lead">
                                                 Bugün
                                             </span>
-                                        {% elif transaction.days_until_due == 1 %}
+                                        {% elif installment.days_until_due == 1 %}
                                             <span class="status-pill status-pill--lead">
                                                 Yarın
                                             </span>
                                         {% else %}
                                             <span class="status-pill status-pill--inactive">
-                                                {{ transaction.days_until_due }} gün
+                                                {{ installment.days_until_due }} gün
                                             </span>
                                         {% endif %}
                                     </td>
@@ -293,7 +294,7 @@ Finans Merkezi | Glauria ERP
             {% else %}
                 <div class="finance-panel__empty">
                     Önümüzdeki 30 gün içinde vadesi yaklaşan
-                    bir tahsilat bulunmuyor.
+                    bir planlı tahsilat bulunmuyor.
                 </div>
             {% endif %}
         </section>

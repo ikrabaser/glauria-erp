@@ -301,24 +301,50 @@ def home(request):
 
     upcoming_cutoff = today + timedelta(days=30)
 
-    upcoming_transactions = list(
-        CustomerAccountTransaction.objects.filter(
-            company=membership.company,
-            status=CustomerAccountTransaction.Status.ACTIVE,
-            direction=CustomerAccountTransaction.Direction.DEBIT,
+    active_payment_plans = PaymentPlan.objects.filter(
+        company=membership.company,
+        status=PaymentPlan.Status.ACTIVE,
+    )
+
+    for payment_plan in active_payment_plans:
+        refresh_payment_plan_status(payment_plan)
+
+    upcoming_installments = list(
+        PaymentPlanInstallment.objects.filter(
+            payment_plan__company=membership.company,
+            payment_plan__status=PaymentPlan.Status.ACTIVE,
+            status__in=[
+                PaymentPlanInstallment.Status.PENDING,
+                PaymentPlanInstallment.Status.PARTIALLY_PAID,
+            ],
             due_date__gte=today,
             due_date__lte=upcoming_cutoff,
         )
         .select_related(
-            "account__customer",
-            "invoice",
+            "payment_plan__customer_account__customer",
         )
-        .order_by("due_date")[:6]
+        .annotate(
+            allocated_amount=Coalesce(
+                Sum(
+                    "allocations__amount",
+                    filter=Q(
+                        allocations__collection_transaction__status=(
+                            CustomerAccountTransaction.Status.ACTIVE
+                        )
+                    ),
+                ),
+                zero_amount,
+            )
+        )
+        .order_by("due_date", "installment_number")[:6]
     )
 
-    for transaction in upcoming_transactions:
-        transaction.days_until_due = (
-            transaction.due_date - today
+    for installment in upcoming_installments:
+        installment.remaining_amount = (
+            installment.amount - installment.allocated_amount
+        )
+        installment.days_until_due = (
+            installment.due_date - today
         ).days
 
     financial_alerts = []
@@ -455,7 +481,7 @@ def home(request):
             "overdue_count": overdue_count,
             "issued_invoice_total": issued_invoice_total,
             "recent_transactions": recent_transactions,
-            "upcoming_transactions": upcoming_transactions,
+            "upcoming_installments": upcoming_installments,
             "financial_alerts": financial_alerts,
             "cash_flow_chart": cash_flow_chart,
         },
