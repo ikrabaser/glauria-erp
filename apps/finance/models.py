@@ -637,3 +637,216 @@ class PaymentPlanAllocation(BaseModel):
             f"{self.installment} · "
             f"₺{self.amount:.2f}"
         )
+
+class FinanceAIAnalysis(BaseModel):
+    """
+    Finans verilerinden üretilen, yalnızca okuma amaçlı AI analizi.
+    """
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "Analiz bekliyor"
+        PROCESSING = "processing", "Analiz ediliyor"
+        COMPLETED = "completed", "Analiz tamamlandı"
+        FAILED = "failed", "Analiz başarısız"
+
+    class RiskLevel(models.TextChoices):
+        LOW = "low", "Düşük"
+        MEDIUM = "medium", "Orta"
+        HIGH = "high", "Yüksek"
+
+    company = models.ForeignKey(
+        Company,
+        on_delete=models.PROTECT,
+        related_name="finance_ai_analyses",
+        verbose_name="Şirket",
+    )
+
+    requested_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="requested_finance_ai_analyses",
+        verbose_name="Analizi isteyen kullanıcı",
+    )
+
+    status = models.CharField(
+        max_length=12,
+        choices=Status.choices,
+        default=Status.PENDING,
+        verbose_name="AI analiz durumu",
+    )
+
+    snapshot = models.JSONField(
+        default=dict,
+        blank=True,
+        verbose_name="Finans veri özeti",
+    )
+
+    executive_summary = models.TextField(
+        blank=True,
+        verbose_name="Yönetici özeti",
+    )
+
+    risk_level = models.CharField(
+        max_length=10,
+        choices=RiskLevel.choices,
+        blank=True,
+        verbose_name="Risk seviyesi",
+    )
+
+    risks = models.JSONField(
+        default=list,
+        blank=True,
+        verbose_name="Tespit edilen riskler",
+    )
+
+    recommended_actions = models.JSONField(
+        default=list,
+        blank=True,
+        verbose_name="Önerilen aksiyonlar",
+    )
+
+    ai_error = models.TextField(
+        blank=True,
+        verbose_name="AI analiz hatası",
+    )
+
+    class Meta:
+        ordering = ["-created_at"]
+        verbose_name = "Finans AI analizi"
+        verbose_name_plural = "Finans AI analizleri"
+        indexes = [
+            models.Index(fields=["company", "status"]),
+        ]
+
+    def __str__(self):
+        return (
+            f"{self.company} · "
+            f"{self.get_status_display()} · "
+            f"{self.created_at:%d.%m.%Y %H:%M}"
+        )
+
+class FinanceAIConversation(BaseModel):
+    """
+    Kullanıcının kendi şirket verileriyle yürüttüğü Finans AI sohbeti.
+    """
+
+    company = models.ForeignKey(
+        Company,
+        on_delete=models.PROTECT,
+        related_name="finance_ai_conversations",
+        verbose_name="Şirket",
+    )
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="finance_ai_conversations",
+        verbose_name="Kullanıcı",
+    )
+
+    title = models.CharField(
+        max_length=160,
+        default="Yeni Finans Sohbeti",
+        verbose_name="Sohbet başlığı",
+    )
+
+    is_active = models.BooleanField(
+        default=True,
+        verbose_name="Aktif",
+    )
+
+    class Meta:
+        ordering = ["-updated_at"]
+        verbose_name = "Finans AI sohbeti"
+        verbose_name_plural = "Finans AI sohbetleri"
+        indexes = [
+            models.Index(
+                fields=[
+                    "company",
+                    "user",
+                    "is_active",
+                ],
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.company} · {self.title}"
+
+
+class FinanceAIMessage(BaseModel):
+    """
+    Finans AI sohbetindeki kullanıcı ve asistan mesajı.
+    """
+
+    class Role(models.TextChoices):
+        USER = "user", "Kullanıcı"
+        ASSISTANT = "assistant", "Finans AI"
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "Bekliyor"
+        PROCESSING = "processing", "Yanıt hazırlanıyor"
+        COMPLETED = "completed", "Tamamlandı"
+        FAILED = "failed", "Başarısız"
+
+    conversation = models.ForeignKey(
+        FinanceAIConversation,
+        on_delete=models.CASCADE,
+        related_name="messages",
+        verbose_name="Sohbet",
+    )
+
+    role = models.CharField(
+        max_length=12,
+        choices=Role.choices,
+        verbose_name="Mesaj sahibi",
+    )
+
+    content = models.TextField(
+        verbose_name="Mesaj içeriği",
+    )
+
+    status = models.CharField(
+        max_length=12,
+        choices=Status.choices,
+        default=Status.COMPLETED,
+        verbose_name="Yanıt durumu",
+    )
+
+    context_snapshot = models.JSONField(
+        default=dict,
+        blank=True,
+        verbose_name="Kullanılan finans bağlamı",
+    )
+
+    ai_error = models.TextField(
+        blank=True,
+        verbose_name="AI yanıt hatası",
+    )
+
+    class Meta:
+        ordering = ["created_at"]
+        verbose_name = "Finans AI mesajı"
+        verbose_name_plural = "Finans AI mesajları"
+        indexes = [
+            models.Index(
+                fields=[
+                    "conversation",
+                    "created_at",
+                ],
+            ),
+            models.Index(
+                fields=[
+                    "role",
+                    "status",
+                ],
+            ),
+        ]
+
+    def __str__(self):
+        return (
+            f"{self.conversation} · "
+            f"{self.get_role_display()} · "
+            f"{self.created_at:%d.%m.%Y %H:%M}"
+        )

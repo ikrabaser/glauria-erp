@@ -7,6 +7,7 @@ from django.utils import timezone
 from datetime import date, timedelta
 from django.contrib import messages
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.views.decorators.http import require_POST
 from django.db import transaction
 
@@ -16,15 +17,22 @@ from .forms import (
     PaymentPlanForm,
     PaymentPlanAllocationForm,
 )
-
+from .tasks import (
+    analyze_finance_snapshot,
+    answer_finance_chat_message,
+)
 from apps.accounts.data_access import has_full_company_data_access
 from apps.finance.models import (
     CustomerAccount,
     CustomerAccountTransaction,
+    FinanceAIAnalysis,
+    FinanceAIConversation,
+    FinanceAIMessage,
     FinancialAccount,
     FinancialAccountTransaction,
     PaymentPlan,
     PaymentPlanInstallment,
+    
 )
 from apps.sales.models import Invoice
 
@@ -465,6 +473,33 @@ def home(request):
         "outflows": chart_outflows,
         "net_cash": chart_net_cash,
     }
+    latest_ai_analysis = (
+        FinanceAIAnalysis.objects.filter(
+            company=membership.company,
+        )
+        .select_related("requested_by")
+        .first()
+    )
+    active_chat_conversation = (
+        FinanceAIConversation.objects.filter(
+            company=membership.company,
+            user=request.user,
+            is_active=True,
+        )
+        .prefetch_related("messages")
+        .first()
+    )
+
+    chat_messages = []
+
+    if active_chat_conversation:
+        chat_messages = list(
+            active_chat_conversation.messages.order_by(
+                "-created_at",
+            )[:20]
+        )
+        chat_messages.reverse()
+
     return render(
         request,
         "finance/home.html",
@@ -484,8 +519,124 @@ def home(request):
             "upcoming_installments": upcoming_installments,
             "financial_alerts": financial_alerts,
             "cash_flow_chart": cash_flow_chart,
+            "latest_ai_analysis": latest_ai_analysis,
+            "active_chat_conversation": active_chat_conversation,
+            "chat_messages": chat_messages,
         },
     )
+@login_required
+@require_POST
+def finance_ai_analysis_create(request):
+    membership = get_active_membership(request.user)
+
+    if not membership or not has_full_company_data_access(
+        membership
+    ):
+        return redirect("finance:home")
+
+    existing_analysis = (
+        FinanceAIAnalysis.objects.filter(
+            company=membership.company,
+            status__in=[
+                FinanceAIAnalysis.Status.PENDING,
+                FinanceAIAnalysis.Status.PROCESSING,
+            ],
+        )
+        .first()
+    )
+
+    if existing_analysis:
+        messages.info(
+            request,
+            "Finans AI analizi zaten hazırlanıyor.",
+        )
+        return redirect("finance:home")
+
+    analysis = FinanceAIAnalysis.objects.create(
+        company=membership.company,
+        requested_by=request.user,
+    )
+
+    analyze_finance_snapshot.delay(str(analysis.id))
+
+    messages.success(
+        request,
+        (
+            "Finans AI analizi arka planda başlatıldı. "
+            "Hazır olduğunda bildirim alacaksınız."
+        ),
+    )
+
+@login_required
+@require_POST
+def finance_ai_chat_send(request):
+    membership = get_active_membership(request.user)
+
+    if not membership or not has_full_company_data_access(
+        membership
+    ):
+        return redirect("finance:home")
+
+    content = request.POST.get("message", "").strip()
+
+    if not content:
+        messages.error(
+            request,
+            "Finans AI için bir mesaj yazmalısınız.",
+        )
+        return redirect(
+            f"{reverse('finance:home')}?finance_ai_chat=open"
+        )
+
+    if len(content) > 2000:
+        messages.error(
+            request,
+            "Mesaj en fazla 2000 karakter olabilir.",
+        )
+        return redirect(
+            f"{reverse('finance:home')}?finance_ai_chat=open"
+        )
+
+    conversation = (
+        FinanceAIConversation.objects.filter(
+            company=membership.company,
+            user=request.user,
+            is_active=True,
+        )
+        .order_by("-updated_at")
+        .first()
+    )
+
+    if not conversation:
+        conversation = FinanceAIConversation.objects.create(
+            company=membership.company,
+            user=request.user,
+            title=content[:160],
+        )
+
+    FinanceAIMessage.objects.create(
+        conversation=conversation,
+        role=FinanceAIMessage.Role.USER,
+        content=content,
+        status=FinanceAIMessage.Status.COMPLETED,
+    )
+
+    assistant_message = FinanceAIMessage.objects.create(
+        conversation=conversation,
+        role=FinanceAIMessage.Role.ASSISTANT,
+        content="Yanıt hazırlanıyor...",
+        status=FinanceAIMessage.Status.PENDING,
+    )
+
+    answer_finance_chat_message.delay(
+        str(assistant_message.id)
+    )
+
+    return redirect(
+        f"{reverse('finance:home')}?finance_ai_chat=open"
+    )
+
+    return redirect("finance:home")
 @login_required
 def customer_accounts(request):
     membership = get_active_membership(request.user)

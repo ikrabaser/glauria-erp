@@ -12,6 +12,8 @@ from .views import (
     payment_plan_detail,
     payment_plan_allocation_create,
     cash_flow,
+    finance_ai_analysis_create,
+    finance_ai_chat_send,
 )
 
 
@@ -58,6 +60,16 @@ urlpatterns = [
         "odeme-planlari/<uuid:plan_id>/eslestirme/",
         payment_plan_allocation_create,
         name="payment_plan_allocation_create",
+    ),
+    path(
+        "ai-analiz/",
+        finance_ai_analysis_create,
+        name="finance_ai_analysis_create",
+    ),
+    path(
+        "ai-sohbet/gonder/",
+        finance_ai_chat_send,
+        name="finance_ai_chat_send",
     ),
     path(
         "nakit-akisi/",

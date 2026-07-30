@@ -8,8 +8,7 @@ Finans Merkezi | Glauria ERP
 {% block extra_css %}
     <link
         rel="stylesheet"
-        href="{% static 'css/finance.css' %}?v=1"
-    >
+        href="{% static 'css/finance.css' %}?v=finance-ai-brand-v2"
 {% endblock %}
 
 {% block content %}
@@ -71,7 +70,181 @@ Finans Merkezi | Glauria ERP
                     Cari hesaba yansıtılmış satışlar
                 </span>
             </article>
+             </div>
+                    <section class="finance-ai-panel">
+<div class="finance-ai-panel__heading finance-ai-panel__heading--brand">
+    <div class="finance-ai-panel__brand">
+        <div
+            class="finance-ai-panel__monogram"
+            aria-hidden="true"
+        >
+            G<span>✦</span>
         </div>
+
+        <div class="finance-ai-panel__brand-copy">
+            <span class="finance-panel__eyebrow">
+                GLAURIA FİNANS AI
+            </span>
+
+            <h3 class="finance-ai-panel__brand-title">
+                Glauria Finans AI <span>✦</span>
+            </h3>
+
+            <p>
+                Finansal verilerinizi analiz eder; özet,
+                risk ve öncelik önerileri sunar.
+            </p>
+
+            <div class="finance-ai-panel__capabilities">
+                <span>◈ Akıllı Özetler</span>
+                <span>◈ Nakit Tahminleri</span>
+                <span>△ Risk Uyarıları</span>
+                <span>◈ Rapor Önerileri</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="finance-ai-panel__brand-actions">
+        {% if latest_ai_analysis %}
+            <span class="finance-ai-status finance-ai-status--{{ latest_ai_analysis.status }}">
+                {{ latest_ai_analysis.get_status_display }}
+            </span>
+        {% endif %}
+
+        <button
+            type="button"
+            class="finance-ai-panel__chat-action"
+            data-finance-ai-chat-open
+        >
+            Finans AI ile Sohbete Başla
+            <span>→</span>
+        </button>
+    </div>
+</div>
+
+            {% if latest_ai_analysis and latest_ai_analysis.status == "completed" %}
+                <div class="finance-ai-panel__content">
+                    <div class="finance-ai-panel__summary">
+                        <span>YÖNETİCİ ÖZETİ</span>
+                        <p>
+                            {{ latest_ai_analysis.executive_summary }}
+                        </p>
+                    </div>
+
+                    <div class="finance-ai-panel__details">
+                        <div>
+                            <span>RİSK SEVİYESİ</span>
+                            <strong class="finance-ai-risk finance-ai-risk--{{ latest_ai_analysis.risk_level }}">
+                                {{ latest_ai_analysis.get_risk_level_display }}
+                            </strong>
+                        </div>
+
+                        <div>
+                            <span>ANALİZ TARİHİ</span>
+                            <strong>
+                                {{ latest_ai_analysis.updated_at|date:"d.m.Y H:i" }}
+                            </strong>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="finance-ai-panel__lists">
+                    <div>
+                        <span class="finance-ai-panel__list-title">
+                            TESPİT EDİLEN RİSKLER
+                        </span>
+
+                        <ul>
+                            {% for risk in latest_ai_analysis.risks %}
+                                <li>{{ risk }}</li>
+                            {% empty %}
+                                <li>Belirgin bir finansal risk tespit edilmedi.</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+
+                    <div>
+                        <span class="finance-ai-panel__list-title">
+                            ÖNERİLEN AKSİYONLAR
+                        </span>
+
+                        <ul>
+                            {% for action in latest_ai_analysis.recommended_actions %}
+                                <li>{{ action }}</li>
+                            {% empty %}
+                                <li>Şu an için ek aksiyon önerisi bulunmuyor.</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                </div>
+
+                <form
+                    method="post"
+                    action="{% url 'finance:finance_ai_analysis_create' %}"
+                >
+                    {% csrf_token %}
+
+                    <button
+                        type="submit"
+                        class="finance-ai-panel__action"
+                    >
+                        Analizi Yenile
+                    </button>
+                </form>
+
+            {% elif latest_ai_analysis and latest_ai_analysis.status == "processing" %}
+                <div class="finance-ai-panel__empty">
+                    Finans verileri inceleniyor. Analiz tamamlandığında
+                    sonuç burada görüntülenecek.
+                </div>
+
+            {% elif latest_ai_analysis and latest_ai_analysis.status == "pending" %}
+                <div class="finance-ai-panel__empty">
+                    Finans AI analizi kuyrukta bekliyor.
+                </div>
+
+            {% elif latest_ai_analysis and latest_ai_analysis.status == "failed" %}
+                <div class="finance-ai-panel__empty">
+                    Son analiz tamamlanamadı. Finans verileri değişmemiştir;
+                    isterseniz analizi yeniden başlatabilirsiniz.
+                </div>
+
+                <form
+                    method="post"
+                    action="{% url 'finance:finance_ai_analysis_create' %}"
+                >
+                    {% csrf_token %}
+
+                    <button
+                        type="submit"
+                        class="finance-ai-panel__action"
+                    >
+                        Analizi Yeniden Başlat
+                    </button>
+                </form>
+
+            {% else %}
+                <div class="finance-ai-panel__empty">
+                    Net nakit, açık cari bakiye, yaklaşan tahsilatlar ve
+                    finansal uyarılar üzerinden kısa bir yönetici özeti alın.
+                </div>
+
+                <form
+                    method="post"
+                    action="{% url 'finance:finance_ai_analysis_create' %}"
+                >
+                    {% csrf_token %}
+
+                    <button
+                        type="submit"
+                        class="finance-ai-panel__action"
+                    >
+                        Finans Özeti Oluştur
+                    </button>
+                </form>
+            {% endif %}
+        </section>
+
         <section class="finance-chart-panel">
     <div class="finance-panel__heading">
         <div>
@@ -298,6 +471,137 @@ Finans Merkezi | Glauria ERP
                 </div>
             {% endif %}
         </section>
+                <div
+            class="finance-ai-chat"
+            data-finance-ai-chat
+        >
+            <button
+    type="button"
+    class="finance-ai-chat__launcher"
+    data-finance-ai-chat-open
+    aria-expanded="false"
+>
+    <span
+    class="finance-ai-chat__launcher-icon"
+    aria-hidden="true"
+>
+    G<span>✦</span>
+</span>
+
+    <span class="finance-ai-chat__launcher-label">
+        <small>AI DESTEKLİ</small>
+        Finans Asistanı
+    </span>
+
+    <span
+        class="finance-ai-chat__launcher-dot"
+        aria-hidden="true"
+    ></span>
+</button>
+
+            <aside
+                class="finance-ai-chat__drawer"
+                data-finance-ai-chat-drawer
+                aria-label="Finans AI sohbeti"
+                hidden
+            >
+                <header class="finance-ai-chat__header">
+                    <div>
+                        <span>GLAURIA FINANS AI</span>
+                        <strong>Finans Asistanı</strong>
+                    </div>
+
+                    <button
+                        type="button"
+                        class="finance-ai-chat__close"
+                        data-finance-ai-chat-close
+                        aria-label="Finans AI sohbetini kapat"
+                    >
+                        ×
+                    </button>
+                </header>
+
+                <div class="finance-ai-chat__messages">
+                    {% if chat_messages %}
+                        {% for message in chat_messages %}
+                            <article
+                                class="finance-ai-chat__message finance-ai-chat__message--{{ message.role }}"
+                                {% if message.role == "assistant" and message.status == "pending" %}
+                                    data-finance-ai-chat-pending
+                                {% endif %}
+                            >
+                                <span>
+                                    {% if message.role == "user" %}
+                                        Siz
+                                    {% else %}
+                                        Finans AI
+                                    {% endif %}
+                                </span>
+
+                                <p>{{ message.content }}</p>
+                            </article>
+                        {% endfor %}
+                    {% else %}
+                        <div class="finance-ai-chat__welcome">
+                            <strong>Merhaba İkra,</strong>
+                            <p>
+                                Şirketinizin gerçek nakit, cari hesap,
+                                tahsilat ve ödeme planı verileri üzerinden
+                                finans sorularınızı yanıtlayabilirim.
+                            </p>
+                        </div>
+                    {% endif %}
+                </div>
+
+                <div class="finance-ai-chat__prompts">
+                    <button
+                        type="button"
+                        data-finance-ai-prompt="Nakit pozisyonumu kısa şekilde özetle."
+                    >
+                        Nakit pozisyonu
+                    </button>
+
+                    <button
+                        type="button"
+                        data-finance-ai-prompt="Önümüzdeki 30 gündeki tahsilat risklerini sıralar mısın?"
+                    >
+                        Tahsilat riskleri
+                    </button>
+
+                    <button
+                        type="button"
+                        data-finance-ai-prompt="Bugün öncelik vermem gereken finans aksiyonları neler?"
+                    >
+                        Öncelikli aksiyonlar
+                    </button>
+                </div>
+
+                <form
+                    method="post"
+                    action="{% url 'finance:finance_ai_chat_send' %}"
+                    class="finance-ai-chat__form"
+                >
+                    {% csrf_token %}
+
+                    <label for="finance-ai-message">
+                        Finans sorunuz
+                    </label>
+
+                    <textarea
+                        id="finance-ai-message"
+                        name="message"
+                        rows="3"
+                        maxlength="2000"
+                        placeholder="Örn. Bu ay tahsilat riskim nedir?"
+                        required
+                    ></textarea>
+
+                    <button type="submit">
+                        Gönder
+                    </button>
+                </form>
+            </aside>
+        </div>
     {% endif %}
 </section>
 {% endblock %}
@@ -421,5 +725,78 @@ Finans Merkezi | Glauria ERP
             }
         );
     }
+</script>
+
+<script>
+    (function () {
+        const chatRoot = document.querySelector(
+            "[data-finance-ai-chat]"
+        );
+
+        if (!chatRoot) {
+            return;
+        }
+
+        const launcher = chatRoot.querySelector(
+            "[data-finance-ai-chat-open]"
+        );
+        const drawer = chatRoot.querySelector(
+            "[data-finance-ai-chat-drawer]"
+        );
+        const closeButton = chatRoot.querySelector(
+            "[data-finance-ai-chat-close]"
+        );
+        const messageInput = chatRoot.querySelector(
+            "#finance-ai-message"
+        );
+        const promptButtons = chatRoot.querySelectorAll(
+            "[data-finance-ai-prompt]"
+        );
+
+        function setChatOpen(isOpen) {
+            drawer.hidden = !isOpen;
+            launcher.setAttribute(
+                "aria-expanded",
+                String(isOpen)
+            );
+
+            if (isOpen && messageInput) {
+                messageInput.focus();
+            }
+        }
+
+        launcher.addEventListener("click", function () {
+            setChatOpen(drawer.hidden);
+        });
+
+        closeButton.addEventListener("click", function () {
+            setChatOpen(false);
+        });
+
+        promptButtons.forEach(function (button) {
+            button.addEventListener("click", function () {
+                messageInput.value = button.dataset.financeAiPrompt;
+                messageInput.focus();
+            });
+        });
+
+        if (
+            new URLSearchParams(window.location.search).get(
+                "finance_ai_chat"
+            ) === "open"
+        ) {
+            setChatOpen(true);
+        }
+
+        if (
+            chatRoot.querySelector(
+                "[data-finance-ai-chat-pending]"
+            )
+        ) {
+            window.setTimeout(function () {
+                window.location.reload();
+            }, 3500);
+        }
+    })();
 </script>
 {% endblock %}
