@@ -7,6 +7,7 @@ from .views import (
     customer_account_collection,
     customer_account_detail,
     cash_bank_accounts,
+    cash_bank_account_detail,
 )
 
 
@@ -33,6 +34,11 @@ urlpatterns = [
         "kasa-banka/",
         cash_bank_accounts,
         name="cash_bank_accounts",
+    ),
+    path(
+        "kasa-banka/<uuid:account_id>/",
+        cash_bank_account_detail,
+        name="cash_bank_account_detail",
     ),
     path(
         "<slug:section>/",

@@ -33,7 +33,10 @@ Kasa & Banka | Glauria ERP
             {% if accounts %}
                 <div class="finance-account-grid">
                     {% for account in accounts %}
-                        <article class="finance-account-card">
+                        <a
+    href="{% url 'finance:cash_bank_account_detail' account.id %}"
+    class="finance-account-card"
+>
                             <span class="finance-account-card__type">
                                 {{ account.get_account_type_display }}
                             </span>
@@ -49,7 +52,10 @@ Kasa & Banka | Glauria ERP
                             </strong>
 
                             <span>{{ account.currency }} bakiye</span>
-                        </article>
+                         <span class="finance-account-card__action">
+        Hareketleri Gör →
+    </span>
+</a>
                     {% endfor %}
                 </div>
             {% else %}

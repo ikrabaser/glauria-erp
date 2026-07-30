@@ -144,7 +144,8 @@ def home(request):
             zero_amount,
         )
     )["total"]
-
+    
+    overdue_count = overdue_transactions.count()
     issued_invoice_total = Invoice.objects.filter(
         company=membership.company,
         status__in=[
@@ -318,7 +319,7 @@ def home(request):
             "outstanding_receivables": outstanding_receivables,
             "collection_total": collection_total,
             "overdue_total": overdue_total,
-            "overdue_count": overdue_transactions.count(),
+            "overdue_count": overdue_count,
             "issued_invoice_total": issued_invoice_total,
             "recent_transactions": recent_transactions,
             "upcoming_transactions": upcoming_transactions,
@@ -529,5 +530,57 @@ def cash_bank_accounts(request):
             "current_membership": membership,
             "accounts": accounts,
             "form": form,
+        },
+    )
+@login_required
+def cash_bank_account_detail(request, account_id):
+    membership = get_active_membership(request.user)
+
+    if not membership or not has_full_company_data_access(membership):
+        return redirect("finance:home")
+
+    account = get_object_or_404(
+        FinancialAccount,
+        id=account_id,
+        company=membership.company,
+        is_active=True,
+    )
+
+    transactions = account.transactions.select_related(
+        "customer_account_transaction__account__customer",
+    ).order_by(
+        "-transaction_date",
+        "-created_at",
+    )
+
+    incoming_total = (
+        transactions.filter(
+            status=FinancialAccountTransaction.Status.ACTIVE,
+            direction=FinancialAccountTransaction.Direction.IN,
+        ).aggregate(
+            total=Sum("amount"),
+        )["total"]
+        or Decimal("0.00")
+    )
+
+    outgoing_total = (
+        transactions.filter(
+            status=FinancialAccountTransaction.Status.ACTIVE,
+            direction=FinancialAccountTransaction.Direction.OUT,
+        ).aggregate(
+            total=Sum("amount"),
+        )["total"]
+        or Decimal("0.00")
+    )
+
+    return render(
+        request,
+        "finance/cash_bank_account_detail.html",
+        {
+            "current_membership": membership,
+            "account": account,
+            "transactions": transactions,
+            "incoming_total": incoming_total,
+            "outgoing_total": outgoing_total,
         },
     )
