@@ -87,13 +87,60 @@
         {% endif %}
 
         {% if module_access.finance %}
+    <details
+        class="sidebar-group"
+        {% if request.resolver_match.namespace == "finance" %}open{% endif %}
+    >
+        <summary class="sidebar-link sidebar-group__trigger">
+            Finans
+            <span class="sidebar-group__chevron">⌄</span>
+        </summary>
+
+        <div class="sidebar-group__items">
             <a
                 href="{% url 'finance:home' %}"
-                class="sidebar-link{% if request.resolver_match.namespace == 'finance' %} active{% endif %}"
+                class="sidebar-group__link{% if request.resolver_match.url_name == 'home' %} active{% endif %}"
             >
-                Finans
+                Finans Merkezi
             </a>
-        {% endif %}
+
+            <a
+                href="{% url 'finance:customer_accounts' %}"
+                class="sidebar-group__link{% if request.resolver_match.url_name == 'customer_accounts' %} active{% endif %}"
+            >
+                Cari Hesaplar
+            </a>
+
+            <a
+    href="{% url 'finance:cash_bank_accounts' %}"
+    class="sidebar-group__link{% if request.resolver_match.url_name == 'cash_bank_accounts' %} active{% endif %}"
+>
+    Kasa &amp; Banka
+</a>
+
+            <a
+                href="{% url 'finance:section' 'nakit-akisi' %}"
+                class="sidebar-group__link"
+            >
+                Nakit Akışı
+            </a>
+
+            <a
+                href="{% url 'finance:section' 'odeme-planlari' %}"
+                class="sidebar-group__link"
+            >
+                Ödeme Planları
+            </a>
+
+            <a
+                href="{% url 'finance:section' 'butce-raporlar' %}"
+                class="sidebar-group__link"
+            >
+                Bütçe ve Raporlar
+            </a>
+        </div>
+    </details>
+{% endif %}
 
         {% if module_access.hr %}
             <a

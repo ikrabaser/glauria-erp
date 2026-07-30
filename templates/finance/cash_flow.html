@@ -1,0 +1,270 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}
+Nakit Akışı | Glauria ERP
+{% endblock %}
+
+{% block extra_css %}
+<link
+    rel="stylesheet"
+    href="{% static 'css/finance.css' %}?v=cash-flow-v2"
+>
+{% endblock %}
+
+{% block content %}
+<section class="module-page finance-dashboard">
+    {% include "components/page_header.html" with eyebrow="FİNANS VE MUHASEBE" title="Nakit Akışı" description="Kasa ve banka hareketlerinden oluşan gerçek nakit girişlerini, çıkışlarını ve net pozisyonunuzu izleyin." %}
+
+    <div class="finance-metrics">
+        <article class="finance-metric-card finance-metric-card--primary">
+            <span class="finance-metric-card__label">
+                Net Nakit
+            </span>
+            <strong class="finance-metric-card__value">
+                ₺{{ net_cash|floatformat:2 }}
+            </strong>
+            <span class="finance-metric-card__meta">
+                Aktif kasa ve banka hareketleri
+            </span>
+        </article>
+
+        <article class="finance-metric-card">
+            <span class="finance-metric-card__label">
+                Toplam Nakit Girişi
+            </span>
+            <strong class="finance-metric-card__value finance-metric-card__value--positive">
+                ₺{{ incoming_total|floatformat:2 }}
+            </strong>
+            <span class="finance-metric-card__meta">
+                Tahsilat ve diğer girişler
+            </span>
+        </article>
+
+        <article class="finance-metric-card">
+            <span class="finance-metric-card__label">
+                Toplam Nakit Çıkışı
+            </span>
+            <strong class="finance-metric-card__value finance-metric-card__value--warning">
+                ₺{{ outgoing_total|floatformat:2 }}
+            </strong>
+            <span class="finance-metric-card__meta">
+                Ödeme ve diğer çıkışlar
+            </span>
+        </article>
+    </div>
+
+    <section class="finance-chart-panel">
+        <div class="finance-chart-panel__heading">
+            <div>
+                <span class="finance-panel__eyebrow">
+                    SON 6 AY
+                </span>
+
+                <h3 class="finance-panel__title">
+                    Kasa ve Banka Nakit Akışı
+                </h3>
+            </div>
+
+            <span class="finance-panel__count">
+                Gerçekleşen hareketler
+            </span>
+        </div>
+
+        <div class="finance-chart-legend">
+            <span class="finance-chart-legend finance-chart-legend--debit">
+                Nakit Girişi
+            </span>
+            <span class="finance-chart-legend finance-chart-legend--credit">
+                Nakit Çıkışı
+            </span>
+            <span class="finance-chart-legend finance-chart-legend--net">
+                Net Nakit
+            </span>
+        </div>
+
+        <div class="finance-chart-panel__canvas">
+            <canvas id="cash-flow-chart"></canvas>
+        </div>
+    </section>
+
+    {{ cash_flow_chart|json_script:"cash-flow-data" }}
+
+    <section class="finance-panel finance-panel--upcoming">
+        <div class="finance-panel__heading">
+            <div>
+                <span class="finance-panel__eyebrow">
+                    SON HAREKETLER
+                </span>
+
+                <h3 class="finance-panel__title">
+                    Kasa / Banka Ekstresi
+                </h3>
+            </div>
+
+            <span class="finance-panel__count">
+                {{ recent_movements|length }} hareket
+            </span>
+        </div>
+
+        {% if recent_movements %}
+            <div class="data-table-wrapper">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Tarih</th>
+                            <th>Yön</th>
+                            <th>İşlem</th>
+                            <th>Hesap</th>
+                            <th>Cari</th>
+                            <th>Tutar</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for movement in recent_movements %}
+                            <tr>
+                                <td>
+                                    {{ movement.transaction_date|date:"d.m.Y" }}
+                                </td>
+                                <td>
+                                    {% if movement.direction == "in" %}
+                                        <span class="finance-movement finance-movement--in">
+                                            Giriş
+                                        </span>
+                                    {% else %}
+                                        <span class="finance-movement finance-movement--out">
+                                            Çıkış
+                                        </span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="customer-cell">
+                                        <strong>
+                                            {{ movement.get_transaction_type_display }}
+                                        </strong>
+                                        <span>
+                                            {{ movement.reference_number|default:"—" }}
+                                        </span>
+                                    </div>
+                                </td>
+                                <td>
+                                    {{ movement.account.name }}
+                                </td>
+                                <td>
+                                    {% if movement.customer_account_transaction %}
+                                        {{ movement.customer_account_transaction.account.customer.name }}
+                                    {% else %}
+                                        —
+                                    {% endif %}
+                                </td>
+                                <td class="finance-table__balance">
+                                    {% if movement.direction == "in" %}+{% else %}−{% endif %}₺{{ movement.amount|floatformat:2 }}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="finance-panel__empty">
+                Kasa veya banka hareketi oluştuğunda burada
+                ayrıntılı olarak görünecek.
+            </div>
+        {% endif %}
+    </section>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
+
+<script>
+    const cashFlowDataElement = document.getElementById(
+        "cash-flow-data"
+    );
+
+    const cashFlowCanvas = document.getElementById(
+        "cash-flow-chart"
+    );
+
+    if (cashFlowDataElement && cashFlowCanvas) {
+        const cashFlowData = JSON.parse(
+            cashFlowDataElement.textContent
+        );
+
+        new Chart(
+            cashFlowCanvas,
+            {
+                type: "line",
+                data: {
+                    labels: cashFlowData.labels,
+                    datasets: [
+                        {
+                            label: "Nakit Girişi",
+                            data: cashFlowData.inflows,
+                            borderColor: "#53c5cc",
+                            backgroundColor: "rgba(83, 197, 204, 0.12)",
+                            borderWidth: 3,
+                            pointRadius: 4,
+                            tension: 0.38,
+                        },
+                        {
+                            label: "Nakit Çıkışı",
+                            data: cashFlowData.outflows,
+                            borderColor: "#e7899c",
+                            backgroundColor: "rgba(231, 137, 156, 0.1)",
+                            borderWidth: 3,
+                            pointRadius: 4,
+                            tension: 0.38,
+                        },
+                        {
+                            label: "Net Nakit",
+                            data: cashFlowData.net_cash,
+                            borderColor: "#d7a48f",
+                            backgroundColor: "rgba(215, 164, 143, 0.1)",
+                            borderWidth: 3,
+                            pointRadius: 4,
+                            tension: 0.38,
+                        },
+                    ],
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        mode: "index",
+                        intersect: false,
+                    },
+                    plugins: {
+                        legend: {
+                            display: false,
+                        },
+                    },
+                    scales: {
+                        x: {
+                            grid: {
+                                display: false,
+                            },
+                            ticks: {
+                                color: "rgba(255, 255, 255, 0.48)",
+                            },
+                        },
+                        y: {
+                            beginAtZero: true,
+                            grid: {
+                                color: "rgba(255, 255, 255, 0.07)",
+                            },
+                            ticks: {
+                                color: "rgba(255, 255, 255, 0.48)",
+                                callback: function (value) {
+                                    return "₺" + value;
+                                },
+                            },
+                        },
+                    },
+                },
+            }
+        );
+    }
+</script>
+{% endblock %}

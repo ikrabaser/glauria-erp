@@ -1,0 +1,243 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}
+{{ plan.plan_number }} | Ödeme Planı | Glauria ERP
+{% endblock %}
+
+{% block extra_css %}
+<link
+    rel="stylesheet"
+    href="{% static 'css/finance.css' %}?v=payment-plan-detail-v2"
+>
+{% endblock %}
+
+{% block content %}
+<section class="module-page finance-dashboard">
+    <a
+        href="{% url 'finance:payment_plans' %}"
+        class="finance-back-link"
+    >
+        ← Ödeme Planlarına Dön
+    </a>
+
+    <header class="page-header">
+        <div class="page-header__content">
+            <span class="page-header__eyebrow">
+                TAHSİLAT PLANI DETAYI
+            </span>
+
+            <h2 class="page-header__title">
+                {{ plan.plan_number }}
+            </h2>
+
+            <p class="page-header__description">
+                {{ plan.customer_account.customer.name }} cari hesabına
+                ait taksit ve tahsilat takibini yönetin.
+            </p>
+        </div>
+
+        <span class="finance-panel__count">
+            {{ plan.get_status_display }}
+        </span>
+    </header>
+
+    <div class="finance-metrics">
+        <article class="finance-metric-card finance-metric-card--primary">
+            <span class="finance-metric-card__label">
+                Plan Toplamı
+            </span>
+            <strong class="finance-metric-card__value">
+                ₺{{ plan.total_amount|floatformat:2 }}
+            </strong>
+            <span class="finance-metric-card__meta">
+                {{ plan.installment_count }} taksit
+            </span>
+        </article>
+
+        <article class="finance-metric-card">
+            <span class="finance-metric-card__label">
+                Tahsil Edilen
+            </span>
+            <strong class="finance-metric-card__value finance-metric-card__value--positive">
+                ₺{{ total_allocated|floatformat:2 }}
+            </strong>
+            <span class="finance-metric-card__meta">
+                Taksitlere eşleştirilen tutar
+            </span>
+        </article>
+
+        <article class="finance-metric-card">
+            <span class="finance-metric-card__label">
+                Kalan Tutar
+            </span>
+            <strong class="finance-metric-card__value finance-metric-card__value--warning">
+                ₺{{ remaining_total|floatformat:2 }}
+            </strong>
+            <span class="finance-metric-card__meta">
+                Açık plan bakiyesi
+            </span>
+        </article>
+    </div>
+
+    <div class="finance-dashboard__grid">
+        <section class="finance-panel finance-panel--wide">
+            <div class="finance-panel__heading">
+                <div>
+                    <span class="finance-panel__eyebrow">
+                        TAKSİT TAKVİMİ
+                    </span>
+
+                    <h3 class="finance-panel__title">
+                        Vade ve Tahsilat Durumu
+                    </h3>
+                </div>
+
+                <span class="finance-panel__count">
+                    {{ installments|length }} taksit
+                </span>
+            </div>
+
+            <div class="data-table-wrapper">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Taksit</th>
+                            <th>Vade</th>
+                            <th>Planlanan</th>
+                            <th>Tahsil Edilen</th>
+                            <th>Kalan</th>
+                            <th>Durum</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for installment in installments %}
+                            <tr>
+                                <td>
+                                    {{ installment.installment_number }}. taksit
+                                </td>
+                                <td>
+                                    {{ installment.due_date|date:"d.m.Y" }}
+                                </td>
+                                <td>
+                                    ₺{{ installment.amount|floatformat:2 }}
+                                </td>
+                                <td class="finance-metric-card__value--positive">
+                                    ₺{{ installment.allocated_amount|floatformat:2 }}
+                                </td>
+                                <td class="finance-table__balance">
+                                    ₺{{ installment.remaining_amount|floatformat:2 }}
+                                </td>
+                                <td>
+                                    {% if installment.display_status == "paid" %}
+                                        <span class="status-pill status-pill--active">
+                                            Tahsil Edildi
+                                        </span>
+                                    {% elif installment.display_status == "partially_paid" %}
+                                        <span class="status-pill status-pill--lead">
+                                            Kısmi Tahsilat
+                                        </span>
+                                    {% elif installment.display_status == "overdue" %}
+                                        <span class="status-pill status-pill--inactive">
+                                            Vadesi Geçti
+                                        </span>
+                                    {% else %}
+                                        <span class="status-pill status-pill--lead">
+                                            Bekliyor
+                                        </span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section class="finance-panel">
+            <div class="finance-panel__heading">
+                <div>
+                    <span class="finance-panel__eyebrow">
+                        PLAN BİLGİLERİ
+                    </span>
+
+                    <h3 class="finance-panel__title">
+                        Tahsilat Özeti
+                    </h3>
+                </div>
+            </div>
+
+            <dl class="finance-detail-list">
+                <div>
+                    <dt>Cari hesap</dt>
+                    <dd>{{ plan.customer_account.customer.name }}</dd>
+                </div>
+
+                <div>
+                    <dt>Para birimi</dt>
+                    <dd>{{ plan.currency }}</dd>
+                </div>
+
+                <div>
+                    <dt>Plan durumu</dt>
+                    <dd>{{ plan.get_status_display }}</dd>
+                </div>
+
+                <div>
+                    <dt>Açıklama</dt>
+                    <dd>{{ plan.description|default:"—" }}</dd>
+                </div>
+            </dl>
+                        <hr class="finance-divider">
+
+            <div class="finance-panel__heading">
+                <div>
+                    <span class="finance-panel__eyebrow">
+                        TAHSİLAT EŞLEŞTİR
+                    </span>
+
+                    <h3 class="finance-panel__title">
+                        Mevcut Tahsilatı Uygula
+                    </h3>
+                </div>
+            </div>
+
+            <form
+                method="post"
+                action="{% url 'finance:payment_plan_allocation_create' plan.id %}"
+                class="finance-form"
+            >
+                {% csrf_token %}
+
+                <div class="finance-form__field">
+                    <label for="{{ allocation_form.installment.id_for_label }}">
+                        Taksit
+                    </label>
+                    {{ allocation_form.installment }}
+                    {{ allocation_form.installment.errors }}
+                </div>
+
+                <div class="finance-form__field">
+                    <label for="{{ allocation_form.collection_transaction.id_for_label }}">
+                        Tahsilat hareketi
+                    </label>
+                    {{ allocation_form.collection_transaction }}
+                    {{ allocation_form.collection_transaction.errors }}
+                </div>
+
+                <div class="finance-form__field">
+                    <label for="{{ allocation_form.amount.id_for_label }}">
+                        Eşleştirilecek tutar
+                    </label>
+                    {{ allocation_form.amount }}
+                    {{ allocation_form.amount.errors }}
+                </div>
+
+                <button type="submit" class="finance-form__submit">
+                    Tahsilatı Eşleştir
+                </button>
+            </form>
+        </section>
+    </div>
+</section>
+{% endblock %}

@@ -134,9 +134,19 @@
 
         <dl class="customer-detail__list">
             <div>
-                <dt>Ara toplam</dt>
+                <dt>Brüt toplam</dt>
                 <dd>₺{{ order.subtotal|floatformat:2 }}</dd>
             </div>
+
+            <div>
+    <span>İskonto</span>
+    <strong>−₺{{ order.discount_amount|floatformat:2 }}</strong>
+</div>
+
+<div>
+    <span>KDV matrahı</span>
+    <strong>₺{{ order.taxable_amount|floatformat:2 }}</strong>
+</div>
 
             <div>
                 <dt>KDV</dt>
@@ -160,6 +170,7 @@
                         <th>Ürün / Hizmet</th>
                         <th>Miktar</th>
                         <th>Birim fiyat</th>
+                        <th>İskonto</th>
                         <th>KDV</th>
                         <th>Toplam</th>
                     </tr>
@@ -171,6 +182,7 @@
                             <td>{{ line.description }}</td>
                             <td>{{ line.quantity }}</td>
                             <td>₺{{ line.unit_price|floatformat:2 }}</td>
+                            <td>%{{ line.discount_rate|floatformat:2 }}</td>
                             <td>%{{ line.tax_rate|floatformat:2 }}</td>
                             <td>₺{{ line.total_amount|floatformat:2 }}</td>
                         </tr>

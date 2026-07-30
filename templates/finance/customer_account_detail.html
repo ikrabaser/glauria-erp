@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}
+{{ account.customer.name }} | Cari Hesap | Glauria ERP
+{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/finance.css' %}?v=2">
+{% endblock %}
+
+{% block content %}
+<section class="module-page">
+    <a
+        href="{% url 'finance:customer_accounts' %}"
+        class="customer-detail__back"
+    >
+        ← Cari Hesaplara Dön
+    </a>
+
+    {% include "components/page_header.html" with eyebrow="CARİ HESAP DETAYI" title=account.customer.name description="Borç, alacak ve tahsilat hareketlerini tek ekrandan yönetin." %}
+
+    <div class="finance-metrics">
+        <article class="finance-metric-card finance-metric-card--primary">
+            <span class="finance-metric-card__label">Açık Bakiye</span>
+            <strong class="finance-metric-card__value">
+                ₺{{ account.balance|floatformat:2 }}
+            </strong>
+            <span class="finance-metric-card__meta">
+                {{ account.currency }} cari hesap
+            </span>
+        </article>
+
+        <article class="finance-metric-card">
+            <span class="finance-metric-card__label">Toplam Borç</span>
+            <strong class="finance-metric-card__value">
+                ₺{{ account.debit_total|floatformat:2 }}
+            </strong>
+        </article>
+
+        <article class="finance-metric-card">
+            <span class="finance-metric-card__label">Toplam Tahsilat</span>
+            <strong class="finance-metric-card__value finance-metric-card__value--positive">
+                ₺{{ account.credit_total|floatformat:2 }}
+            </strong>
+        </article>
+    </div>
+
+    <div class="finance-dashboard__grid">
+        <section class="finance-panel finance-panel--wide">
+            <div class="finance-panel__heading">
+                <div>
+                    <span class="finance-panel__eyebrow">HAREKETLER</span>
+                    <h3 class="finance-panel__title">Cari Ekstre</h3>
+                </div>
+            </div>
+
+            <div class="data-table-wrapper">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Tarih</th>
+                            <th>İşlem</th>
+                            <th>Referans</th>
+                            <th>Borç</th>
+                            <th>Alacak</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in transactions %}
+                            <tr>
+                                <td>{{ item.transaction_date|date:"d.m.Y" }}</td>
+                                <td>{{ item.get_transaction_type_display }}</td>
+                                <td>{{ item.reference_number|default:"—" }}</td>
+                                <td>
+                                    {% if item.direction == "debit" %}
+                                        ₺{{ item.amount|floatformat:2 }}
+                                    {% else %}—{% endif %}
+                                </td>
+                                <td>
+                                    {% if item.direction == "credit" %}
+                                        ₺{{ item.amount|floatformat:2 }}
+                                    {% else %}—{% endif %}
+                                </td>
+                            </tr>
+                        {% empty %}
+                            <tr>
+                                <td colspan="5">Henüz hareket bulunmuyor.</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <aside class="finance-panel">
+            <div class="finance-panel__heading">
+                <div>
+                    <span class="finance-panel__eyebrow">YENİ KAYIT</span>
+                    <h3 class="finance-panel__title">Tahsilat Kaydı</h3>
+                </div>
+            </div>
+
+            <form
+                method="post"
+                action="{% url 'finance:customer_account_collection' account.id %}"
+                class="finance-collection-form"
+            >
+                {% csrf_token %}
+
+                {{ collection_form.as_p }}
+
+                <button type="submit" class="page-header__action">
+                    Tahsilatı Kaydet
+                </button>
+            </form>
+        </aside>
+    </div>
+</section>
+{% endblock %}

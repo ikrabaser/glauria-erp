@@ -15,6 +15,8 @@ from .views import (
     invoice_verification,
     invoice_pdf_download,
     invoice_email_send,
+    quote_lines_update,
+    invoice_issue,
 )
 
 
@@ -32,6 +34,12 @@ urlpatterns = [
         "quotes/<uuid:quote_id>/",
         quote_detail,
         name="quote_detail",
+    ),
+
+    path(
+        "quotes/<uuid:quote_id>/lines/",
+        quote_lines_update,
+        name="quote_lines_update",
     ),
     path(
     "quotes/<uuid:quote_id>/lines/new/",
@@ -52,6 +60,11 @@ path(
     "invoices/<uuid:invoice_id>/pdf/",
     invoice_pdf_download,
     name="invoice_pdf_download",
+),
+path(
+    "invoices/<uuid:invoice_id>/issue/",
+    invoice_issue,
+    name="invoice_issue",
 ),
 path(
     "invoices/<uuid:invoice_id>/email/",

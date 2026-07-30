@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+
+{% block title %}
+Cari Hesaplar | Glauria ERP
+{% endblock %}
+
+{% block content %}
+<section class="module-page">
+    {% include "components/page_header.html" with eyebrow="FİNANS VE MUHASEBE" title="Cari Hesaplar" description="Müşteri bazlı borç, alacak ve bakiye durumunu takip edin." %}
+
+    <div class="data-table-wrapper">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Cari</th>
+                    <th>Para Birimi</th>
+                    <th>Borç</th>
+                    <th>Alacak</th>
+                    <th>Bakiye</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for account in accounts %}
+                    <tr>
+                        <td>
+                            <div class="customer-cell">
+                                <a href="{% url 'finance:customer_account_detail' account.id %}">
+    {{ account.customer.name }}
+</a>
+                                <span>{{ account.customer.email|default:"E-posta bilgisi yok" }}</span>
+                            </div>
+                        </td>
+                        <td>{{ account.currency }}</td>
+                        <td>₺{{ account.debit_total|floatformat:2 }}</td>
+                        <td>₺{{ account.credit_total|floatformat:2 }}</td>
+                        <td class="finance-table__balance">
+                            ₺{{ account.balance|floatformat:2 }}
+                        </td>
+                    </tr>
+                {% empty %}
+                    <tr>
+                        <td colspan="5">
+                            Henüz cari hesap bulunmuyor.
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endblock %}

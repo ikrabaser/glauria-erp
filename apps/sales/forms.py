@@ -1,6 +1,7 @@
 from django import forms
 from .models import SalesQuote, SalesQuoteLine
 from apps.inventory.models import Product
+from django.forms import modelformset_factory
 
 class SalesQuoteForm(forms.ModelForm):
     class Meta:
@@ -38,6 +39,7 @@ class SalesQuoteLineForm(forms.ModelForm):
             "quantity",
             "unit_price",
             "tax_rate",
+            "discount_rate",
         ]
         widgets = {
             "description": forms.TextInput(
@@ -64,4 +66,12 @@ class SalesQuoteLineForm(forms.ModelForm):
                     "step": "0.01",
                 }
             ),
+   
         }
+
+SalesQuoteLineFormSet = modelformset_factory(
+    SalesQuoteLine,
+    form=SalesQuoteLineForm,
+    extra=1,
+    can_delete=True,
+)

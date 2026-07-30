@@ -2848,3 +2848,133 @@ html[data-theme="light"] .notification-menu {
         width: 100%;
     }
 }
+
+/* =========================================================
+   SALES QUOTE LINE EDITOR
+   ========================================================= */
+
+.quote-lines-editor {
+    display: grid;
+    gap: 16px;
+}
+
+.quote-lines-editor__rows {
+    display: grid;
+    gap: 12px;
+}
+
+.quote-lines-editor__row {
+    display: grid;
+    grid-template-columns:
+        minmax(130px, 1fr)
+        minmax(180px, 1.45fr)
+        repeat(4, minmax(92px, 0.62fr))
+        auto;
+    gap: 10px;
+    align-items: end;
+    padding: 15px;
+    background: rgba(142, 92, 246, 0.04);
+    border: 1px solid rgba(142, 92, 246, 0.14);
+    border-radius: var(--radius-md);
+}
+
+.quote-lines-editor__field {
+    display: grid;
+    min-width: 0;
+    gap: 7px;
+}
+
+.quote-lines-editor__field label {
+    color: var(--color-text-soft);
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.quote-lines-editor__field input,
+.quote-lines-editor__field select {
+    width: 100%;
+    min-height: 40px;
+    padding: 0 10px;
+    color: var(--color-text);
+    background: var(--color-bg-soft);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    font: inherit;
+}
+
+.quote-lines-editor__field input:focus,
+.quote-lines-editor__field select:focus {
+    border-color: rgba(215, 164, 143, 0.58);
+    outline: 0;
+    box-shadow: 0 0 0 4px rgba(215, 164, 143, 0.1);
+}
+
+.quote-lines-editor__remove {
+    display: flex;
+    min-height: 40px;
+    align-items: center;
+}
+
+.quote-lines-editor__remove-button {
+    min-height: 36px;
+    padding: 0 10px;
+    color: #9b3535;
+    font: inherit;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    background: rgba(192, 72, 72, 0.08);
+    border: 1px solid rgba(192, 72, 72, 0.2);
+    border-radius: var(--radius-sm);
+}
+
+.quote-lines-editor__remove-button:hover {
+    background: rgba(192, 72, 72, 0.14);
+}
+
+.quote-lines-editor__actions {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.quote-lines-editor__add {
+    min-height: 40px;
+    padding: 0 14px;
+    color: var(--color-text-soft);
+    font: inherit;
+    font-size: 12px;
+    font-weight: 800;
+    cursor: pointer;
+    background: transparent;
+    border: 1px dashed rgba(166, 101, 82, 0.52);
+    border-radius: var(--radius-sm);
+}
+
+.quote-lines-editor__add:hover {
+    color: var(--color-text);
+    background: rgba(239, 200, 182, 0.16);
+}
+
+@media (max-width: 1050px) {
+    .quote-lines-editor__row {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 620px) {
+    .quote-lines-editor__row {
+        grid-template-columns: 1fr;
+    }
+
+    .quote-lines-editor__actions {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .quote-lines-editor__actions > * {
+        width: 100%;
+    }
+}

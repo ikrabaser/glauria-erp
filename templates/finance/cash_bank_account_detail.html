@@ -1,0 +1,174 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}
+{{ account.name }} | Kasa & Banka | Glauria ERP
+{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/finance.css' %}?v=4">
+{% endblock %}
+
+{% block content %}
+<section class="module-page">
+    <a
+        href="{% url 'finance:cash_bank_accounts' %}"
+        class="finance-back-link"
+    >
+        ← Kasa & Banka Hesaplarına Dön
+    </a>
+
+    {% include "components/page_header.html" with eyebrow="FİNANS HESAP DETAYI" title=account.name description="Kasa veya banka hesabınızın bakiye ve hareketlerini takip edin." %}
+
+    <div class="finance-summary-grid">
+        <article class="finance-summary-card">
+            <span>GÜNCEL BAKİYE</span>
+            <strong>₺{{ account.balance|floatformat:2 }}</strong>
+            <small>{{ account.currency }} · {{ account.get_account_type_display }}</small>
+        </article>
+
+        <article class="finance-summary-card">
+            <span>TOPLAM GİRİŞ</span>
+            <strong class="finance-amount--positive">
+                ₺{{ incoming_total|floatformat:2 }}
+            </strong>
+            <small>Tahsilat ve diğer para girişleri</small>
+        </article>
+
+        <article class="finance-summary-card">
+            <span>TOPLAM ÇIKIŞ</span>
+            <strong class="finance-amount--negative">
+                ₺{{ outgoing_total|floatformat:2 }}
+            </strong>
+            <small>Ödeme ve diğer para çıkışları</small>
+        </article>
+    </div>
+
+    <div class="finance-dashboard__grid">
+        <section class="finance-panel finance-panel--wide">
+            <div class="finance-panel__heading">
+                <div>
+                    <span class="finance-panel__eyebrow">
+                        HESAP HAREKETLERİ
+                    </span>
+                    <h3 class="finance-panel__title">
+                        Kasa / Banka Ekstresi
+                    </h3>
+                </div>
+
+                <span class="finance-panel__count">
+                    {{ transactions|length }} hareket
+                </span>
+            </div>
+
+            {% if transactions %}
+                <div class="data-table-wrapper">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Tarih</th>
+                                <th>Yön</th>
+                                <th>İşlem</th>
+                                <th>Cari</th>
+                                <th>Referans</th>
+                                <th>Tutar</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for transaction in transactions %}
+                                <tr>
+                                    <td>
+                                        {{ transaction.transaction_date|date:"d.m.Y" }}
+                                    </td>
+                                    <td>
+                                        {% if transaction.direction == "in" %}
+                                            <span class="finance-movement finance-movement--in">
+                                                Giriş
+                                            </span>
+                                        {% else %}
+                                            <span class="finance-movement finance-movement--out">
+                                                Çıkış
+                                            </span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <div class="customer-cell">
+                                            <strong>
+                                                {{ transaction.get_transaction_type_display }}
+                                            </strong>
+                                            <span>
+                                                {{ transaction.description }}
+                                            </span>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        {% if transaction.customer_account_transaction %}
+                                            {{ transaction.customer_account_transaction.account.customer.name }}
+                                        {% else %}
+                                            —
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {{ transaction.reference_number|default:"—" }}
+                                    </td>
+                                    <td>
+                                        {% if transaction.direction == "in" %}
+                                            <strong class="finance-amount--positive">
+                                                +₺{{ transaction.amount|floatformat:2 }}
+                                            </strong>
+                                        {% else %}
+                                            <strong class="finance-amount--negative">
+                                                −₺{{ transaction.amount|floatformat:2 }}
+                                            </strong>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <div class="finance-panel__empty">
+                    Bu hesap için henüz hareket bulunmuyor.
+                </div>
+            {% endif %}
+        </section>
+
+        <aside class="finance-panel finance-account-info">
+            <span class="finance-panel__eyebrow">
+                HESAP BİLGİLERİ
+            </span>
+
+            <h3 class="finance-panel__title">
+                {{ account.get_account_type_display }} Hesabı
+            </h3>
+
+            <dl class="finance-detail-list">
+                <div>
+                    <dt>Hesap adı</dt>
+                    <dd>{{ account.name }}</dd>
+                </div>
+
+                <div>
+                    <dt>Para birimi</dt>
+                    <dd>{{ account.currency }}</dd>
+                </div>
+
+                {% if account.bank_name %}
+                    <div>
+                        <dt>Banka adı</dt>
+                        <dd>{{ account.bank_name }}</dd>
+                    </div>
+                {% endif %}
+
+                {% if account.iban %}
+                    <div>
+                        <dt>IBAN</dt>
+                        <dd>{{ account.iban }}</dd>
+                    </div>
+                {% endif %}
+            </dl>
+        </aside>
+    </div>
+</section>
+{% endblock %}

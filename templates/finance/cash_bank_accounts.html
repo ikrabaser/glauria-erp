@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}
+Kasa & Banka | Glauria ERP
+{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/finance.css' %}?v=3">
+{% endblock %}
+
+{% block content %}
+<section class="module-page">
+    {% include "components/page_header.html" with eyebrow="FİNANS VE MUHASEBE" title="Kasa & Banka" description="Kasa ve banka hesaplarınızı, bakiyelerini ve hareketlerini yönetin." %}
+
+    <div class="finance-dashboard__grid">
+        <section class="finance-panel finance-panel--wide">
+            <div class="finance-panel__heading">
+                <div>
+                    <span class="finance-panel__eyebrow">
+                        FİNANS HESAPLARI
+                    </span>
+                    <h3 class="finance-panel__title">
+                        Kasa ve Banka Hesapları
+                    </h3>
+                </div>
+
+                <span class="finance-panel__count">
+                    {{ accounts|length }} hesap
+                </span>
+            </div>
+
+            {% if accounts %}
+                <div class="finance-account-grid">
+                    {% for account in accounts %}
+                        <a
+    href="{% url 'finance:cash_bank_account_detail' account.id %}"
+    class="finance-account-card"
+>
+                            <span class="finance-account-card__type">
+                                {{ account.get_account_type_display }}
+                            </span>
+
+                            <h3>{{ account.name }}</h3>
+
+                            {% if account.bank_name %}
+                                <p>{{ account.bank_name }}</p>
+                            {% endif %}
+
+                            <strong>
+                                ₺{{ account.balance|floatformat:2 }}
+                            </strong>
+
+                            <span>{{ account.currency }} bakiye</span>
+                         <span class="finance-account-card__action">
+        Hareketleri Gör →
+    </span>
+</a>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="finance-panel__empty">
+                    Henüz kasa veya banka hesabı oluşturulmadı.
+                </div>
+            {% endif %}
+        </section>
+
+        <aside class="finance-panel">
+            <div class="finance-panel__heading">
+                <div>
+                    <span class="finance-panel__eyebrow">
+                        YENİ HESAP
+                    </span>
+                    <h3 class="finance-panel__title">
+                        Kasa / Banka Ekle
+                    </h3>
+                </div>
+            </div>
+
+            <form method="post" class="finance-collection-form">
+                {% csrf_token %}
+                {{ form.as_p }}
+
+                <button type="submit" class="page-header__action">
+                    Hesabı Oluştur
+                </button>
+            </form>
+        </aside>
+    </div>
+</section>
+{% endblock %}

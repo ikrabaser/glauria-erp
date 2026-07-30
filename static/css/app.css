@@ -1802,3 +1802,59 @@ html[data-theme="light"] .brand-logo--dark {
 html[data-theme="light"] .brand-logo--light {
     display: block;
 }
+.sidebar-group {
+    margin: 2px 0;
+}
+
+.sidebar-group__trigger {
+    list-style: none;
+    cursor: pointer;
+}
+
+.sidebar-group__trigger::-webkit-details-marker {
+    display: none;
+}
+
+.sidebar-group__chevron {
+    margin-left: auto;
+    color: rgba(255, 255, 255, 0.46);
+    font-size: 1rem;
+    transition: transform 0.2s ease;
+}
+
+.sidebar-group[open] .sidebar-group__chevron {
+    transform: rotate(180deg);
+}
+
+.sidebar-group__items {
+    display: grid;
+    gap: 3px;
+    margin: 5px 0 8px 18px;
+    padding-left: 13px;
+    border-left: 1px solid rgba(215, 164, 143, 0.2);
+}
+
+.sidebar-group__link {
+    padding: 9px 12px;
+    border-radius: 10px;
+    color: rgba(255, 255, 255, 0.58);
+    font-size: 0.82rem;
+    text-decoration: none;
+    transition: 0.2s ease;
+}
+
+.sidebar-group__link:hover,
+.sidebar-group__link.active {
+    color: #fff;
+    background: rgba(142, 92, 246, 0.12);
+}
+
+html[data-theme="light"] .sidebar-group__link {
+    color: rgba(55, 35, 44, 0.62);
+}
+
+html[data-theme="light"] .sidebar-group__link:hover,
+html[data-theme="light"] .sidebar-group__link.active {
+    color: #3b2530;
+    background: rgba(142, 92, 246, 0.1);
+}

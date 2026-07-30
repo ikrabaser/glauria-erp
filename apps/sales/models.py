@@ -93,6 +93,19 @@ class SalesQuote(models.Model):
         default=Decimal("0.00"),
         verbose_name="Ara toplam",
     )
+    discount_amount = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        default=Decimal("0.00"),
+        verbose_name="İskonto tutarı",
+    )
+
+    taxable_amount = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        default=Decimal("0.00"),
+        verbose_name="KDV matrahı",
+    )
 
     tax_amount = models.DecimalField(
         max_digits=14,
@@ -219,6 +232,12 @@ class SalesQuoteLine(models.Model):
         default=Decimal("20.00"),
         verbose_name="KDV oranı",
     )
+    discount_rate = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=Decimal("0.00"),
+        verbose_name="İskonto oranı",
+    )
 
     line_order = models.PositiveIntegerField(
         default=1,
@@ -327,6 +346,19 @@ class SalesOrder(models.Model):
         default=Decimal("0.00"),
         verbose_name="Ara toplam",
     )
+    discount_amount = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        default=Decimal("0.00"),
+        verbose_name="İskonto tutarı",
+    )
+
+    taxable_amount = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        default=Decimal("0.00"),
+        verbose_name="KDV matrahı",
+    )
 
     tax_amount = models.DecimalField(
         max_digits=14,
@@ -427,6 +459,12 @@ class SalesOrderLine(models.Model):
         default=Decimal("20.00"),
         verbose_name="KDV oranı",
     )
+    discount_rate = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=Decimal("0.00"),
+        verbose_name="İskonto oranı",
+    )
 
     line_order = models.PositiveIntegerField(
         default=0,
@@ -439,17 +477,32 @@ class SalesOrderLine(models.Model):
         verbose_name_plural = "Satış sipariş kalemleri"
 
     @property
-    def subtotal(self):
+    def gross_amount(self):
         return self.quantity * self.unit_price
 
     @property
+    def discount_amount(self):
+        return (
+            self.gross_amount
+            * self.discount_rate
+            / Decimal("100")
+        )
+
+    @property
+    def subtotal(self):
+        return self.gross_amount - self.discount_amount
+
+    @property
     def tax_amount(self):
-        return self.subtotal * self.tax_rate / Decimal("100")
+        return (
+            self.subtotal
+            * self.tax_rate
+            / Decimal("100")
+        )
 
     @property
     def total_amount(self):
         return self.subtotal + self.tax_amount
-
     def __str__(self):
         return self.description
 
@@ -619,6 +672,19 @@ class Invoice(models.Model):
         default=Decimal("0.00"),
         verbose_name="Ara toplam",
     )
+    discount_amount = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        default=Decimal("0.00"),
+        verbose_name="İskonto tutarı",
+    )
+
+    taxable_amount = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        default=Decimal("0.00"),
+        verbose_name="KDV matrahı",
+    )
 
     tax_amount = models.DecimalField(
         max_digits=14,
@@ -722,6 +788,7 @@ class Invoice(models.Model):
                         quantity=line.quantity,
                         unit_price=line.unit_price,
                         tax_rate=line.tax_rate,
+                        discount_rate=line.discount_rate,
                         line_order=line.line_order,
                     )
                     for line in order.lines.all()
@@ -734,19 +801,27 @@ class Invoice(models.Model):
 
     def recalculate_totals(self):
         subtotal = Decimal("0.00")
+        discount_amount = Decimal("0.00")
+        taxable_amount = Decimal("0.00")
         tax_amount = Decimal("0.00")
 
         for line in self.lines.all():
-            subtotal += line.subtotal
+            subtotal += line.gross_amount
+            discount_amount += line.discount_amount
+            taxable_amount += line.subtotal
             tax_amount += line.tax_amount
 
         self.subtotal = subtotal
+        self.discount_amount = discount_amount
+        self.taxable_amount = taxable_amount
         self.tax_amount = tax_amount
-        self.total_amount = subtotal + tax_amount
+        self.total_amount = taxable_amount + tax_amount
 
         self.save(
             update_fields=[
                 "subtotal",
+                "discount_amount",
+                "taxable_amount",
                 "tax_amount",
                 "total_amount",
                 "updated_at",
@@ -802,6 +877,12 @@ class InvoiceLine(models.Model):
         default=Decimal("20.00"),
         verbose_name="KDV oranı",
     )
+    discount_rate = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=Decimal("0.00"),
+        verbose_name="İskonto oranı",
+    )
 
     line_order = models.PositiveIntegerField(
         default=0,
@@ -817,8 +898,20 @@ class InvoiceLine(models.Model):
         return self.description
 
     @property
-    def subtotal(self):
+    def gross_amount(self):
         return self.quantity * self.unit_price
+
+    @property
+    def discount_amount(self):
+        return (
+            self.gross_amount
+            * self.discount_rate
+            / Decimal("100")
+        )
+
+    @property
+    def subtotal(self):
+        return self.gross_amount - self.discount_amount
 
     @property
     def tax_amount(self):
