@@ -786,3 +786,12 @@ html[data-theme="light"] .finance-back-link {
 html[data-theme="light"] .finance-back-link:hover {
     color: #3b2530;
 }
+.finance-divider {
+    margin: 24px 0;
+    border: 0;
+    border-top: 1px solid rgba(255, 255, 255, 0.09);
+}
+
+html[data-theme="light"] .finance-divider {
+    border-top-color: rgba(74, 43, 57, 0.12);
+}

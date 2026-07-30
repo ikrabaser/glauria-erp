@@ -1,10 +1,13 @@
 from django import forms
+from django.db.models import Sum
+from decimal import Decimal
 
 from .models import (
     CustomerAccount,
     CustomerAccountTransaction,
     FinancialAccount,
     PaymentPlan,
+    PaymentPlanAllocation,
 )
 
 
@@ -197,6 +200,158 @@ class PaymentPlanForm(forms.ModelForm):
                 (
                     "Plan tutarı, cari hesabın açık bakiyesini "
                     "aşamaz."
+                ),
+            )
+
+        return cleaned_data
+
+class PaymentPlanAllocationForm(forms.ModelForm):
+    installment = forms.ModelChoiceField(
+        queryset=PaymentPlan.objects.none(),
+        label="Taksit",
+        empty_label="Taksit seçin",
+    )
+
+    collection_transaction = forms.ModelChoiceField(
+        queryset=CustomerAccountTransaction.objects.none(),
+        label="Tahsilat",
+        empty_label="Tahsilat hareketi seçin",
+    )
+
+    class Meta:
+        model = PaymentPlanAllocation
+        fields = [
+            "installment",
+            "collection_transaction",
+            "amount",
+        ]
+        widgets = {
+            "amount": forms.NumberInput(
+                attrs={
+                    "min": "0.01",
+                    "step": "0.01",
+                    "placeholder": "0,00",
+                }
+            ),
+        }
+
+    def __init__(self, *args, plan=None, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.plan = plan
+
+        self.fields["installment"].queryset = (
+            PaymentPlan.objects.none()
+        )
+
+        if plan:
+            self.fields["installment"].queryset = (
+                plan.installments.order_by(
+                    "due_date",
+                    "installment_number",
+                )
+            )
+
+            self.fields["collection_transaction"].queryset = (
+                CustomerAccountTransaction.objects.filter(
+                    company=plan.company,
+                    account=plan.customer_account,
+                    status=CustomerAccountTransaction.Status.ACTIVE,
+                    direction=CustomerAccountTransaction.Direction.CREDIT,
+                    transaction_type=(
+                        CustomerAccountTransaction.TransactionType.COLLECTION
+                    ),
+                ).order_by(
+                    "-transaction_date",
+                    "-created_at",
+                )
+            )
+
+    def clean(self):
+        cleaned_data = super().clean()
+
+        installment = cleaned_data.get("installment")
+        collection_transaction = cleaned_data.get(
+            "collection_transaction"
+        )
+        amount = cleaned_data.get("amount")
+
+        if not self.plan or not installment or not collection_transaction:
+            return cleaned_data
+
+        if installment.payment_plan_id != self.plan.id:
+            self.add_error(
+                "installment",
+                "Seçilen taksit bu ödeme planına ait değil.",
+            )
+
+        if collection_transaction.account_id != (
+            self.plan.customer_account_id
+        ):
+            self.add_error(
+                "collection_transaction",
+                "Tahsilat seçilen cari hesaba ait değil.",
+            )
+
+        if not amount or amount <= Decimal("0.00"):
+            self.add_error(
+                "amount",
+                "Eşleştirme tutarı sıfırdan büyük olmalıdır.",
+            )
+            return cleaned_data
+
+        allocated_for_collection = (
+            PaymentPlanAllocation.objects.filter(
+                collection_transaction=collection_transaction,
+                collection_transaction__status=(
+                    CustomerAccountTransaction.Status.ACTIVE
+                ),
+            ).aggregate(total=Sum("amount"))["total"]
+            or Decimal("0.00")
+        )
+
+        available_collection_amount = (
+            collection_transaction.amount - allocated_for_collection
+        )
+
+        if amount > available_collection_amount:
+            self.add_error(
+                "amount",
+                (
+                    "Seçilen tahsilatın eşleştirilebilir kalan "
+                    "tutarını aşıyor."
+                ),
+            )
+
+        allocated_for_installment = (
+            PaymentPlanAllocation.objects.filter(
+                installment=installment,
+                collection_transaction__status=(
+                    CustomerAccountTransaction.Status.ACTIVE
+                ),
+            ).aggregate(total=Sum("amount"))["total"]
+            or Decimal("0.00")
+        )
+
+        remaining_installment_amount = (
+            installment.amount - allocated_for_installment
+        )
+
+        if amount > remaining_installment_amount:
+            self.add_error(
+                "amount",
+                "Taksitin kalan tutarını aşıyor.",
+            )
+
+        if PaymentPlanAllocation.objects.filter(
+            installment=installment,
+            collection_transaction=collection_transaction,
+        ).exists():
+            self.add_error(
+                "collection_transaction",
+                (
+                    "Bu tahsilat seçilen taksite daha önce "
+                    "eşleştirildi."
                 ),
             )
 

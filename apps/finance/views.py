@@ -14,6 +14,7 @@ from .forms import (
     CollectionForm,
     FinancialAccountForm,
     PaymentPlanForm,
+    PaymentPlanAllocationForm,
 )
 
 from apps.accounts.data_access import has_full_company_data_access
@@ -846,5 +847,53 @@ def payment_plan_detail(request, plan_id):
             "remaining_total": (
                 plan.total_amount - total_allocated
             ),
+            "allocation_form": PaymentPlanAllocationForm(
+                plan=plan,
+            ),
         },
+    )
+@login_required
+@require_POST
+def payment_plan_allocation_create(request, plan_id):
+    membership = get_active_membership(request.user)
+
+    if not membership or not has_full_company_data_access(membership):
+        return redirect("finance:home")
+
+    plan = get_object_or_404(
+        PaymentPlan,
+        id=plan_id,
+        company=membership.company,
+    )
+
+    form = PaymentPlanAllocationForm(
+        request.POST,
+        plan=plan,
+    )
+
+    if not form.is_valid():
+        messages.error(
+            request,
+            (
+                "Tahsilat eşleştirmesi için alanları ve "
+                "tutarları kontrol edin."
+            ),
+        )
+        return redirect(
+            "finance:payment_plan_detail",
+            plan_id=plan.id,
+        )
+
+    allocation = form.save(commit=False)
+    allocation.created_by = request.user
+    allocation.save()
+
+    messages.success(
+        request,
+        "Tahsilat seçilen taksite eşleştirildi.",
+    )
+
+    return redirect(
+        "finance:payment_plan_detail",
+        plan_id=plan.id,
     )

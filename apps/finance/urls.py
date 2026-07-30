@@ -10,6 +10,7 @@ from .views import (
     cash_bank_account_detail,
     payment_plans,
     payment_plan_detail,
+    payment_plan_allocation_create,
 )
 
 
@@ -51,6 +52,11 @@ urlpatterns = [
         "odeme-planlari/<uuid:plan_id>/",
         payment_plan_detail,
         name="payment_plan_detail",
+    ),
+    path(
+        "odeme-planlari/<uuid:plan_id>/eslestirme/",
+        payment_plan_allocation_create,
+        name="payment_plan_allocation_create",
     ),
     path(
         "<slug:section>/",

@@ -188,6 +188,55 @@
                     <dd>{{ plan.description|default:"—" }}</dd>
                 </div>
             </dl>
+                        <hr class="finance-divider">
+
+            <div class="finance-panel__heading">
+                <div>
+                    <span class="finance-panel__eyebrow">
+                        TAHSİLAT EŞLEŞTİR
+                    </span>
+
+                    <h3 class="finance-panel__title">
+                        Mevcut Tahsilatı Uygula
+                    </h3>
+                </div>
+            </div>
+
+            <form
+                method="post"
+                action="{% url 'finance:payment_plan_allocation_create' plan.id %}"
+                class="finance-form"
+            >
+                {% csrf_token %}
+
+                <div class="finance-form__field">
+                    <label for="{{ allocation_form.installment.id_for_label }}">
+                        Taksit
+                    </label>
+                    {{ allocation_form.installment }}
+                    {{ allocation_form.installment.errors }}
+                </div>
+
+                <div class="finance-form__field">
+                    <label for="{{ allocation_form.collection_transaction.id_for_label }}">
+                        Tahsilat hareketi
+                    </label>
+                    {{ allocation_form.collection_transaction }}
+                    {{ allocation_form.collection_transaction.errors }}
+                </div>
+
+                <div class="finance-form__field">
+                    <label for="{{ allocation_form.amount.id_for_label }}">
+                        Eşleştirilecek tutar
+                    </label>
+                    {{ allocation_form.amount }}
+                    {{ allocation_form.amount.errors }}
+                </div>
+
+                <button type="submit" class="finance-form__submit">
+                    Tahsilatı Eşleştir
+                </button>
+            </form>
         </section>
     </div>
 </section>
