@@ -4,7 +4,7 @@ from django.contrib.auth.decorators import login_required
 from django.db.models import DecimalField, ExpressionWrapper, F, Q, Sum, Value
 from django.db.models.functions import Coalesce, TruncMonth
 from django.utils import timezone
-from datetime import date
+from datetime import date, timedelta
 from django.contrib import messages
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
@@ -231,12 +231,15 @@ def home(request):
         )[:8]
     )
 
-    upcoming_transactions = (
+    upcoming_cutoff = today + timedelta(days=30)
+
+    upcoming_transactions = list(
         CustomerAccountTransaction.objects.filter(
             company=membership.company,
             status=CustomerAccountTransaction.Status.ACTIVE,
             direction=CustomerAccountTransaction.Direction.DEBIT,
             due_date__gte=today,
+            due_date__lte=upcoming_cutoff,
         )
         .select_related(
             "account__customer",
@@ -244,6 +247,11 @@ def home(request):
         )
         .order_by("due_date")[:6]
     )
+
+    for transaction in upcoming_transactions:
+        transaction.days_until_due = (
+            transaction.due_date - today
+        ).days
 
     financial_alerts = []
 

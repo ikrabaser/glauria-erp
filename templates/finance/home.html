@@ -215,6 +215,88 @@ Finans Merkezi | Glauria ERP
     </div>
 </section>
  </div>
+         <section class="finance-panel finance-panel--upcoming">
+            <div class="finance-panel__heading">
+                <div>
+                    <span class="finance-panel__eyebrow">
+                        ÖNÜMÜZDEKİ 30 GÜN
+                    </span>
+
+                    <h3 class="finance-panel__title">
+                        Vadesi Yaklaşan Tahsilatlar
+                    </h3>
+                </div>
+
+                <span class="finance-panel__count">
+                    {{ upcoming_transactions|length }} kayıt
+                </span>
+            </div>
+
+            {% if upcoming_transactions %}
+                <div class="data-table-wrapper">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Cari</th>
+                                <th>Vade</th>
+                                <th>Referans</th>
+                                <th>Tutar</th>
+                                <th>Durum</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for transaction in upcoming_transactions %}
+                                <tr>
+                                    <td>
+                                        <div class="customer-cell">
+                                            <strong>
+                                                {{ transaction.account.customer.name }}
+                                            </strong>
+                                            <span>
+                                                {{ transaction.get_transaction_type_display }}
+                                            </span>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        {{ transaction.due_date|date:"d.m.Y" }}
+                                    </td>
+                                    <td>
+                                        {% if transaction.invoice %}
+                                            {{ transaction.invoice.invoice_number }}
+                                        {% else %}
+                                            {{ transaction.reference_number|default:"—" }}
+                                        {% endif %}
+                                    </td>
+                                    <td class="finance-table__balance">
+                                        ₺{{ transaction.amount|floatformat:2 }}
+                                    </td>
+                                    <td>
+                                        {% if transaction.days_until_due == 0 %}
+                                            <span class="status-pill status-pill--lead">
+                                                Bugün
+                                            </span>
+                                        {% elif transaction.days_until_due == 1 %}
+                                            <span class="status-pill status-pill--lead">
+                                                Yarın
+                                            </span>
+                                        {% else %}
+                                            <span class="status-pill status-pill--inactive">
+                                                {{ transaction.days_until_due }} gün
+                                            </span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <div class="finance-panel__empty">
+                    Önümüzdeki 30 gün içinde vadesi yaklaşan
+                    bir tahsilat bulunmuyor.
+                </div>
+            {% endif %}
+        </section>
     {% endif %}
 </section>
 {% endblock %}
