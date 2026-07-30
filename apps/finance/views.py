@@ -975,3 +975,141 @@ def payment_plan_allocation_create(request, plan_id):
         "finance:payment_plan_detail",
         plan_id=plan.id,
     )
+
+@login_required
+def cash_flow(request):
+    membership = get_active_membership(request.user)
+
+    if not membership or not has_full_company_data_access(membership):
+        return redirect("finance:home")
+
+    money_field = DecimalField(
+        max_digits=14,
+        decimal_places=2,
+    )
+    zero_amount = Value(
+        Decimal("0.00"),
+        output_field=money_field,
+    )
+
+    active_transactions = (
+        FinancialAccountTransaction.objects.filter(
+            company=membership.company,
+            status=FinancialAccountTransaction.Status.ACTIVE,
+        )
+    )
+
+    incoming_total = (
+        active_transactions.filter(
+            direction=FinancialAccountTransaction.Direction.IN,
+        ).aggregate(
+            total=Sum("amount"),
+        )["total"]
+        or Decimal("0.00")
+    )
+
+    outgoing_total = (
+        active_transactions.filter(
+            direction=FinancialAccountTransaction.Direction.OUT,
+        ).aggregate(
+            total=Sum("amount"),
+        )["total"]
+        or Decimal("0.00")
+    )
+
+    net_cash = incoming_total - outgoing_total
+
+    recent_movements = (
+        active_transactions.select_related(
+            "account",
+            "customer_account_transaction__account__customer",
+        )
+        .order_by(
+            "-transaction_date",
+            "-created_at",
+        )[:20]
+    )
+
+    monthly_rows = (
+        active_transactions.annotate(
+            month=TruncMonth("transaction_date"),
+        )
+        .values("month", "direction")
+        .annotate(total=Sum("amount"))
+        .order_by("month")
+    )
+
+    monthly_totals = {}
+
+    for row in monthly_rows:
+        month_key = row["month"].strftime("%Y-%m")
+
+        monthly_totals.setdefault(
+            month_key,
+            {
+                "in": Decimal("0.00"),
+                "out": Decimal("0.00"),
+            },
+        )
+
+        monthly_totals[month_key][row["direction"]] = row["total"]
+
+    today = timezone.localdate()
+    month_names = [
+        "Oca", "Şub", "Mar", "Nis", "May", "Haz",
+        "Tem", "Ağu", "Eyl", "Eki", "Kas", "Ara",
+    ]
+
+    chart_labels = []
+    chart_inflows = []
+    chart_outflows = []
+    chart_net_cash = []
+
+    for offset in reversed(range(6)):
+        absolute_month = (
+            today.year * 12
+            + (today.month - 1)
+            - offset
+        )
+        year = absolute_month // 12
+        month = absolute_month % 12 + 1
+        month_key = f"{year}-{month:02d}"
+
+        inflow = monthly_totals.get(
+            month_key,
+            {},
+        ).get(
+            "in",
+            Decimal("0.00"),
+        )
+
+        outflow = monthly_totals.get(
+            month_key,
+            {},
+        ).get(
+            "out",
+            Decimal("0.00"),
+        )
+
+        chart_labels.append(month_names[month - 1])
+        chart_inflows.append(float(inflow))
+        chart_outflows.append(float(outflow))
+        chart_net_cash.append(float(inflow - outflow))
+
+    return render(
+        request,
+        "finance/cash_flow.html",
+        {
+            "current_membership": membership,
+            "incoming_total": incoming_total,
+            "outgoing_total": outgoing_total,
+            "net_cash": net_cash,
+            "recent_movements": recent_movements,
+            "cash_flow_chart": {
+                "labels": chart_labels,
+                "inflows": chart_inflows,
+                "outflows": chart_outflows,
+                "net_cash": chart_net_cash,
+            },
+        },
+    )

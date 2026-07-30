@@ -11,6 +11,7 @@ from .views import (
     payment_plans,
     payment_plan_detail,
     payment_plan_allocation_create,
+    cash_flow,
 )
 
 
@@ -57,6 +58,11 @@ urlpatterns = [
         "odeme-planlari/<uuid:plan_id>/eslestirme/",
         payment_plan_allocation_create,
         name="payment_plan_allocation_create",
+    ),
+    path(
+        "nakit-akisi/",
+        cash_flow,
+        name="cash_flow",
     ),
     path(
         "<slug:section>/",

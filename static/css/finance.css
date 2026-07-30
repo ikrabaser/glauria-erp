@@ -312,6 +312,13 @@ html[data-theme="light"] .finance-alert strong {
 html[data-theme="light"] .finance-alert p {
     color: rgba(55, 35, 44, 0.62);
 }
+.finance-chart-panel__heading {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 18px;
+    margin-bottom: 10px;
+}
 .finance-chart-panel {
     min-height: 390px;
     margin-bottom: 20px;
@@ -387,6 +394,11 @@ html[data-theme="light"] .finance-chart-legend {
 }
 
 @media (max-width: 640px) {
+
+    .finance-chart-panel__heading {
+        flex-direction: column;
+        gap: 10px;
+    }
     .finance-chart-panel {
         min-height: 340px;
         padding: 18px;
