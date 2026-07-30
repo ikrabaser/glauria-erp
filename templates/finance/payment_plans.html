@@ -8,7 +8,7 @@
 {% block extra_css %}
 <link
     rel="stylesheet"
-    href="{% static 'css/finance.css' %}?v=payment-plans-v2"
+    href="{% static 'css/finance.css' %}?v=payment-plans-v4"
 >
 {% endblock %}
 
@@ -52,9 +52,12 @@
                                 <tr>
                                     <td>
                                         <div class="customer-cell">
-                                            <strong>
-                                                {{ plan.plan_number }}
-                                            </strong>
+                                            <a
+    href="{% url 'finance:payment_plan_detail' plan.id %}"
+    class="finance-plan-link"
+>
+    {{ plan.plan_number }}
+</a>
                                             <span>
                                                 {{ plan.description|default:"Tahsilat planı" }}
                                             </span>

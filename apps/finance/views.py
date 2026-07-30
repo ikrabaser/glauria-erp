@@ -765,3 +765,86 @@ def payment_plans(request):
             "form": form,
         },
     )
+
+
+@login_required
+def payment_plan_detail(request, plan_id):
+    membership = get_active_membership(request.user)
+
+    if not membership or not has_full_company_data_access(membership):
+        return redirect("finance:home")
+
+    plan = get_object_or_404(
+        PaymentPlan.objects.select_related(
+            "customer_account__customer",
+        ),
+        id=plan_id,
+        company=membership.company,
+    )
+
+    money_field = DecimalField(
+        max_digits=14,
+        decimal_places=2,
+    )
+    zero_amount = Value(
+        Decimal("0.00"),
+        output_field=money_field,
+    )
+
+    installments = list(
+        PaymentPlanInstallment.objects.filter(
+            payment_plan=plan,
+        )
+        .annotate(
+            allocated_amount=Coalesce(
+                Sum(
+                    "allocations__amount",
+                    filter=Q(
+                        allocations__collection_transaction__status=(
+                            CustomerAccountTransaction.Status.ACTIVE
+                        )
+                    ),
+                ),
+                zero_amount,
+            )
+        )
+        .order_by("due_date", "installment_number")
+    )
+
+    today = timezone.localdate()
+
+    for installment in installments:
+        installment.remaining_amount = (
+            installment.amount - installment.allocated_amount
+        )
+
+        if installment.remaining_amount <= Decimal("0.00"):
+            installment.display_status = "paid"
+        elif installment.allocated_amount > Decimal("0.00"):
+            installment.display_status = "partially_paid"
+        elif installment.due_date < today:
+            installment.display_status = "overdue"
+        else:
+            installment.display_status = "pending"
+
+    total_allocated = sum(
+        (
+            installment.allocated_amount
+            for installment in installments
+        ),
+        Decimal("0.00"),
+    )
+
+    return render(
+        request,
+        "finance/payment_plan_detail.html",
+        {
+            "current_membership": membership,
+            "plan": plan,
+            "installments": installments,
+            "total_allocated": total_allocated,
+            "remaining_total": (
+                plan.total_amount - total_allocated
+            ),
+        },
+    )

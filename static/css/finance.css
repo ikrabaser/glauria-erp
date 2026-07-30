@@ -752,3 +752,37 @@ html[data-theme="light"] .finance-form__field textarea {
     background: rgba(255, 255, 255, 0.74);
     color: #3b2530;
 }
+.finance-back-link {
+    display: inline-flex;
+    margin-bottom: 18px;
+    color: var(--color-rose-gold-light);
+    font-size: 0.84rem;
+    text-decoration: none;
+}
+
+.finance-back-link:hover,
+.finance-plan-link:hover {
+    color: #ffffff;
+}
+
+.finance-plan-link {
+    color: #ffffff;
+    font-size: 0.92rem;
+    font-weight: 700;
+    text-decoration: none;
+}
+html[data-theme="light"] .finance-plan-link {
+    color: #3b2530;
+}
+
+html[data-theme="light"] .finance-plan-link:hover {
+    color: #9a6252;
+}
+
+html[data-theme="light"] .finance-back-link {
+    color: #9a6252;
+}
+
+html[data-theme="light"] .finance-back-link:hover {
+    color: #3b2530;
+}
