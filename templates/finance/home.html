@@ -180,58 +180,41 @@ Finans Merkezi | Glauria ERP
                     </div>
                 {% endif %}
             </section>
+<section class="finance-panel">
+    <div class="finance-panel__heading">
+        <div>
+            <span class="finance-panel__eyebrow">
+                FİNANSAL UYARILAR
+            </span>
 
-            <section class="finance-panel">
-               <div class="finance-panel__heading">
-    <div>
-        <span class="finance-panel__eyebrow">
-            SON HAREKETLER
-        </span>
-
-        <h3 class="finance-panel__title">
-            Cari Akış
-        </h3>
-    </div>
-</div>
-
-                {% if recent_transactions %}
-                    <div class="finance-activity-list">
-                        {% for item in recent_transactions %}
-                            <article class="finance-activity">
-                                <div class="finance-activity__icon">
-                                    ₺
-                                </div>
-
-                                <div class="finance-activity__content">
-                                    <strong>
-                                        {{ item.account.customer.name }}
-                                    </strong>
-                                    <span>
-                                        {{ item.get_transaction_type_display }}
-                                        {% if item.invoice %}
-                                            · {{ item.invoice.invoice_number }}
-                                        {% endif %}
-                                    </span>
-                                </div>
-
-                                <div class="finance-activity__amount">
-                                    <strong>
-                                        {% if item.direction == "debit" %}+{% else %}−{% endif %}₺{{ item.amount|floatformat:2 }}
-                                    </strong>
-                                    <span>
-                                        {{ item.transaction_date|date:"d.m.Y" }}
-                                    </span>
-                                </div>
-                            </article>
-                        {% endfor %}
-                    </div>
-                {% else %}
-                    <div class="finance-panel__empty">
-                        Finansal hareket oluştuğunda burada görünecek.
-                    </div>
-                {% endif %}
-            </section>
+            <h3 class="finance-panel__title">
+                Finansal Uyarılar
+            </h3>
         </div>
+    </div>
+
+    <div class="finance-alert-list">
+        {% for alert in financial_alerts %}
+            <article class="finance-alert finance-alert--{{ alert.tone }}">
+                <div class="finance-alert__icon">
+                    {% if alert.tone == "warning" %}
+                        !
+                    {% elif alert.tone == "success" %}
+                        ✓
+                    {% else %}
+                        i
+                    {% endif %}
+                </div>
+
+                <div>
+                    <strong>{{ alert.title }}</strong>
+                    <p>{{ alert.description }}</p>
+                </div>
+            </article>
+        {% endfor %}
+    </div>
+</section>
+ </div>
     {% endif %}
 </section>
 {% endblock %}
