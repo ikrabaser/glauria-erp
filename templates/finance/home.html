@@ -24,17 +24,17 @@ Finans Merkezi | Glauria ERP
         {% include "components/page_header.html" with eyebrow="FİNANS VE MUHASEBE" title="Finans Merkezi" description="Cari hesaplar, tahsilatlar ve finansal durumunuzu tek merkezden takip edin." %}
 
         <div class="finance-metrics">
-            <article class="finance-metric-card finance-metric-card--primary">
-                <span class="finance-metric-card__label">
-                    Açık Cari Bakiye
-                </span>
-                <strong class="finance-metric-card__value">
-                    ₺{{ outstanding_receivables|floatformat:2 }}
-                </strong>
-                <span class="finance-metric-card__meta">
-                    {{ account_count }} aktif cari hesap
-                </span>
-            </article>
+        <article class="finance-metric-card finance-metric-card--primary">
+    <span class="finance-metric-card__label">
+        Net Nakit
+    </span>
+    <strong class="finance-metric-card__value">
+        ₺{{ net_cash|floatformat:2 }}
+    </strong>
+    <span class="finance-metric-card__meta">
+        {{ financial_account_count }} aktif kasa / banka hesabı
+    </span>
+</article>
 
             <article class="finance-metric-card">
                 <span class="finance-metric-card__label">

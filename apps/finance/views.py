@@ -107,6 +107,61 @@ def home(request):
         )
         .order_by("-ledger_balance", "customer__name")
     )
+    financial_active_transaction_filter = Q(
+        transactions__status=FinancialAccountTransaction.Status.ACTIVE,
+    )
+
+    financial_accounts = list(
+        FinancialAccount.objects.filter(
+            company=membership.company,
+            is_active=True,
+        )
+        .annotate(
+            cash_in_total=Coalesce(
+                Sum(
+                    "transactions__amount",
+                    filter=(
+                        financial_active_transaction_filter
+                        & Q(
+                            transactions__direction=(
+                                FinancialAccountTransaction.Direction.IN
+                            )
+                        )
+                    ),
+                ),
+                zero_amount,
+            ),
+            cash_out_total=Coalesce(
+                Sum(
+                    "transactions__amount",
+                    filter=(
+                        financial_active_transaction_filter
+                        & Q(
+                            transactions__direction=(
+                                FinancialAccountTransaction.Direction.OUT
+                            )
+                        )
+                    ),
+                ),
+                zero_amount,
+            ),
+        )
+        .annotate(
+            net_cash_balance=ExpressionWrapper(
+                F("cash_in_total") - F("cash_out_total"),
+                output_field=money_field,
+            )
+        )
+        .order_by("account_type", "name")
+    )
+
+    net_cash = sum(
+        (
+            account.net_cash_balance
+            for account in financial_accounts
+        ),
+        Decimal("0.00"),
+    )
 
     outstanding_receivables = sum(
         (
@@ -315,6 +370,8 @@ def home(request):
             "current_membership": membership,
             "can_access_finance": True,
             "accounts": accounts[:8],
+            "net_cash": net_cash,
+            "financial_account_count": len(financial_accounts),
             "account_count": len(accounts),
             "outstanding_receivables": outstanding_receivables,
             "collection_total": collection_total,
