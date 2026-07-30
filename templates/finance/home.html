@@ -79,26 +79,26 @@ Finans Merkezi | Glauria ERP
                 SON 6 AY
             </span>
             <h3 class="finance-panel__title">
-                Cari Akış
-            </h3>
+    Nakit Akışı
+</h3>
         </div>
 
         <span class="finance-panel__count">
-            Fatura ve tahsilat hareketleri
-        </span>
+    Kasa ve banka hareketleri
+</span>
     </div>
 
     <div class="finance-chart-panel__legend">
-        <span class="finance-chart-legend finance-chart-legend--debit">
-            Fatura Borcu
-        </span>
-        <span class="finance-chart-legend finance-chart-legend--credit">
-            Tahsilat
-        </span>
-        <span class="finance-chart-legend finance-chart-legend--net">
-            Net Pozisyon
-        </span>
-    </div>
+    <span class="finance-chart-legend finance-chart-legend--debit">
+        Nakit Girişi
+    </span>
+    <span class="finance-chart-legend finance-chart-legend--credit">
+        Nakit Çıkışı
+    </span>
+    <span class="finance-chart-legend finance-chart-legend--net">
+        Net Nakit
+    </span>
+</div>
 
     <div class="finance-chart-panel__canvas">
         <canvas id="finance-cash-flow-chart"></canvas>
@@ -260,8 +260,8 @@ Finans Merkezi | Glauria ERP
                     labels: chartData.labels,
                     datasets: [
                         {
-                            label: "Fatura Borcu",
-                            data: chartData.debits,
+                            label: "Nakit Girişi",
+                            data: chartData.inflows,
                             borderColor: "#53c5cc",
                             backgroundColor: "rgba(83, 197, 204, 0.12)",
                             borderWidth: 3,
@@ -270,8 +270,8 @@ Finans Merkezi | Glauria ERP
                             tension: 0.38,
                         },
                         {
-                            label: "Tahsilat",
-                            data: chartData.credits,
+                            label: "Nakit Çıkışı",
+                            data: chartData.outflows,
                             borderColor: "#e7899c",
                             backgroundColor: "rgba(231, 137, 156, 0.1)",
                             borderWidth: 3,
@@ -280,8 +280,8 @@ Finans Merkezi | Glauria ERP
                             tension: 0.38,
                         },
                         {
-                            label: "Net Pozisyon",
-                            data: chartData.net_positions,
+                            label: "Net Nakit",
+                            data: chartData.net_cash,
                             borderColor: "#d7a48f",
                             backgroundColor: "rgba(215, 164, 143, 0.1)",
                             borderWidth: 3,

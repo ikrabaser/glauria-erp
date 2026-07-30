@@ -284,9 +284,9 @@ def home(request):
         )
 
     monthly_rows = (
-        CustomerAccountTransaction.objects.filter(
+        FinancialAccountTransaction.objects.filter(
             company=membership.company,
-            status=CustomerAccountTransaction.Status.ACTIVE,
+            status=FinancialAccountTransaction.Status.ACTIVE,
         )
         .annotate(
             month=TruncMonth("transaction_date"),
@@ -305,11 +305,12 @@ def home(request):
 
     for row in monthly_rows:
         month_key = row["month"].strftime("%Y-%m")
+
         monthly_totals.setdefault(
             month_key,
             {
-                "debit": Decimal("0.00"),
-                "credit": Decimal("0.00"),
+                "in": Decimal("0.00"),
+                "out": Decimal("0.00"),
             },
         )
 
@@ -321,9 +322,9 @@ def home(request):
     ]
 
     chart_labels = []
-    chart_debits = []
-    chart_credits = []
-    chart_net_positions = []
+    chart_inflows = []
+    chart_outflows = []
+    chart_net_cash = []
 
     for offset in reversed(range(6)):
         absolute_month = (
@@ -335,34 +336,33 @@ def home(request):
         month = absolute_month % 12 + 1
         month_key = f"{year}-{month:02d}"
 
-        debit = monthly_totals.get(
+        inflow = monthly_totals.get(
             month_key,
             {},
         ).get(
-            "debit",
+            "in",
             Decimal("0.00"),
         )
 
-        credit = monthly_totals.get(
+        outflow = monthly_totals.get(
             month_key,
             {},
         ).get(
-            "credit",
+            "out",
             Decimal("0.00"),
         )
 
         chart_labels.append(month_names[month - 1])
-        chart_debits.append(float(debit))
-        chart_credits.append(float(credit))
-        chart_net_positions.append(float(debit - credit))
+        chart_inflows.append(float(inflow))
+        chart_outflows.append(float(outflow))
+        chart_net_cash.append(float(inflow - outflow))
 
     cash_flow_chart = {
         "labels": chart_labels,
-        "debits": chart_debits,
-        "credits": chart_credits,
-        "net_positions": chart_net_positions,
+        "inflows": chart_inflows,
+        "outflows": chart_outflows,
+        "net_cash": chart_net_cash,
     }
-
     return render(
         request,
         "finance/home.html",
