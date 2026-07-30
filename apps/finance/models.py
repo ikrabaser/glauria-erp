@@ -1,5 +1,5 @@
 from decimal import Decimal
-
+import uuid
 from django.conf import settings
 from django.db import models
 from django.db.models import Q, Sum
@@ -411,4 +411,229 @@ class FinancialAccountTransaction(BaseModel):
         return (
             f"{self.get_transaction_type_display()} "
             f"· {self.amount} {self.account.currency}"
+        )
+
+def generate_payment_plan_number():
+    return (
+        f"PP-{timezone.localdate():%Y}-"
+        f"{uuid.uuid4().hex[:8].upper()}"
+    )
+
+
+class PaymentPlan(BaseModel):
+    """
+    Bir cari hesap için oluşturulan taksitli tahsilat planı.
+    """
+
+    class Status(models.TextChoices):
+        DRAFT = "draft", "Taslak"
+        ACTIVE = "active", "Aktif"
+        COMPLETED = "completed", "Tamamlandı"
+        CANCELLED = "cancelled", "İptal"
+
+    company = models.ForeignKey(
+        Company,
+        on_delete=models.PROTECT,
+        related_name="payment_plans",
+        verbose_name="Şirket",
+    )
+
+    customer_account = models.ForeignKey(
+        CustomerAccount,
+        on_delete=models.PROTECT,
+        related_name="payment_plans",
+        verbose_name="Cari hesap",
+    )
+
+    plan_number = models.CharField(
+        max_length=30,
+        unique=True,
+        default=generate_payment_plan_number,
+        editable=False,
+        verbose_name="Plan numarası",
+    )
+
+    total_amount = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        verbose_name="Toplam tutar",
+    )
+
+    currency = models.CharField(
+        max_length=3,
+        default="TRY",
+        verbose_name="Para birimi",
+    )
+
+    installment_count = models.PositiveSmallIntegerField(
+        verbose_name="Taksit sayısı",
+    )
+
+    status = models.CharField(
+        max_length=12,
+        choices=Status.choices,
+        default=Status.DRAFT,
+        verbose_name="Durum",
+    )
+
+    description = models.CharField(
+        max_length=255,
+        blank=True,
+        verbose_name="Açıklama",
+    )
+
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="created_payment_plans",
+        verbose_name="Oluşturan kullanıcı",
+    )
+
+    class Meta:
+        ordering = ["-created_at"]
+        verbose_name = "Ödeme planı"
+        verbose_name_plural = "Ödeme planları"
+        indexes = [
+            models.Index(fields=["company", "status"]),
+            models.Index(fields=["customer_account", "status"]),
+        ]
+        constraints = [
+            models.CheckConstraint(
+                condition=Q(total_amount__gt=0),
+                name="payment_plan_total_amount_positive",
+            ),
+            models.CheckConstraint(
+                condition=Q(installment_count__gt=0),
+                name="payment_plan_installment_count_positive",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.plan_number} · {self.customer_account}"
+
+
+class PaymentPlanInstallment(BaseModel):
+    """
+    Ödeme planının tekil vade/taksit kaydı.
+    """
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "Bekliyor"
+        PARTIALLY_PAID = "partially_paid", "Kısmi tahsil edildi"
+        PAID = "paid", "Tahsil edildi"
+        OVERDUE = "overdue", "Vadesi geçti"
+        CANCELLED = "cancelled", "İptal"
+
+    payment_plan = models.ForeignKey(
+        PaymentPlan,
+        on_delete=models.PROTECT,
+        related_name="installments",
+        verbose_name="Ödeme planı",
+    )
+
+    installment_number = models.PositiveSmallIntegerField(
+        verbose_name="Taksit sıra numarası",
+    )
+
+    due_date = models.DateField(
+        verbose_name="Vade tarihi",
+    )
+
+    amount = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        verbose_name="Taksit tutarı",
+    )
+
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.PENDING,
+        verbose_name="Durum",
+    )
+
+    class Meta:
+        ordering = ["due_date", "installment_number"]
+        verbose_name = "Ödeme planı taksiti"
+        verbose_name_plural = "Ödeme planı taksitleri"
+        indexes = [
+            models.Index(fields=["due_date", "status"]),
+            models.Index(fields=["payment_plan", "status"]),
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["payment_plan", "installment_number"],
+                name="unique_payment_plan_installment_number",
+            ),
+            models.CheckConstraint(
+                condition=Q(amount__gt=0),
+                name="payment_plan_installment_amount_positive",
+            ),
+        ]
+
+    def __str__(self):
+        return (
+            f"{self.payment_plan.plan_number} · "
+            f"{self.installment_number}. taksit"
+        )
+
+
+class PaymentPlanAllocation(BaseModel):
+    """
+    Tahsilatın hangi taksite ne kadar uygulandığını tutar.
+    """
+
+    installment = models.ForeignKey(
+        PaymentPlanInstallment,
+        on_delete=models.PROTECT,
+        related_name="allocations",
+        verbose_name="Taksit",
+    )
+
+    collection_transaction = models.ForeignKey(
+        CustomerAccountTransaction,
+        on_delete=models.PROTECT,
+        related_name="payment_plan_allocations",
+        verbose_name="Tahsilat hareketi",
+    )
+
+    amount = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        verbose_name="Eşleştirilen tutar",
+    )
+
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="created_payment_plan_allocations",
+        verbose_name="Oluşturan kullanıcı",
+    )
+
+    class Meta:
+        ordering = ["created_at"]
+        verbose_name = "Tahsilat eşleştirmesi"
+        verbose_name_plural = "Tahsilat eşleştirmeleri"
+        constraints = [
+            models.UniqueConstraint(
+                fields=[
+                    "installment",
+                    "collection_transaction",
+                ],
+                name="unique_installment_collection_allocation",
+            ),
+            models.CheckConstraint(
+                condition=Q(amount__gt=0),
+                name="payment_plan_allocation_amount_positive",
+            ),
+        ]
+
+    def __str__(self):
+        return (
+            f"{self.installment} · "
+            f"₺{self.amount:.2f}"
         )
