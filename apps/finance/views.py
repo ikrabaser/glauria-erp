@@ -1,5 +1,5 @@
-from decimal import Decimal
-
+import calendar
+from decimal import Decimal, ROUND_DOWN
 from django.contrib.auth.decorators import login_required
 from django.db.models import DecimalField, ExpressionWrapper, F, Q, Sum, Value
 from django.db.models.functions import Coalesce, TruncMonth
@@ -8,10 +8,12 @@ from datetime import date, timedelta
 from django.contrib import messages
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
+from django.db import transaction
 
 from .forms import (
     CollectionForm,
     FinancialAccountForm,
+    PaymentPlanForm,
 )
 
 from apps.accounts.data_access import has_full_company_data_access
@@ -20,6 +22,8 @@ from apps.finance.models import (
     CustomerAccountTransaction,
     FinancialAccount,
     FinancialAccountTransaction,
+    PaymentPlan,
+    PaymentPlanInstallment,
 )
 from apps.sales.models import Invoice
 
@@ -31,7 +35,21 @@ def get_active_membership(user):
         .order_by("-is_primary", "created_at")
         .first()
     )
+def add_months(start_date, month_offset):
+    month_index = start_date.month - 1 + month_offset
+    year = start_date.year + (month_index // 12)
+    month = (month_index % 12) + 1
 
+    day = min(
+        start_date.day,
+        calendar.monthrange(year, month)[1],
+    )
+
+    return start_date.replace(
+        year=year,
+        month=month,
+        day=day,
+    )
 
 @login_required
 def home(request):
@@ -647,5 +665,103 @@ def cash_bank_account_detail(request, account_id):
             "transactions": transactions,
             "incoming_total": incoming_total,
             "outgoing_total": outgoing_total,
+        },
+    )
+@login_required
+def payment_plans(request):
+    membership = get_active_membership(request.user)
+
+    if not membership or not has_full_company_data_access(membership):
+        return redirect("finance:home")
+
+    plans = (
+        PaymentPlan.objects.filter(
+            company=membership.company,
+        )
+        .select_related(
+            "customer_account__customer",
+        )
+        .prefetch_related("installments")
+        .order_by("-created_at")
+    )
+
+    if request.method == "POST":
+        form = PaymentPlanForm(
+            request.POST,
+            company=membership.company,
+        )
+
+        if form.is_valid():
+            customer_account = form.cleaned_data[
+                "customer_account"
+            ]
+            total_amount = form.cleaned_data["total_amount"]
+            installment_count = form.cleaned_data[
+                "installment_count"
+            ]
+            first_due_date = form.cleaned_data[
+                "first_due_date"
+            ]
+
+            installment_amount = (
+                total_amount / installment_count
+            ).quantize(
+                Decimal("0.01"),
+                rounding=ROUND_DOWN,
+            )
+
+            last_installment_amount = (
+                total_amount
+                - installment_amount * (installment_count - 1)
+            )
+
+            with transaction.atomic():
+                plan = form.save(commit=False)
+                plan.company = membership.company
+                plan.currency = customer_account.currency
+                plan.status = PaymentPlan.Status.ACTIVE
+                plan.created_by = request.user
+                plan.save()
+
+                for installment_number in range(
+                    1,
+                    installment_count + 1,
+                ):
+                    amount = installment_amount
+
+                    if installment_number == installment_count:
+                        amount = last_installment_amount
+
+                    PaymentPlanInstallment.objects.create(
+                        payment_plan=plan,
+                        installment_number=installment_number,
+                        due_date=add_months(
+                            first_due_date,
+                            installment_number - 1,
+                        ),
+                        amount=amount,
+                    )
+
+            messages.success(
+                request,
+                (
+                    f"{plan.plan_number} numaralı ödeme planı "
+                    "oluşturuldu."
+                ),
+            )
+
+            return redirect("finance:payment_plans")
+    else:
+        form = PaymentPlanForm(
+            company=membership.company,
+        )
+
+    return render(
+        request,
+        "finance/payment_plans.html",
+        {
+            "current_membership": membership,
+            "plans": plans,
+            "form": form,
         },
     )

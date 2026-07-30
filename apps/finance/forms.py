@@ -1,8 +1,10 @@
 from django import forms
 
 from .models import (
+    CustomerAccount,
     CustomerAccountTransaction,
     FinancialAccount,
+    PaymentPlan,
 )
 
 
@@ -110,3 +112,92 @@ class CollectionForm(forms.ModelForm):
             )
 
         return amount
+
+class PaymentPlanForm(forms.ModelForm):
+    first_due_date = forms.DateField(
+        label="İlk vade tarihi",
+        widget=forms.DateInput(
+            attrs={
+                "type": "date",
+            }
+        ),
+    )
+
+    class Meta:
+        model = PaymentPlan
+        fields = [
+            "customer_account",
+            "total_amount",
+            "installment_count",
+            "description",
+        ]
+        widgets = {
+            "total_amount": forms.NumberInput(
+                attrs={
+                    "min": "0.01",
+                    "step": "0.01",
+                    "placeholder": "0,00",
+                }
+            ),
+            "installment_count": forms.NumberInput(
+                attrs={
+                    "min": "1",
+                    "step": "1",
+                }
+            ),
+            "description": forms.TextInput(
+                attrs={
+                    "placeholder": (
+                        "Örn. 3 aylık tahsilat planı"
+                    ),
+                }
+            ),
+        }
+
+    def __init__(self, *args, company=None, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.fields["customer_account"].queryset = (
+            CustomerAccount.objects.none()
+        )
+
+        if company:
+            self.fields["customer_account"].queryset = (
+                CustomerAccount.objects.filter(
+                    company=company,
+                    is_active=True,
+                )
+                .select_related("customer")
+                .order_by("customer__name")
+            )
+
+    def clean_installment_count(self):
+        installment_count = self.cleaned_data["installment_count"]
+
+        if installment_count < 1:
+            raise forms.ValidationError(
+                "Taksit sayısı en az 1 olmalıdır."
+            )
+
+        return installment_count
+
+    def clean(self):
+        cleaned_data = super().clean()
+
+        customer_account = cleaned_data.get("customer_account")
+        total_amount = cleaned_data.get("total_amount")
+
+        if (
+            customer_account
+            and total_amount
+            and total_amount > customer_account.balance
+        ):
+            self.add_error(
+                "total_amount",
+                (
+                    "Plan tutarı, cari hesabın açık bakiyesini "
+                    "aşamaz."
+                ),
+            )
+
+        return cleaned_data

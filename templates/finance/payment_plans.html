@@ -1,0 +1,178 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}
+Ödeme Planları | Glauria ERP
+{% endblock %}
+
+{% block extra_css %}
+<link
+    rel="stylesheet"
+    href="{% static 'css/finance.css' %}?v=payment-plans-v2"
+>
+{% endblock %}
+
+{% block content %}
+<section class="module-page finance-dashboard">
+    {% include "components/page_header.html" with eyebrow="FİNANS VE MUHASEBE" title="Ödeme Planları" description="Cari hesapların taksitli tahsilat planlarını, vadelerini ve ödeme durumlarını yönetin." %}
+
+    <div class="finance-dashboard__grid">
+        <section class="finance-panel finance-panel--wide">
+            <div class="finance-panel__heading">
+                <div>
+                    <span class="finance-panel__eyebrow">
+                        AKTİF PLANLAR
+                    </span>
+
+                    <h3 class="finance-panel__title">
+                        Tahsilat Planı Listesi
+                    </h3>
+                </div>
+
+                <span class="finance-panel__count">
+                    {{ plans|length }} plan
+                </span>
+            </div>
+
+            {% if plans %}
+                <div class="data-table-wrapper">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Plan</th>
+                                <th>Cari</th>
+                                <th>Toplam</th>
+                                <th>Taksit</th>
+                                <th>İlk Vade</th>
+                                <th>Durum</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for plan in plans %}
+                                <tr>
+                                    <td>
+                                        <div class="customer-cell">
+                                            <strong>
+                                                {{ plan.plan_number }}
+                                            </strong>
+                                            <span>
+                                                {{ plan.description|default:"Tahsilat planı" }}
+                                            </span>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        {{ plan.customer_account.customer.name }}
+                                    </td>
+                                    <td class="finance-table__balance">
+                                        ₺{{ plan.total_amount|floatformat:2 }}
+                                    </td>
+                                    <td>
+                                        {{ plan.installment_count }} taksit
+                                    </td>
+                                    <td>
+                                        {% with first_installment=plan.installments.first %}
+                                            {{ first_installment.due_date|date:"d.m.Y" }}
+                                        {% endwith %}
+                                    </td>
+                                    <td>
+                                        {% if plan.status == "active" %}
+                                            <span class="status-pill status-pill--active">
+                                                Aktif
+                                            </span>
+                                        {% elif plan.status == "draft" %}
+                                            <span class="status-pill status-pill--lead">
+                                                Taslak
+                                            </span>
+                                        {% elif plan.status == "completed" %}
+                                            <span class="status-pill status-pill--active">
+                                                Tamamlandı
+                                            </span>
+                                        {% else %}
+                                            <span class="status-pill status-pill--inactive">
+                                                İptal
+                                            </span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <div class="finance-panel__empty">
+                    Henüz bir ödeme planı bulunmuyor. Sağdaki
+                    formu kullanarak ilk tahsilat planını oluşturun.
+                </div>
+            {% endif %}
+        </section>
+
+        <section class="finance-panel">
+            <div class="finance-panel__heading">
+                <div>
+                    <span class="finance-panel__eyebrow">
+                        YENİ PLAN
+                    </span>
+
+                    <h3 class="finance-panel__title">
+                        Ödeme Planı Oluştur
+                    </h3>
+                </div>
+            </div>
+
+            <form method="post" class="finance-form">
+                {% csrf_token %}
+
+                {% if form.non_field_errors %}
+                    <div class="finance-form__errors">
+                        {{ form.non_field_errors }}
+                    </div>
+                {% endif %}
+
+                <div class="finance-form__field">
+                    <label for="{{ form.customer_account.id_for_label }}">
+                        Cari hesap
+                    </label>
+                    {{ form.customer_account }}
+                    {{ form.customer_account.errors }}
+                </div>
+
+                <div class="finance-form__field">
+                    <label for="{{ form.total_amount.id_for_label }}">
+                        Plan toplamı
+                    </label>
+                    {{ form.total_amount }}
+                    {{ form.total_amount.errors }}
+                </div>
+
+                <div class="finance-form__field">
+                    <label for="{{ form.installment_count.id_for_label }}">
+                        Taksit sayısı
+                    </label>
+                    {{ form.installment_count }}
+                    {{ form.installment_count.errors }}
+                </div>
+
+                <div class="finance-form__field">
+                    <label for="{{ form.first_due_date.id_for_label }}">
+                        İlk vade tarihi
+                    </label>
+                    {{ form.first_due_date }}
+                    {{ form.first_due_date.errors }}
+                </div>
+
+                <div class="finance-form__field">
+                    <label for="{{ form.description.id_for_label }}">
+                        Açıklama
+                    </label>
+                    {{ form.description }}
+                    {{ form.description.errors }}
+                </div>
+
+                <button type="submit" class="finance-form__submit">
+                    Planı Oluştur
+                </button>
+            </form>
+        </section>
+    </div>
+</section>
+{% endblock %}

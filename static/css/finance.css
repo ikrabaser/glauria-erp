@@ -658,3 +658,97 @@ html[data-theme="light"] .finance-account-card > span:last-child {
         grid-template-columns: 1fr;
     }
 }
+.finance-form {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.finance-form__field {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.finance-form__field label {
+    color: rgba(255, 255, 255, 0.62);
+    font-size: 0.76rem;
+    font-weight: 700;
+}
+
+.finance-form__field input,
+.finance-form__field select,
+.finance-form__field textarea {
+    width: 100%;
+    min-height: 46px;
+    padding: 0 14px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    outline: none;
+    background: rgba(255, 255, 255, 0.035);
+    color: #ffffff;
+    font: inherit;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.finance-form__field textarea {
+    min-height: 90px;
+    padding-top: 12px;
+    resize: vertical;
+}
+
+.finance-form__field input:focus,
+.finance-form__field select:focus,
+.finance-form__field textarea:focus {
+    border-color: rgba(215, 164, 143, 0.52);
+    box-shadow: 0 0 0 4px rgba(215, 164, 143, 0.08);
+}
+
+.finance-form__field ul.errorlist {
+    margin: 0;
+    padding: 0;
+    color: #f28e9d;
+    font-size: 0.76rem;
+    list-style: none;
+}
+
+.finance-form__errors {
+    padding: 12px 14px;
+    border: 1px solid rgba(242, 142, 157, 0.3);
+    border-radius: 12px;
+    color: #f28e9d;
+    background: rgba(242, 142, 157, 0.08);
+    font-size: 0.82rem;
+}
+
+.finance-form__submit {
+    min-height: 48px;
+    border: 0;
+    border-radius: 13px;
+    color: #20131a;
+    background: linear-gradient(
+        135deg,
+        #e5b39d,
+        #d7a48f
+    );
+    font-weight: 800;
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.finance-form__submit:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 26px rgba(215, 164, 143, 0.2);
+}
+
+html[data-theme="light"] .finance-form__field label {
+    color: rgba(55, 35, 44, 0.65);
+}
+
+html[data-theme="light"] .finance-form__field input,
+html[data-theme="light"] .finance-form__field select,
+html[data-theme="light"] .finance-form__field textarea {
+    border-color: rgba(74, 43, 57, 0.14);
+    background: rgba(255, 255, 255, 0.74);
+    color: #3b2530;
+}
