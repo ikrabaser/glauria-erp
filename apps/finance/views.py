@@ -51,6 +51,55 @@ def add_months(start_date, month_offset):
         month=month,
         day=day,
     )
+def refresh_payment_plan_status(plan):
+    if plan.status == PaymentPlan.Status.CANCELLED:
+        return
+
+    today = timezone.localdate()
+    installments = plan.installments.all()
+    has_installments = False
+    all_paid = True
+
+    for installment in installments:
+        has_installments = True
+
+        allocated_amount = (
+            installment.allocations.filter(
+                collection_transaction__status=(
+                    CustomerAccountTransaction.Status.ACTIVE
+                ),
+            ).aggregate(
+                total=Sum("amount"),
+            )["total"]
+            or Decimal("0.00")
+        )
+
+        if allocated_amount >= installment.amount:
+            new_status = PaymentPlanInstallment.Status.PAID
+        elif allocated_amount > Decimal("0.00"):
+            new_status = (
+                PaymentPlanInstallment.Status.PARTIALLY_PAID
+            )
+        elif installment.due_date < today:
+            new_status = PaymentPlanInstallment.Status.OVERDUE
+        else:
+            new_status = PaymentPlanInstallment.Status.PENDING
+
+        if installment.status != new_status:
+            installment.status = new_status
+            installment.save(update_fields=["status"])
+
+        if new_status != PaymentPlanInstallment.Status.PAID:
+            all_paid = False
+
+    new_plan_status = PaymentPlan.Status.ACTIVE
+
+    if has_installments and all_paid:
+        new_plan_status = PaymentPlan.Status.COMPLETED
+
+    if plan.status != new_plan_status:
+        plan.status = new_plan_status
+        plan.save(update_fields=["status"])
 
 @login_required
 def home(request):
@@ -782,6 +831,7 @@ def payment_plan_detail(request, plan_id):
         id=plan_id,
         company=membership.company,
     )
+    refresh_payment_plan_status(plan)
 
     money_field = DecimalField(
         max_digits=14,
@@ -887,6 +937,8 @@ def payment_plan_allocation_create(request, plan_id):
     allocation = form.save(commit=False)
     allocation.created_by = request.user
     allocation.save()
+
+    refresh_payment_plan_status(plan)
 
     messages.success(
         request,
