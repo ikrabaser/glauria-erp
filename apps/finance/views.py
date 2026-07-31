@@ -8,7 +8,8 @@ from datetime import date, timedelta
 from django.contrib import messages
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
-from django.views.decorators.http import require_POST
+from django.http import JsonResponse
+from django.views.decorators.http import require_GET, require_POST
 from django.db import transaction
 
 from .forms import (
@@ -566,7 +567,6 @@ def finance_ai_analysis_create(request):
             "Hazır olduğunda bildirim alacaksınız."
         ),
     )
-
 @login_required
 @require_POST
 def finance_ai_chat_send(request):
@@ -575,26 +575,32 @@ def finance_ai_chat_send(request):
     if not membership or not has_full_company_data_access(
         membership
     ):
-        return redirect("finance:home")
+        return JsonResponse(
+            {
+                "ok": False,
+                "error": "Finans AI erişim yetkiniz bulunmuyor.",
+            },
+            status=403,
+        )
 
     content = request.POST.get("message", "").strip()
 
     if not content:
-        messages.error(
-            request,
-            "Finans AI için bir mesaj yazmalısınız.",
-        )
-        return redirect(
-            f"{reverse('finance:home')}?finance_ai_chat=open"
+        return JsonResponse(
+            {
+                "ok": False,
+                "error": "Finans AI için bir mesaj yazmalısınız.",
+            },
+            status=400,
         )
 
     if len(content) > 2000:
-        messages.error(
-            request,
-            "Mesaj en fazla 2000 karakter olabilir.",
-        )
-        return redirect(
-            f"{reverse('finance:home')}?finance_ai_chat=open"
+        return JsonResponse(
+            {
+                "ok": False,
+                "error": "Mesaj en fazla 2000 karakter olabilir.",
+            },
+            status=400,
         )
 
     conversation = (
@@ -614,7 +620,7 @@ def finance_ai_chat_send(request):
             title=content[:160],
         )
 
-    FinanceAIMessage.objects.create(
+    user_message = FinanceAIMessage.objects.create(
         conversation=conversation,
         role=FinanceAIMessage.Role.USER,
         content=content,
@@ -632,11 +638,61 @@ def finance_ai_chat_send(request):
         str(assistant_message.id)
     )
 
-    return redirect(
-        f"{reverse('finance:home')}?finance_ai_chat=open"
+    return JsonResponse(
+        {
+            "ok": True,
+            "user_message": {
+                "id": str(user_message.id),
+                "content": user_message.content,
+            },
+            "assistant_message": {
+                "id": str(assistant_message.id),
+                "content": assistant_message.content,
+                "status": assistant_message.status,
+            },
+        }
     )
 
-    return redirect("finance:home")
+
+@login_required
+@require_GET
+def finance_ai_chat_message_status(request, message_id):
+    membership = get_active_membership(request.user)
+
+    if not membership or not has_full_company_data_access(
+        membership
+    ):
+        return JsonResponse(
+            {
+                "ok": False,
+                "error": "Finans AI erişim yetkiniz bulunmuyor.",
+            },
+            status=403,
+        )
+
+    assistant_message = get_object_or_404(
+        FinanceAIMessage.objects.select_related(
+            "conversation",
+        ),
+        id=message_id,
+        role=FinanceAIMessage.Role.ASSISTANT,
+        conversation__company=membership.company,
+        conversation__user=request.user,
+    )
+
+    return JsonResponse(
+        {
+            "ok": True,
+            "message": {
+                "id": str(assistant_message.id),
+                "content": assistant_message.content,
+                "status": assistant_message.status,
+                "status_display": (
+                    assistant_message.get_status_display()
+                ),
+            },
+        }
+    )
 @login_required
 def customer_accounts(request):
     membership = get_active_membership(request.user)

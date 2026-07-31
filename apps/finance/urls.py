@@ -14,6 +14,7 @@ from .views import (
     cash_flow,
     finance_ai_analysis_create,
     finance_ai_chat_send,
+    finance_ai_chat_message_status,
 )
 
 
@@ -70,6 +71,11 @@ urlpatterns = [
         "ai-sohbet/gonder/",
         finance_ai_chat_send,
         name="finance_ai_chat_send",
+    ),
+    path(
+    "ai-sohbet/mesaj/<uuid:message_id>/durum/",
+    finance_ai_chat_message_status,
+    name="finance_ai_chat_message_status",
     ),
     path(
         "nakit-akisi/",
