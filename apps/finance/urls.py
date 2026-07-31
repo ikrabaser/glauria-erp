@@ -17,6 +17,7 @@ from .views import (
     finance_ai_chat_message_status,
     budget_reports,
     budget_detail,
+    budget_status_update,
 )
 
 
@@ -93,6 +94,11 @@ urlpatterns = [
         "butce-raporlar/<uuid:budget_id>/",
         budget_detail,
         name="budget_detail",
+    ),
+    path(
+        "butce-raporlar/<uuid:budget_id>/durum/",
+        budget_status_update,
+        name="budget_status_update",
     ),
     path(
         "<slug:section>/",

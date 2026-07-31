@@ -37,9 +37,53 @@
             </p>
         </div>
 
-        <span class="finance-panel__count">
-            {{ budget.get_status_display }}
-        </span>
+                <div class="finance-budget-status-actions">
+            <span class="finance-panel__count">
+                {{ budget.get_status_display }}
+            </span>
+
+            {% if budget.status == "draft" %}
+                <form
+                    method="post"
+                    action="{% url 'finance:budget_status_update' budget.id %}"
+                >
+                    {% csrf_token %}
+
+                    <input
+                        type="hidden"
+                        name="action"
+                        value="activate"
+                    >
+
+                    <button
+                        type="submit"
+                        class="finance-budget-status-action"
+                    >
+                        Bütçeyi Aktifleştir
+                    </button>
+                </form>
+            {% elif budget.status == "active" %}
+                <form
+                    method="post"
+                    action="{% url 'finance:budget_status_update' budget.id %}"
+                >
+                    {% csrf_token %}
+
+                    <input
+                        type="hidden"
+                        name="action"
+                        value="close"
+                    >
+
+                    <button
+                        type="submit"
+                        class="finance-budget-status-action finance-budget-status-action--close"
+                    >
+                        Bütçeyi Kapat
+                    </button>
+                </form>
+            {% endif %}
+        </div>
     </header>
 
     <div class="finance-metrics">
@@ -144,42 +188,67 @@
             {% endif %}
         </section>
 
-        <section class="finance-panel">
-            <div class="finance-panel__heading">
-                <div>
-                    <span class="finance-panel__eyebrow">
-                        YENİ PLAN SATIRI
-                    </span>
+                <section class="finance-panel">
+            {% if budget.status == "draft" %}
+                <div class="finance-panel__heading">
+                    <div>
+                        <span class="finance-panel__eyebrow">
+                            YENİ PLAN SATIRI
+                        </span>
 
-                    <h3 class="finance-panel__title">
-                        Aylık Hedef Ekle
-                    </h3>
+                        <h3 class="finance-panel__title">
+                            Aylık Hedef Ekle
+                        </h3>
+                    </div>
                 </div>
-            </div>
 
-            <form method="post" class="finance-form">
-                {% csrf_token %}
+                <form method="post" class="finance-form">
+                    {% csrf_token %}
 
-                {% if form.non_field_errors %}
-                    <div class="finance-form__errors">
-                        {{ form.non_field_errors }}
+                    {% if form.non_field_errors %}
+                        <div class="finance-form__errors">
+                            {{ form.non_field_errors }}
+                        </div>
+                    {% endif %}
+
+                    {% for field in form %}
+                        <div class="finance-form__field">
+                            <label for="{{ field.id_for_label }}">
+                                {{ field.label }}
+                            </label>
+                            {{ field }}
+                            {{ field.errors }}
+                        </div>
+                    {% endfor %}
+
+                    <button type="submit" class="finance-form__submit">
+                        Plan Satırı Ekle
+                    </button>
+                </form>
+            {% else %}
+                <div class="finance-panel__heading">
+                    <div>
+                        <span class="finance-panel__eyebrow">
+                            BÜTÇE KONTROLÜ
+                        </span>
+
+                        <h3 class="finance-panel__title">
+                            Plan Satırları Kilitli
+                        </h3>
                     </div>
-                {% endif %}
+                </div>
 
-                {% for field in form %}
-                    <div class="finance-form__field">
-                        <label for="{{ field.id_for_label }}">
-                            {{ field.label }}
-                        </label>
-                        {{ field }}
-                        {{ field.errors }}
-                    </div>
-                {% endfor %}
-
-                <button type="submit" class="finance-form__submit">
-                    Plan Satırı Ekle
-                </button>
-            </form>
+                <div class="finance-panel__empty">
+                    {% if budget.status == "active" %}
+                        Bütçe aktif durumda. Hedefler kilitli; bu ekranda
+                        gerçekleşen nakit hareketleri ve aylık sapmalar
+                        izlenir.
+                    {% else %}
+                        Bütçe kapatıldı. Plan ve gerçekleşen verileri
+                        salt okunur olarak korunur.
+                    {% endif %}
+                </div>
+            {% endif %}
         </section>
        </div>
 

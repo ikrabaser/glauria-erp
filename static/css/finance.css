@@ -1653,3 +1653,53 @@ html[data-theme="light"] .finance-ai-panel__summary {
     border-color: rgba(190, 121, 143, 0.2);
     background: rgba(255, 255, 255, 0.52);
 }
+.finance-budget-status-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+.finance-budget-status-actions form {
+    margin: 0;
+}
+
+.finance-budget-status-action {
+    min-height: 34px;
+    padding: 0 14px;
+    border: 1px solid rgba(79, 201, 155, 0.32);
+    border-radius: 999px;
+    color: #167452;
+    background: rgba(79, 201, 155, 0.12);
+    font: inherit;
+    font-size: 0.78rem;
+    font-weight: 800;
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.finance-budget-status-action:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 8px 18px rgba(79, 201, 155, 0.18);
+}
+
+.finance-budget-status-action--close {
+    border-color: rgba(240, 174, 131, 0.34);
+    color: #9c4e29;
+    background: rgba(240, 174, 131, 0.14);
+}
+
+html[data-theme="dark"] .finance-budget-status-action {
+    color: #79e2b5;
+}
+
+html[data-theme="dark"] .finance-budget-status-action--close {
+    color: #f0ae83;
+}
+
+@media (max-width: 640px) {
+    .finance-budget-status-actions {
+        align-items: flex-end;
+        flex-direction: column;
+    }
+}

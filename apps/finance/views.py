@@ -759,6 +759,19 @@ def budget_reports(request):
         .order_by("-fiscal_year", "-created_at")
     )
 
+    if (
+        request.method == "POST"
+        and budget.status != FinanceBudget.Status.DRAFT
+    ):
+        messages.error(
+            request,
+            "Aktif veya kapalı bütçeye plan satırı eklenemez.",
+        )
+        return redirect(
+            "finance:budget_detail",
+            budget_id=budget.id,
+        )
+
     if request.method == "POST":
         form = FinanceBudgetForm(request.POST)
 
@@ -809,20 +822,18 @@ def budget_detail(request, budget_id):
     )
 
     lines = list(
-    budget.lines.all().order_by(
-        "period_month",
-        "category",
+        budget.lines.all().order_by(
+            "period_month",
+            "category",
+        )
     )
-)
 
+    monthly_budget_totals = {}
     for line in lines:
         line.planned_net = (
             line.planned_inflow - line.planned_outflow
         )
 
-        monthly_budget_totals = {}
-
-    for line in lines:
         month_total = monthly_budget_totals.setdefault(
             line.period_month,
             {
@@ -971,6 +982,61 @@ def budget_detail(request, budget_id):
         },
     )
 
+@login_required
+@require_POST
+def budget_status_update(request, budget_id):
+    membership = get_active_membership(request.user)
+
+    if not membership or not has_full_company_data_access(
+        membership
+    ):
+        return redirect("finance:home")
+
+    budget = get_object_or_404(
+        FinanceBudget,
+        id=budget_id,
+        company=membership.company,
+    )
+
+    action = request.POST.get("action")
+
+    if (
+        action == "activate"
+        and budget.status == FinanceBudget.Status.DRAFT
+    ):
+        if not budget.lines.exists():
+            messages.error(
+                request,
+                "Aktifleştirmek için en az bir bütçe satırı ekleyin.",
+            )
+        else:
+            budget.status = FinanceBudget.Status.ACTIVE
+            budget.save(update_fields=["status", "updated_at"])
+            messages.success(
+                request,
+                "Bütçe aktifleştirildi. Sapma takibi başladı.",
+            )
+
+    elif (
+        action == "close"
+        and budget.status == FinanceBudget.Status.ACTIVE
+    ):
+        budget.status = FinanceBudget.Status.CLOSED
+        budget.save(update_fields=["status", "updated_at"])
+        messages.success(
+            request,
+            "Bütçe kapatıldı ve salt okunur duruma alındı.",
+        )
+    else:
+        messages.error(
+            request,
+            "Bu bütçe için seçilen durum aksiyonu uygulanamadı.",
+        )
+
+    return redirect(
+        "finance:budget_detail",
+        budget_id=budget.id,
+    )
 
 @login_required
 def finance_section(request, section):
