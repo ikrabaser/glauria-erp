@@ -15,6 +15,8 @@ from .views import (
     finance_ai_analysis_create,
     finance_ai_chat_send,
     finance_ai_chat_message_status,
+    budget_reports,
+    budget_detail,
 )
 
 
@@ -81,6 +83,16 @@ urlpatterns = [
         "nakit-akisi/",
         cash_flow,
         name="cash_flow",
+    ),
+    path(
+        "butce-raporlar/",
+        budget_reports,
+        name="budget_reports",
+    ),
+    path(
+        "butce-raporlar/<uuid:budget_id>/",
+        budget_detail,
+        name="budget_detail",
     ),
     path(
         "<slug:section>/",

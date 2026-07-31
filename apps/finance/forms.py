@@ -6,6 +6,8 @@ from .models import (
     CustomerAccount,
     CustomerAccountTransaction,
     FinancialAccount,
+    FinanceBudget,
+    FinanceBudgetLine,
     PaymentPlan,
     PaymentPlanAllocation,
 )
@@ -353,6 +355,121 @@ class PaymentPlanAllocationForm(forms.ModelForm):
                     "Bu tahsilat seçilen taksite daha önce "
                     "eşleştirildi."
                 ),
+            )
+
+        return cleaned_data
+
+class FinanceBudgetForm(forms.ModelForm):
+    class Meta:
+        model = FinanceBudget
+        fields = [
+            "name",
+            "fiscal_year",
+            "currency",
+            "description",
+        ]
+        widgets = {
+            "name": forms.TextInput(
+                attrs={
+                    "placeholder": "Örn. 2026 Operasyon Bütçesi",
+                }
+            ),
+            "fiscal_year": forms.NumberInput(
+                attrs={
+                    "min": "2020",
+                    "max": "2100",
+                }
+            ),
+            "currency": forms.TextInput(
+                attrs={
+                    "maxlength": "3",
+                    "placeholder": "TRY",
+                }
+            ),
+            "description": forms.TextInput(
+                attrs={
+                    "placeholder": "Bütçenin kapsamı veya kısa notu",
+                }
+            ),
+        }
+
+    def clean_currency(self):
+        return self.cleaned_data["currency"].upper().strip()
+
+class FinanceBudgetLineForm(forms.ModelForm):
+    class Meta:
+        model = FinanceBudgetLine
+        fields = [
+            "period_month",
+            "category",
+            "planned_inflow",
+            "planned_outflow",
+            "notes",
+        ]
+        widgets = {
+            "period_month": forms.DateInput(
+                attrs={
+                    "type": "date",
+                }
+            ),
+            "category": forms.TextInput(
+                attrs={
+                    "placeholder": "Örn. Tahsilatlar",
+                }
+            ),
+            "planned_inflow": forms.NumberInput(
+                attrs={
+                    "min": "0",
+                    "step": "0.01",
+                    "placeholder": "0,00",
+                }
+            ),
+            "planned_outflow": forms.NumberInput(
+                attrs={
+                    "min": "0",
+                    "step": "0.01",
+                    "placeholder": "0,00",
+                }
+            ),
+            "notes": forms.TextInput(
+                attrs={
+                    "placeholder": "Örn. Ağustos satış hedefi",
+                }
+            ),
+        }
+
+    def __init__(self, *args, budget=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.budget = budget
+
+    def clean_period_month(self):
+        period_month = self.cleaned_data["period_month"]
+
+        if self.budget and period_month.year != self.budget.fiscal_year:
+            raise forms.ValidationError(
+                "Bütçe satırı seçilen mali yıl içinde olmalıdır."
+            )
+
+        return period_month.replace(day=1)
+
+    def clean(self):
+        cleaned_data = super().clean()
+        planned_inflow = (
+            cleaned_data.get("planned_inflow")
+            or Decimal("0.00")
+        )
+        planned_outflow = (
+            cleaned_data.get("planned_outflow")
+            or Decimal("0.00")
+        )
+
+        if (
+            planned_inflow <= Decimal("0.00")
+            and planned_outflow <= Decimal("0.00")
+        ):
+            raise forms.ValidationError(
+                "Planlanan giriş veya çıkış tutarından en az biri "
+                "sıfırdan büyük olmalıdır."
             )
 
         return cleaned_data

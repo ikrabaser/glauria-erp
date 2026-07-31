@@ -17,6 +17,8 @@ from .forms import (
     FinancialAccountForm,
     PaymentPlanForm,
     PaymentPlanAllocationForm,
+    FinanceBudgetForm,
+    FinanceBudgetLineForm,
 )
 from .tasks import (
     analyze_finance_snapshot,
@@ -33,7 +35,8 @@ from apps.finance.models import (
     FinancialAccountTransaction,
     PaymentPlan,
     PaymentPlanInstallment,
-    
+    FinanceBudget,
+    FinanceBudgetLine,
 )
 from apps.sales.models import Invoice
 
@@ -718,6 +721,253 @@ def customer_accounts(request):
         {
             "current_membership": membership,
             "accounts": accounts,
+        },
+    )
+
+@login_required
+def budget_reports(request):
+    membership = get_active_membership(request.user)
+
+    if not membership or not has_full_company_data_access(
+        membership
+    ):
+        return redirect("finance:home")
+
+    money_field = DecimalField(
+        max_digits=14,
+        decimal_places=2,
+    )
+    zero_amount = Value(
+        Decimal("0.00"),
+        output_field=money_field,
+    )
+
+    budgets = (
+        FinanceBudget.objects.filter(
+            company=membership.company,
+        )
+        .annotate(
+            planned_inflow_total=Coalesce(
+                Sum("lines__planned_inflow"),
+                zero_amount,
+            ),
+            planned_outflow_total=Coalesce(
+                Sum("lines__planned_outflow"),
+                zero_amount,
+            ),
+        )
+        .order_by("-fiscal_year", "-created_at")
+    )
+
+    if request.method == "POST":
+        form = FinanceBudgetForm(request.POST)
+
+        if form.is_valid():
+            budget = form.save(commit=False)
+            budget.company = membership.company
+            budget.created_by = request.user
+            budget.status = FinanceBudget.Status.DRAFT
+            budget.save()
+
+            messages.success(
+                request,
+                "Bütçe taslağı oluşturuldu.",
+            )
+
+            return redirect("finance:budget_reports")
+    else:
+        form = FinanceBudgetForm(
+            initial={
+                "fiscal_year": timezone.localdate().year,
+                "currency": "TRY",
+            }
+        )
+
+    return render(
+        request,
+        "finance/budget_reports.html",
+        {
+            "current_membership": membership,
+            "budgets": budgets,
+            "form": form,
+        },
+    )
+
+@login_required
+def budget_detail(request, budget_id):
+    membership = get_active_membership(request.user)
+
+    if not membership or not has_full_company_data_access(
+        membership
+    ):
+        return redirect("finance:home")
+
+    budget = get_object_or_404(
+        FinanceBudget,
+        id=budget_id,
+        company=membership.company,
+    )
+
+    lines = list(
+    budget.lines.all().order_by(
+        "period_month",
+        "category",
+    )
+)
+
+    for line in lines:
+        line.planned_net = (
+            line.planned_inflow - line.planned_outflow
+        )
+
+        monthly_budget_totals = {}
+
+    for line in lines:
+        month_total = monthly_budget_totals.setdefault(
+            line.period_month,
+            {
+                "planned_inflow": Decimal("0.00"),
+                "planned_outflow": Decimal("0.00"),
+            },
+        )
+
+        month_total["planned_inflow"] += (
+            line.planned_inflow
+        )
+        month_total["planned_outflow"] += (
+            line.planned_outflow
+        )
+
+    actual_rows = (
+        FinancialAccountTransaction.objects.filter(
+            company=membership.company,
+            status=FinancialAccountTransaction.Status.ACTIVE,
+            transaction_date__year=budget.fiscal_year,
+        )
+        .annotate(
+            month=TruncMonth("transaction_date"),
+        )
+        .values(
+            "month",
+            "direction",
+        )
+        .annotate(
+            total=Sum("amount"),
+        )
+    )
+
+    monthly_actual_totals = {}
+
+    for row in actual_rows:
+        month_total = monthly_actual_totals.setdefault(
+            row["month"],
+            {
+                "actual_inflow": Decimal("0.00"),
+                "actual_outflow": Decimal("0.00"),
+            },
+        )
+
+        if row["direction"] == (
+            FinancialAccountTransaction.Direction.IN
+        ):
+            month_total["actual_inflow"] = row["total"]
+        else:
+            month_total["actual_outflow"] = row["total"]
+
+    monthly_summaries = []
+
+    for period_month, planned in sorted(
+        monthly_budget_totals.items()
+    ):
+        actual = monthly_actual_totals.get(
+            period_month,
+            {
+                "actual_inflow": Decimal("0.00"),
+                "actual_outflow": Decimal("0.00"),
+            },
+        )
+
+        planned_net = (
+            planned["planned_inflow"]
+            - planned["planned_outflow"]
+        )
+        actual_net = (
+            actual["actual_inflow"]
+            - actual["actual_outflow"]
+        )
+
+        monthly_summaries.append(
+            {
+                "period_month": period_month,
+                "planned_inflow": planned["planned_inflow"],
+                "planned_outflow": planned["planned_outflow"],
+                "planned_net": planned_net,
+                "actual_inflow": actual["actual_inflow"],
+                "actual_outflow": actual["actual_outflow"],
+                "actual_net": actual_net,
+                "net_variance": actual_net - planned_net,
+            }
+        )
+
+    planned_inflow_total = sum(
+        (
+            line.planned_inflow
+            for line in lines
+        ),
+        Decimal("0.00"),
+    )
+
+    planned_outflow_total = sum(
+        (
+            line.planned_outflow
+            for line in lines
+        ),
+        Decimal("0.00"),
+    )
+
+    planned_net_total = (
+        planned_inflow_total
+        - planned_outflow_total
+    )
+
+    if request.method == "POST":
+        form = FinanceBudgetLineForm(
+            request.POST,
+            budget=budget,
+        )
+
+        if form.is_valid():
+            line = form.save(commit=False)
+            line.budget = budget
+            line.save()
+
+            messages.success(
+                request,
+                "Aylık bütçe satırı eklendi.",
+            )
+            return redirect(
+                "finance:budget_detail",
+                budget_id=budget.id,
+            )
+    else:
+        form = FinanceBudgetLineForm(
+            budget=budget,
+        )
+
+    return render(
+        request,
+        "finance/budget_detail.html",
+        {
+            "current_membership": membership,
+            "budget": budget,
+            "lines": lines,
+            "planned_inflow_total": planned_inflow_total,
+            "planned_outflow_total": planned_outflow_total,
+            "planned_net_total": (
+                planned_inflow_total - planned_outflow_total
+            ),
+            "form": form,
+            "monthly_summaries": monthly_summaries,
         },
     )
 

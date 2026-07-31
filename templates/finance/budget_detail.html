@@ -1,0 +1,261 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}
+{{ budget.name }} | Bütçe | Glauria ERP
+{% endblock %}
+
+{% block extra_css %}
+<link
+    rel="stylesheet"
+    href="{% static 'css/finance.css' %}?v=budget-detail-v1"
+>
+{% endblock %}
+
+{% block content %}
+<section class="module-page finance-dashboard">
+    <a
+        href="{% url 'finance:budget_reports' %}"
+        class="finance-back-link"
+    >
+        ← Bütçe ve Raporlara Dön
+    </a>
+
+    <header class="page-header">
+        <div class="page-header__content">
+            <span class="page-header__eyebrow">
+                BÜTÇE PLANI DETAYI
+            </span>
+
+            <h2 class="page-header__title">
+                {{ budget.name }}
+            </h2>
+
+            <p class="page-header__description">
+                {{ budget.fiscal_year }} mali yılı için aylık gelir ve
+                gider hedeflerinizi yönetin.
+            </p>
+        </div>
+
+        <span class="finance-panel__count">
+            {{ budget.get_status_display }}
+        </span>
+    </header>
+
+    <div class="finance-metrics">
+        <article class="finance-metric-card finance-metric-card--primary">
+            <span class="finance-metric-card__label">
+                Planlanan Net Nakit
+            </span>
+            <strong class="finance-metric-card__value">
+                ₺{{ planned_net_total|floatformat:2 }}
+            </strong>
+            <span class="finance-metric-card__meta">
+                Giriş ve çıkış bütçe hedeflerinin farkı
+            </span>
+        </article>
+
+        <article class="finance-metric-card">
+            <span class="finance-metric-card__label">
+                Planlanan Giriş
+            </span>
+            <strong class="finance-metric-card__value finance-metric-card__value--positive">
+                ₺{{ planned_inflow_total|floatformat:2 }}
+            </strong>
+            <span class="finance-metric-card__meta">
+                Yıllık gelir hedefi
+            </span>
+        </article>
+
+        <article class="finance-metric-card">
+            <span class="finance-metric-card__label">
+                Planlanan Çıkış
+            </span>
+            <strong class="finance-metric-card__value finance-metric-card__value--warning">
+                ₺{{ planned_outflow_total|floatformat:2 }}
+            </strong>
+            <span class="finance-metric-card__meta">
+                Yıllık gider hedefi
+            </span>
+        </article>
+    </div>
+
+    <div class="finance-dashboard__grid">
+        <section class="finance-panel finance-panel--wide">
+            <div class="finance-panel__heading">
+                <div>
+                    <span class="finance-panel__eyebrow">
+                        AYLIK PLAN
+                    </span>
+
+                    <h3 class="finance-panel__title">
+                        Gelir ve Gider Hedefleri
+                    </h3>
+                </div>
+
+                <span class="finance-panel__count">
+                    {{ lines|length }} satır
+                </span>
+            </div>
+
+            {% if lines %}
+                <div class="data-table-wrapper">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Ay</th>
+                                <th>Kategori</th>
+                                <th>Planlanan giriş</th>
+                                <th>Planlanan çıkış</th>
+                                <th>Net plan</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for line in lines %}
+                                <tr>
+                                    <td>
+                                        {{ line.period_month|date:"F Y" }}
+                                    </td>
+                                    <td>
+                                        <div class="customer-cell">
+                                            <strong>{{ line.category }}</strong>
+                                            <span>{{ line.notes|default:"—" }}</span>
+                                        </div>
+                                    </td>
+                                    <td class="finance-amount--positive">
+                                        ₺{{ line.planned_inflow|floatformat:2 }}
+                                    </td>
+                                    <td class="finance-amount--negative">
+                                        ₺{{ line.planned_outflow|floatformat:2 }}
+                                    </td>
+                                   <td class="finance-table__balance">
+    ₺{{ line.planned_net|floatformat:2 }}
+</td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <div class="finance-panel__empty">
+                    Henüz aylık bütçe satırı eklenmedi. Sağdaki formdan
+                    ilk gelir veya gider hedefinizi oluşturun.
+                </div>
+            {% endif %}
+        </section>
+
+        <section class="finance-panel">
+            <div class="finance-panel__heading">
+                <div>
+                    <span class="finance-panel__eyebrow">
+                        YENİ PLAN SATIRI
+                    </span>
+
+                    <h3 class="finance-panel__title">
+                        Aylık Hedef Ekle
+                    </h3>
+                </div>
+            </div>
+
+            <form method="post" class="finance-form">
+                {% csrf_token %}
+
+                {% if form.non_field_errors %}
+                    <div class="finance-form__errors">
+                        {{ form.non_field_errors }}
+                    </div>
+                {% endif %}
+
+                {% for field in form %}
+                    <div class="finance-form__field">
+                        <label for="{{ field.id_for_label }}">
+                            {{ field.label }}
+                        </label>
+                        {{ field }}
+                        {{ field.errors }}
+                    </div>
+                {% endfor %}
+
+                <button type="submit" class="finance-form__submit">
+                    Plan Satırı Ekle
+                </button>
+            </form>
+        </section>
+       </div>
+
+    <section class="finance-panel finance-panel--upcoming">
+        <div class="finance-panel__heading">
+            <div>
+                <span class="finance-panel__eyebrow">
+                    PLAN VE GERÇEKLEŞEN
+                </span>
+
+                <h3 class="finance-panel__title">
+                    Aylık Sapma Analizi
+                </h3>
+            </div>
+
+            <span class="finance-panel__count">
+                {{ monthly_summaries|length }} ay
+            </span>
+        </div>
+
+        {% if monthly_summaries %}
+            <div class="data-table-wrapper">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Ay</th>
+                            <th>Planlanan net</th>
+                            <th>Gerçekleşen net</th>
+                            <th>Net sapma</th>
+                            <th>Planlanan giriş / çıkış</th>
+                            <th>Gerçekleşen giriş / çıkış</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for month in monthly_summaries %}
+                            <tr>
+                                <td>
+                                    {{ month.period_month|date:"F Y" }}
+                                </td>
+                                <td class="finance-table__balance">
+                                    ₺{{ month.planned_net|floatformat:2 }}
+                                </td>
+                                <td class="finance-table__balance">
+                                    ₺{{ month.actual_net|floatformat:2 }}
+                                </td>
+                                <td>
+                                    {% if month.net_variance < 0 %}
+                                        <span class="finance-amount--negative">
+                                            ₺{{ month.net_variance|floatformat:2 }}
+                                        </span>
+                                    {% else %}
+                                        <span class="finance-amount--positive">
+                                            +₺{{ month.net_variance|floatformat:2 }}
+                                        </span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    +₺{{ month.planned_inflow|floatformat:2 }}
+                                    /
+                                    −₺{{ month.planned_outflow|floatformat:2 }}
+                                </td>
+                                <td>
+                                    +₺{{ month.actual_inflow|floatformat:2 }}
+                                    /
+                                    −₺{{ month.actual_outflow|floatformat:2 }}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="finance-panel__empty">
+                Sapma analizi için önce aylık bütçe satırı ekleyin.
+            </div>
+        {% endif %}
+    </section>
+</section>
+{% endblock %}

@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}
+Bütçe ve Raporlar | Glauria ERP
+{% endblock %}
+
+{% block extra_css %}
+    <link
+        rel="stylesheet"
+        href="{% static 'css/finance.css' %}?v=budget-v1"
+    >
+{% endblock %}
+
+{% block content %}
+<section class="module-page finance-dashboard">
+    {% include "components/page_header.html" with eyebrow="FİNANS VE MUHASEBE" title="Bütçe ve Raporlar" description="Bütçe hedeflerinizi oluşturun, aylık nakit planınızı takip edin ve gerçekleşen hareketlerle karşılaştırın." %}
+
+    <div class="finance-dashboard__grid">
+        <section class="finance-panel finance-panel--wide">
+            <div class="finance-panel__heading">
+                <div>
+                    <span class="finance-panel__eyebrow">
+                        BÜTÇELER
+                    </span>
+
+                    <h3 class="finance-panel__title">
+                        Bütçe Planları
+                    </h3>
+                </div>
+
+                <span class="finance-panel__count">
+                    {{ budgets|length }} bütçe
+                </span>
+            </div>
+
+            {% if budgets %}
+                <div class="data-table-wrapper">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Bütçe</th>
+                                <th>Mali yıl</th>
+                                <th>Planlanan giriş</th>
+                                <th>Planlanan çıkış</th>
+                                <th>Durum</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for budget in budgets %}
+                                <tr>
+                                    <td>
+                                        <div class="customer-cell">
+                                            <a
+    href="{% url 'finance:budget_detail' budget.id %}"
+    class="finance-plan-link"
+>
+    {{ budget.name }}
+</a>
+                                            <span>
+                                                {{ budget.description|default:"Bütçe açıklaması girilmedi." }}
+                                            </span>
+                                        </div>
+                                    </td>
+                                    <td>{{ budget.fiscal_year }}</td>
+                                    <td class="finance-amount--positive">
+                                        ₺{{ budget.planned_inflow_total|floatformat:2 }}
+                                    </td>
+                                    <td class="finance-amount--negative">
+                                        ₺{{ budget.planned_outflow_total|floatformat:2 }}
+                                    </td>
+                                    <td>
+                                        {% if budget.status == "active" %}
+                                            <span class="status-pill status-pill--active">
+                                                Aktif
+                                            </span>
+                                        {% elif budget.status == "closed" %}
+                                            <span class="status-pill">
+                                                Kapandı
+                                            </span>
+                                        {% else %}
+                                            <span class="status-pill status-pill--lead">
+                                                Taslak
+                                            </span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <div class="finance-panel__empty">
+                    Henüz bir bütçe planı bulunmuyor. Sağdaki formdan
+                    ilk bütçe taslağınızı oluşturabilirsiniz.
+                </div>
+            {% endif %}
+        </section>
+
+        <section class="finance-panel">
+            <div class="finance-panel__heading">
+                <div>
+                    <span class="finance-panel__eyebrow">
+                        YENİ BÜTÇE
+                    </span>
+
+                    <h3 class="finance-panel__title">
+                        Bütçe Taslağı Oluştur
+                    </h3>
+                </div>
+            </div>
+
+            <form method="post" class="finance-form">
+                {% csrf_token %}
+
+                {% if form.non_field_errors %}
+                    <div class="finance-form__errors">
+                        {{ form.non_field_errors }}
+                    </div>
+                {% endif %}
+
+                {% for field in form %}
+                    <div class="finance-form__field">
+                        <label for="{{ field.id_for_label }}">
+                            {{ field.label }}
+                        </label>
+                        {{ field }}
+                        {{ field.errors }}
+                    </div>
+                {% endfor %}
+
+                <button type="submit" class="finance-form__submit">
+                    Bütçe Oluştur
+                </button>
+            </form>
+        </section>
+    </div>
+</section>
+{% endblock %}
