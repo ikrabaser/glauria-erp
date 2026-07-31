@@ -8,7 +8,7 @@ Finans Merkezi | Glauria ERP
 {% block extra_css %}
     <link
         rel="stylesheet"
-        href="{% static 'css/finance.css' %}?v=finance-ai-brand-v2"
+        href="{% static 'css/finance.css' %}?v=finance-ai-drawer-v2"
 {% endblock %}
 
 {% block content %}
@@ -501,11 +501,20 @@ Finans Merkezi | Glauria ERP
     </button>
 
     <aside
-        class="finance-ai-chat__drawer"
-        data-finance-ai-chat-drawer
-        aria-label="Finans AI sohbeti"
-        hidden
-    >
+    class="finance-ai-chat__drawer"
+    data-finance-ai-chat-drawer
+    aria-label="Finans AI sohbeti"
+    hidden
+    style="
+        position: fixed;
+        right: 28px;
+        bottom: 118px;
+        z-index: 1150;
+        width: min(390px, calc(100vw - 32px));
+        max-height: min(670px, calc(100vh - 115px));
+        display: none;
+    "
+>
         <header class="finance-ai-chat__header">
             <div>
                 <span>GLAURIA FİNANS AI</span>
@@ -612,97 +621,6 @@ Finans Merkezi | Glauria ERP
         </form>
     </aside>
 </div>
-                    <button
-                        type="button"
-                        class="finance-ai-chat__close"
-                        data-finance-ai-chat-close
-                        aria-label="Finans AI sohbetini kapat"
-                    >
-                        ×
-                    </button>
-                </header>
-
-                <div class="finance-ai-chat__messages">
-                    {% if chat_messages %}
-                        {% for message in chat_messages %}
-                            <article
-                                class="finance-ai-chat__message finance-ai-chat__message--{{ message.role }}"
-                                {% if message.role == "assistant" and message.status == "pending" %}
-                                    data-finance-ai-chat-pending
-                                {% endif %}
-                            >
-                                <span>
-                                    {% if message.role == "user" %}
-                                        Siz
-                                    {% else %}
-                                        Finans AI
-                                    {% endif %}
-                                </span>
-
-                                <p>{{ message.content }}</p>
-                            </article>
-                        {% endfor %}
-                    {% else %}
-                        <div class="finance-ai-chat__welcome">
-                            <strong>Merhaba İkra,</strong>
-                            <p>
-                                Şirketinizin gerçek nakit, cari hesap,
-                                tahsilat ve ödeme planı verileri üzerinden
-                                finans sorularınızı yanıtlayabilirim.
-                            </p>
-                        </div>
-                    {% endif %}
-                </div>
-
-                <div class="finance-ai-chat__prompts">
-                    <button
-                        type="button"
-                        data-finance-ai-prompt="Nakit pozisyonumu kısa şekilde özetle."
-                    >
-                        Nakit pozisyonu
-                    </button>
-
-                    <button
-                        type="button"
-                        data-finance-ai-prompt="Önümüzdeki 30 gündeki tahsilat risklerini sıralar mısın?"
-                    >
-                        Tahsilat riskleri
-                    </button>
-
-                    <button
-                        type="button"
-                        data-finance-ai-prompt="Bugün öncelik vermem gereken finans aksiyonları neler?"
-                    >
-                        Öncelikli aksiyonlar
-                    </button>
-                </div>
-
-                <form
-                    method="post"
-                    action="{% url 'finance:finance_ai_chat_send' %}"
-                    class="finance-ai-chat__form"
-                >
-                    {% csrf_token %}
-
-                    <label for="finance-ai-message">
-                        Finans sorunuz
-                    </label>
-
-                    <textarea
-                        id="finance-ai-message"
-                        name="message"
-                        rows="3"
-                        maxlength="2000"
-                        placeholder="Örn. Bu ay tahsilat riskim nedir?"
-                        required
-                    ></textarea>
-
-                    <button type="submit">
-                        Gönder
-                    </button>
-                </form>
-            </aside>
-        </div>
     {% endif %}
 </section>
 {% endblock %}
@@ -864,18 +782,22 @@ Finans Merkezi | Glauria ERP
         );
         const pendingMessageIds = new Set();
 
+        drawer.hidden = true;
+        drawer.style.display = "none";
+
         function setChatOpen(isOpen) {
-            drawer.hidden = !isOpen;
+        drawer.hidden = !isOpen;
+        drawer.style.display = isOpen ? "flex" : "none";
 
-            launcher.setAttribute(
-                "aria-expanded",
-                String(isOpen)
-            );
+    launcher.setAttribute(
+        "aria-expanded",
+        String(isOpen)
+    );
 
-            if (isOpen && messageInput) {
-                messageInput.focus();
-            }
-        }
+    if (isOpen && messageInput) {
+        messageInput.focus();
+    }
+}
 
         function scrollMessagesToBottom() {
             messagesArea.scrollTop = messagesArea.scrollHeight;

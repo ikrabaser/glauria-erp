@@ -614,95 +614,6 @@ html[data-theme="light"] .finance-account-card > span:last-child {
     color: #dd6c7d !important;
 }
 
-.finance-movement {
-    display: inline-flex;
-    min-height: 27px;
-    align-items: center;
-    padding: 0 10px;
-    border-radius: 999px;
-    font-size: 0.72rem;
-    font-weight: 700;
-}
-
-.finance-movement--in {
-    color: #278760;
-    background: rgba(79, 201, 155, 0.13);
-}
-
-.finance-movement--out {
-    color: #bd4459;
-    background: rgba(221, 108, 125, 0.12);
-}
-
-.finance-account-info {
-    min-height: fit-content;
-}
-
-.finance-detail-list {
-    margin: 20px 0 0;
-}
-
-.finance-detail-list div {
-    padding: 14px 0;
-    border-bottom: 1px solid var(--color-border);
-}
-
-.finance-detail-list div:last-child {
-    border-bottom: 0;
-}
-
-.finance-detail-list dt {
-    margin-bottom: 6px;
-    color: var(--color-text-muted);
-    font-size: 0.75rem;
-}
-
-.finance-detail-list dd {
-    margin: 0;
-    color: var(--color-text);
-    font-size: 0.88rem;
-    font-weight: 700;
-    overflow-wrap: anywhere;
-}
-
-@media (max-width: 900px) {
-    .finance-summary-grid {
-        grid-template-columns: 1fr;
-    }
-}
-.finance-form {
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-}
-
-.finance-form__field {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-}
-
-.finance-form__field label {
-    color: rgba(255, 255, 255, 0.62);
-    font-size: 0.76rem;
-    font-weight: 700;
-}
-
-.finance-form__field input,
-.finance-form__field select,
-.finance-form__field textarea {
-    width: 100%;
-    min-height: 46px;
-    padding: 0 14px;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 12px;
-    outline: none;
-    background: rgba(255, 255, 255, 0.035);
-    color: #ffffff;
-    font: inherit;
-    transition: border-color 0.2s ease, box-shadow 0.2s ease;
-}
-
 .finance-form__field textarea {
     min-height: 90px;
     padding-top: 12px;
@@ -1124,7 +1035,7 @@ html[data-theme="light"] .finance-ai-panel__details strong {
     position: absolute;
     right: 0;
     bottom: 66px;
-    display: flex;
+    display: none;
     width: min(390px, calc(100vw - 32px));
     max-height: min(670px, calc(100vh - 115px));
     flex-direction: column;
@@ -1139,6 +1050,13 @@ html[data-theme="light"] .finance-ai-panel__details strong {
         ),
         #16111b;
     box-shadow: 0 22px 55px rgba(0, 0, 0, 0.38);
+}
+
+.finance-ai-chat__drawer:not([hidden]) {
+    display: flex;
+}
+.finance-ai-chat__drawer[hidden] {
+    display: none;
 }
 
 .finance-ai-chat__header {
@@ -1270,6 +1188,38 @@ html[data-theme="light"] .finance-ai-panel__details strong {
     color: rgba(255, 255, 255, 0.58);
     font-size: 0.72rem;
     font-weight: 700;
+}
+.finance-form {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.finance-form__field {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.finance-form__field label {
+    color: rgba(255, 255, 255, 0.62);
+    font-size: 0.76rem;
+    font-weight: 700;
+}
+
+.finance-form__field input,
+.finance-form__field select,
+.finance-form__field textarea {
+    width: 100%;
+    min-height: 46px;
+    padding: 0 14px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    outline: none;
+    background: rgba(255, 255, 255, 0.035);
+    color: #ffffff;
+    font: inherit;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .finance-ai-chat__form textarea {
