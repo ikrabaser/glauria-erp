@@ -413,6 +413,147 @@ class FinancialAccountTransaction(BaseModel):
             f"· {self.amount} {self.account.currency}"
         )
 
+class FinanceBudget(BaseModel):
+    """
+    Şirketin belirli mali yıl için oluşturduğu bütçe planı.
+    """
+
+    class Status(models.TextChoices):
+        DRAFT = "draft", "Taslak"
+        ACTIVE = "active", "Aktif"
+        CLOSED = "closed", "Kapandı"
+
+    company = models.ForeignKey(
+        Company,
+        on_delete=models.PROTECT,
+        related_name="finance_budgets",
+        verbose_name="Şirket",
+    )
+
+    name = models.CharField(
+        max_length=120,
+        verbose_name="Bütçe adı",
+    )
+
+    fiscal_year = models.PositiveSmallIntegerField(
+        verbose_name="Mali yıl",
+    )
+
+    currency = models.CharField(
+        max_length=3,
+        default="TRY",
+        verbose_name="Para birimi",
+    )
+
+    status = models.CharField(
+        max_length=12,
+        choices=Status.choices,
+        default=Status.DRAFT,
+        verbose_name="Durum",
+    )
+
+    description = models.CharField(
+        max_length=255,
+        blank=True,
+        verbose_name="Açıklama",
+    )
+
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="created_finance_budgets",
+        verbose_name="Oluşturan kullanıcı",
+    )
+
+    class Meta:
+        ordering = ["-fiscal_year", "-created_at"]
+        verbose_name = "Finans bütçesi"
+        verbose_name_plural = "Finans bütçeleri"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["company", "name", "fiscal_year"],
+                name="unique_finance_budget_name_per_year",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["company", "fiscal_year", "status"]),
+        ]
+
+    def __str__(self):
+        return f"{self.name} · {self.fiscal_year}"
+
+
+class FinanceBudgetLine(BaseModel):
+    """
+    Bütçenin aylık gelir ve gider hedef satırı.
+    Gerçekleşenler, kasa/banka hareketlerinden hesaplanacaktır.
+    """
+
+    budget = models.ForeignKey(
+        FinanceBudget,
+        on_delete=models.CASCADE,
+        related_name="lines",
+        verbose_name="Bütçe",
+    )
+
+    period_month = models.DateField(
+        verbose_name="Bütçe ayı",
+    )
+
+    category = models.CharField(
+        max_length=100,
+        verbose_name="Bütçe kalemi",
+    )
+
+    planned_inflow = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        default=Decimal("0.00"),
+        verbose_name="Planlanan nakit girişi",
+    )
+
+    planned_outflow = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        default=Decimal("0.00"),
+        verbose_name="Planlanan nakit çıkışı",
+    )
+
+    notes = models.CharField(
+        max_length=255,
+        blank=True,
+        verbose_name="Not",
+    )
+
+    class Meta:
+        ordering = ["period_month", "category"]
+        verbose_name = "Finans bütçe satırı"
+        verbose_name_plural = "Finans bütçe satırları"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["budget", "period_month", "category"],
+                name="unique_finance_budget_line_per_month",
+            ),
+            models.CheckConstraint(
+                condition=(
+                    Q(planned_inflow__gt=0)
+                    | Q(planned_outflow__gt=0)
+                ),
+                name="finance_budget_line_has_planned_amount",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["budget", "period_month"]),
+        ]
+
+    def __str__(self):
+        return (
+            f"{self.budget} · {self.category} · "
+            f"{self.period_month:%m.%Y}"
+        )
+
 def generate_payment_plan_number():
     return (
         f"PP-{timezone.localdate():%Y}-"
@@ -850,3 +991,4 @@ class FinanceAIMessage(BaseModel):
             f"{self.get_role_display()} · "
             f"{self.created_at:%d.%m.%Y %H:%M}"
         )
+

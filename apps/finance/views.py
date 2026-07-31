@@ -8,7 +8,8 @@ from datetime import date, timedelta
 from django.contrib import messages
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
-from django.views.decorators.http import require_POST
+from django.http import JsonResponse
+from django.views.decorators.http import require_GET, require_POST
 from django.db import transaction
 
 from .forms import (
@@ -16,6 +17,8 @@ from .forms import (
     FinancialAccountForm,
     PaymentPlanForm,
     PaymentPlanAllocationForm,
+    FinanceBudgetForm,
+    FinanceBudgetLineForm,
 )
 from .tasks import (
     analyze_finance_snapshot,
@@ -32,7 +35,8 @@ from apps.finance.models import (
     FinancialAccountTransaction,
     PaymentPlan,
     PaymentPlanInstallment,
-    
+    FinanceBudget,
+    FinanceBudgetLine,
 )
 from apps.sales.models import Invoice
 
@@ -566,7 +570,6 @@ def finance_ai_analysis_create(request):
             "Hazır olduğunda bildirim alacaksınız."
         ),
     )
-
 @login_required
 @require_POST
 def finance_ai_chat_send(request):
@@ -575,26 +578,32 @@ def finance_ai_chat_send(request):
     if not membership or not has_full_company_data_access(
         membership
     ):
-        return redirect("finance:home")
+        return JsonResponse(
+            {
+                "ok": False,
+                "error": "Finans AI erişim yetkiniz bulunmuyor.",
+            },
+            status=403,
+        )
 
     content = request.POST.get("message", "").strip()
 
     if not content:
-        messages.error(
-            request,
-            "Finans AI için bir mesaj yazmalısınız.",
-        )
-        return redirect(
-            f"{reverse('finance:home')}?finance_ai_chat=open"
+        return JsonResponse(
+            {
+                "ok": False,
+                "error": "Finans AI için bir mesaj yazmalısınız.",
+            },
+            status=400,
         )
 
     if len(content) > 2000:
-        messages.error(
-            request,
-            "Mesaj en fazla 2000 karakter olabilir.",
-        )
-        return redirect(
-            f"{reverse('finance:home')}?finance_ai_chat=open"
+        return JsonResponse(
+            {
+                "ok": False,
+                "error": "Mesaj en fazla 2000 karakter olabilir.",
+            },
+            status=400,
         )
 
     conversation = (
@@ -614,7 +623,7 @@ def finance_ai_chat_send(request):
             title=content[:160],
         )
 
-    FinanceAIMessage.objects.create(
+    user_message = FinanceAIMessage.objects.create(
         conversation=conversation,
         role=FinanceAIMessage.Role.USER,
         content=content,
@@ -632,11 +641,61 @@ def finance_ai_chat_send(request):
         str(assistant_message.id)
     )
 
-    return redirect(
-        f"{reverse('finance:home')}?finance_ai_chat=open"
+    return JsonResponse(
+        {
+            "ok": True,
+            "user_message": {
+                "id": str(user_message.id),
+                "content": user_message.content,
+            },
+            "assistant_message": {
+                "id": str(assistant_message.id),
+                "content": assistant_message.content,
+                "status": assistant_message.status,
+            },
+        }
     )
 
-    return redirect("finance:home")
+
+@login_required
+@require_GET
+def finance_ai_chat_message_status(request, message_id):
+    membership = get_active_membership(request.user)
+
+    if not membership or not has_full_company_data_access(
+        membership
+    ):
+        return JsonResponse(
+            {
+                "ok": False,
+                "error": "Finans AI erişim yetkiniz bulunmuyor.",
+            },
+            status=403,
+        )
+
+    assistant_message = get_object_or_404(
+        FinanceAIMessage.objects.select_related(
+            "conversation",
+        ),
+        id=message_id,
+        role=FinanceAIMessage.Role.ASSISTANT,
+        conversation__company=membership.company,
+        conversation__user=request.user,
+    )
+
+    return JsonResponse(
+        {
+            "ok": True,
+            "message": {
+                "id": str(assistant_message.id),
+                "content": assistant_message.content,
+                "status": assistant_message.status,
+                "status_display": (
+                    assistant_message.get_status_display()
+                ),
+            },
+        }
+    )
 @login_required
 def customer_accounts(request):
     membership = get_active_membership(request.user)
@@ -665,6 +724,319 @@ def customer_accounts(request):
         },
     )
 
+@login_required
+def budget_reports(request):
+    membership = get_active_membership(request.user)
+
+    if not membership or not has_full_company_data_access(
+        membership
+    ):
+        return redirect("finance:home")
+
+    money_field = DecimalField(
+        max_digits=14,
+        decimal_places=2,
+    )
+    zero_amount = Value(
+        Decimal("0.00"),
+        output_field=money_field,
+    )
+
+    budgets = (
+        FinanceBudget.objects.filter(
+            company=membership.company,
+        )
+        .annotate(
+            planned_inflow_total=Coalesce(
+                Sum("lines__planned_inflow"),
+                zero_amount,
+            ),
+            planned_outflow_total=Coalesce(
+                Sum("lines__planned_outflow"),
+                zero_amount,
+            ),
+        )
+        .order_by("-fiscal_year", "-created_at")
+    )
+
+    if (
+        request.method == "POST"
+        and budget.status != FinanceBudget.Status.DRAFT
+    ):
+        messages.error(
+            request,
+            "Aktif veya kapalı bütçeye plan satırı eklenemez.",
+        )
+        return redirect(
+            "finance:budget_detail",
+            budget_id=budget.id,
+        )
+
+    if request.method == "POST":
+        form = FinanceBudgetForm(request.POST)
+
+        if form.is_valid():
+            budget = form.save(commit=False)
+            budget.company = membership.company
+            budget.created_by = request.user
+            budget.status = FinanceBudget.Status.DRAFT
+            budget.save()
+
+            messages.success(
+                request,
+                "Bütçe taslağı oluşturuldu.",
+            )
+
+            return redirect("finance:budget_reports")
+    else:
+        form = FinanceBudgetForm(
+            initial={
+                "fiscal_year": timezone.localdate().year,
+                "currency": "TRY",
+            }
+        )
+
+    return render(
+        request,
+        "finance/budget_reports.html",
+        {
+            "current_membership": membership,
+            "budgets": budgets,
+            "form": form,
+        },
+    )
+
+@login_required
+def budget_detail(request, budget_id):
+    membership = get_active_membership(request.user)
+
+    if not membership or not has_full_company_data_access(
+        membership
+    ):
+        return redirect("finance:home")
+
+    budget = get_object_or_404(
+        FinanceBudget,
+        id=budget_id,
+        company=membership.company,
+    )
+
+    lines = list(
+        budget.lines.all().order_by(
+            "period_month",
+            "category",
+        )
+    )
+
+    monthly_budget_totals = {}
+    for line in lines:
+        line.planned_net = (
+            line.planned_inflow - line.planned_outflow
+        )
+
+        month_total = monthly_budget_totals.setdefault(
+            line.period_month,
+            {
+                "planned_inflow": Decimal("0.00"),
+                "planned_outflow": Decimal("0.00"),
+            },
+        )
+
+        month_total["planned_inflow"] += (
+            line.planned_inflow
+        )
+        month_total["planned_outflow"] += (
+            line.planned_outflow
+        )
+
+    actual_rows = (
+        FinancialAccountTransaction.objects.filter(
+            company=membership.company,
+            status=FinancialAccountTransaction.Status.ACTIVE,
+            transaction_date__year=budget.fiscal_year,
+        )
+        .annotate(
+            month=TruncMonth("transaction_date"),
+        )
+        .values(
+            "month",
+            "direction",
+        )
+        .annotate(
+            total=Sum("amount"),
+        )
+    )
+
+    monthly_actual_totals = {}
+
+    for row in actual_rows:
+        month_total = monthly_actual_totals.setdefault(
+            row["month"],
+            {
+                "actual_inflow": Decimal("0.00"),
+                "actual_outflow": Decimal("0.00"),
+            },
+        )
+
+        if row["direction"] == (
+            FinancialAccountTransaction.Direction.IN
+        ):
+            month_total["actual_inflow"] = row["total"]
+        else:
+            month_total["actual_outflow"] = row["total"]
+
+    monthly_summaries = []
+
+    for period_month, planned in sorted(
+        monthly_budget_totals.items()
+    ):
+        actual = monthly_actual_totals.get(
+            period_month,
+            {
+                "actual_inflow": Decimal("0.00"),
+                "actual_outflow": Decimal("0.00"),
+            },
+        )
+
+        planned_net = (
+            planned["planned_inflow"]
+            - planned["planned_outflow"]
+        )
+        actual_net = (
+            actual["actual_inflow"]
+            - actual["actual_outflow"]
+        )
+
+        monthly_summaries.append(
+            {
+                "period_month": period_month,
+                "planned_inflow": planned["planned_inflow"],
+                "planned_outflow": planned["planned_outflow"],
+                "planned_net": planned_net,
+                "actual_inflow": actual["actual_inflow"],
+                "actual_outflow": actual["actual_outflow"],
+                "actual_net": actual_net,
+                "net_variance": actual_net - planned_net,
+            }
+        )
+
+    planned_inflow_total = sum(
+        (
+            line.planned_inflow
+            for line in lines
+        ),
+        Decimal("0.00"),
+    )
+
+    planned_outflow_total = sum(
+        (
+            line.planned_outflow
+            for line in lines
+        ),
+        Decimal("0.00"),
+    )
+
+    planned_net_total = (
+        planned_inflow_total
+        - planned_outflow_total
+    )
+
+    if request.method == "POST":
+        form = FinanceBudgetLineForm(
+            request.POST,
+            budget=budget,
+        )
+
+        if form.is_valid():
+            line = form.save(commit=False)
+            line.budget = budget
+            line.save()
+
+            messages.success(
+                request,
+                "Aylık bütçe satırı eklendi.",
+            )
+            return redirect(
+                "finance:budget_detail",
+                budget_id=budget.id,
+            )
+    else:
+        form = FinanceBudgetLineForm(
+            budget=budget,
+        )
+
+    return render(
+        request,
+        "finance/budget_detail.html",
+        {
+            "current_membership": membership,
+            "budget": budget,
+            "lines": lines,
+            "planned_inflow_total": planned_inflow_total,
+            "planned_outflow_total": planned_outflow_total,
+            "planned_net_total": (
+                planned_inflow_total - planned_outflow_total
+            ),
+            "form": form,
+            "monthly_summaries": monthly_summaries,
+        },
+    )
+
+@login_required
+@require_POST
+def budget_status_update(request, budget_id):
+    membership = get_active_membership(request.user)
+
+    if not membership or not has_full_company_data_access(
+        membership
+    ):
+        return redirect("finance:home")
+
+    budget = get_object_or_404(
+        FinanceBudget,
+        id=budget_id,
+        company=membership.company,
+    )
+
+    action = request.POST.get("action")
+
+    if (
+        action == "activate"
+        and budget.status == FinanceBudget.Status.DRAFT
+    ):
+        if not budget.lines.exists():
+            messages.error(
+                request,
+                "Aktifleştirmek için en az bir bütçe satırı ekleyin.",
+            )
+        else:
+            budget.status = FinanceBudget.Status.ACTIVE
+            budget.save(update_fields=["status", "updated_at"])
+            messages.success(
+                request,
+                "Bütçe aktifleştirildi. Sapma takibi başladı.",
+            )
+
+    elif (
+        action == "close"
+        and budget.status == FinanceBudget.Status.ACTIVE
+    ):
+        budget.status = FinanceBudget.Status.CLOSED
+        budget.save(update_fields=["status", "updated_at"])
+        messages.success(
+            request,
+            "Bütçe kapatıldı ve salt okunur duruma alındı.",
+        )
+    else:
+        messages.error(
+            request,
+            "Bu bütçe için seçilen durum aksiyonu uygulanamadı.",
+        )
+
+    return redirect(
+        "finance:budget_detail",
+        budget_id=budget.id,
+    )
 
 @login_required
 def finance_section(request, section):
