@@ -752,11 +752,18 @@ def budget_reports(request):
         Decimal("0.00"),
         output_field=money_field,
     )
+    selected_status = request.GET.get("status", "")
+
+    valid_statuses = {
+        value
+        for value, _ in FinanceBudget.Status.choices
+    }
 
     budgets = (
         FinanceBudget.objects.filter(
             company=membership.company,
         )
+        .select_related("source_budget")
         .annotate(
             planned_inflow_total=Coalesce(
                 Sum("lines__planned_inflow"),
@@ -770,17 +777,9 @@ def budget_reports(request):
         .order_by("-fiscal_year", "-created_at")
     )
 
-    if (
-        request.method == "POST"
-        and budget.status != FinanceBudget.Status.DRAFT
-    ):
-        messages.error(
-            request,
-            "Aktif veya kapalı bütçeye plan satırı eklenemez.",
-        )
-        return redirect(
-            "finance:budget_detail",
-            budget_id=budget.id,
+    if selected_status in valid_statuses:
+        budgets = budgets.filter(
+            status=selected_status,
         )
 
     if request.method == "POST":
@@ -814,6 +813,8 @@ def budget_reports(request):
             "current_membership": membership,
             "budgets": budgets,
             "form": form,
+            "selected_status": selected_status,
+            "budget_status_choices": FinanceBudget.Status.choices,
         },
     )
 
@@ -1821,6 +1822,12 @@ def payment_plan_detail(request, plan_id):
         Decimal("0.00"),
         output_field=money_field,
     )
+    selected_status = request.GET.get("status", "")
+
+    valid_statuses = {
+        value
+        for value, _ in FinanceBudget.Status.choices
+    }
 
     installments = list(
         PaymentPlanInstallment.objects.filter(

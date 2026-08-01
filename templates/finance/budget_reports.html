@@ -8,7 +8,7 @@ Bütçe ve Raporlar | Glauria ERP
 {% block extra_css %}
     <link
         rel="stylesheet"
-        href="{% static 'css/finance.css' %}?v=budget-v1"
+        href="{% static 'css/finance.css' %}?v=budget-list-v2"
     >
 {% endblock %}
 
@@ -34,6 +34,24 @@ Bütçe ve Raporlar | Glauria ERP
                 </span>
             </div>
 
+            <div class="finance-budget-filters">
+    <a
+        href="{% url 'finance:budget_reports' %}"
+        class="finance-budget-filter{% if not selected_status %} finance-budget-filter--active{% endif %}"
+    >
+        Tümü
+    </a>
+
+    {% for status_value, status_label in budget_status_choices %}
+        <a
+            href="{% url 'finance:budget_reports' %}?status={{ status_value }}"
+            class="finance-budget-filter{% if selected_status == status_value %} finance-budget-filter--active{% endif %}"
+        >
+            {{ status_label }}
+        </a>
+    {% endfor %}
+</div>
+
             {% if budgets %}
                 <div class="data-table-wrapper">
                     <table class="data-table">
@@ -41,6 +59,7 @@ Bütçe ve Raporlar | Glauria ERP
                             <tr>
                                 <th>Bütçe</th>
                                 <th>Mali yıl</th>
+                                <th>Revizyon</th>
                                 <th>Planlanan giriş</th>
                                 <th>Planlanan çıkış</th>
                                 <th>Durum</th>
@@ -63,6 +82,21 @@ Bütçe ve Raporlar | Glauria ERP
                                         </div>
                                     </td>
                                     <td>{{ budget.fiscal_year }}</td>
+                                    <td>
+    <div class="finance-budget-revision">
+        {% if budget.source_budget %}
+            <strong>Rev.{{ budget.revision_number }}</strong>
+
+            <a
+                href="{% url 'finance:budget_detail' budget.source_budget.id %}"
+            >
+                ← {{ budget.source_budget.name }}
+            </a>
+        {% else %}
+            <span>İlk sürüm</span>
+        {% endif %}
+    </div>
+</td>
                                     <td class="finance-amount--positive">
                                         ₺{{ budget.planned_inflow_total|floatformat:2 }}
                                     </td>
@@ -74,6 +108,11 @@ Bütçe ve Raporlar | Glauria ERP
                                             <span class="status-pill status-pill--active">
                                                 Aktif
                                             </span>
+
+                                        {% elif budget.status == "pending_approval" %}
+    <span class="status-pill status-pill--lead">
+        Onay bekliyor
+    </span>
                                         {% elif budget.status == "closed" %}
                                             <span class="status-pill">
                                                 Kapandı
