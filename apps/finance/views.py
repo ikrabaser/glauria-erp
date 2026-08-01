@@ -929,6 +929,43 @@ def budget_detail(request, budget_id):
             }
         )
 
+    month_names = [
+        "Ocak",
+        "Şubat",
+        "Mart",
+        "Nisan",
+        "Mayıs",
+        "Haziran",
+        "Temmuz",
+        "Ağustos",
+        "Eylül",
+        "Ekim",
+        "Kasım",
+        "Aralık",
+    ]
+
+    budget_chart = {
+        "labels": [
+            (
+                f"{month_names[item['period_month'].month - 1]} "
+                f"{item['period_month'].year}"
+            )
+            for item in monthly_summaries
+        ],
+        "planned_net": [
+            float(item["planned_net"])
+            for item in monthly_summaries
+        ],
+        "actual_net": [
+            float(item["actual_net"])
+            for item in monthly_summaries
+        ],
+        "variance": [
+            float(item["net_variance"])
+            for item in monthly_summaries
+        ],
+    }
+
     planned_inflow_total = sum(
         (
             line.planned_inflow
@@ -988,6 +1025,7 @@ def budget_detail(request, budget_id):
             ),
             "form": form,
             "monthly_summaries": monthly_summaries,
+            "budget_chart": budget_chart,
         },
     )
 

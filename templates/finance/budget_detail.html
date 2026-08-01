@@ -373,5 +373,180 @@
             </div>
         {% endif %}
     </section>
+    <section class="finance-chart-panel finance-budget-chart-panel">
+    <div class="finance-panel__heading">
+        <div>
+            <span class="finance-panel__eyebrow">
+                YILLIK BÜTÇE GÖRÜNÜMÜ
+            </span>
+
+            <h3 class="finance-panel__title">
+                Planlanan ve Gerçekleşen Net Nakit
+            </h3>
+        </div>
+
+        <span class="finance-panel__count">
+            {{ monthly_summaries|length }} ay
+        </span>
+    </div>
+
+    {% if monthly_summaries %}
+        <div class="finance-chart-panel__legend">
+            <span class="finance-chart-legend finance-chart-legend--net">
+                Planlanan Net
+            </span>
+
+            <span class="finance-chart-legend finance-chart-legend--debit">
+                Gerçekleşen Net
+            </span>
+
+            <span class="finance-chart-legend finance-chart-legend--credit">
+                Net Sapma
+            </span>
+        </div>
+
+        <div class="finance-chart-panel__canvas">
+            <canvas id="finance-budget-chart"></canvas>
+        </div>
+    {% else %}
+        <div class="finance-panel__empty">
+            Grafik için en az bir aylık bütçe satırı ekleyin.
+        </div>
+    {% endif %}
 </section>
+
+{{ budget_chart|json_script:"finance-budget-chart-data" }}
+</section>
+{% endblock %}
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
+
+<script>
+    const budgetChartDataElement = document.getElementById(
+        "finance-budget-chart-data"
+    );
+
+    const budgetChartCanvas = document.getElementById(
+        "finance-budget-chart"
+    );
+
+    if (budgetChartDataElement && budgetChartCanvas) {
+        const budgetChartData = JSON.parse(
+            budgetChartDataElement.textContent
+        );
+
+        const isLightTheme = (
+            document.documentElement.dataset.theme === "light"
+        );
+
+        const axisColor = isLightTheme
+            ? "rgba(55, 35, 44, 0.62)"
+            : "rgba(255, 255, 255, 0.48)";
+
+        const gridColor = isLightTheme
+            ? "rgba(74, 43, 57, 0.08)"
+            : "rgba(255, 255, 255, 0.08)";
+
+        new Chart(
+            budgetChartCanvas,
+            {
+                data: {
+                    labels: budgetChartData.labels,
+                    datasets: [
+                        {
+                            type: "bar",
+                            label: "Planlanan Net",
+                            data: budgetChartData.planned_net,
+                            backgroundColor: "rgba(215, 164, 143, 0.58)",
+                            borderColor: "#d7a48f",
+                            borderWidth: 1,
+                            borderRadius: 8,
+                        },
+                        {
+                            type: "bar",
+                            label: "Gerçekleşen Net",
+                            data: budgetChartData.actual_net,
+                            backgroundColor: "rgba(83, 197, 204, 0.58)",
+                            borderColor: "#53c5cc",
+                            borderWidth: 1,
+                            borderRadius: 8,
+                        },
+                        {
+                            type: "line",
+                            label: "Net Sapma",
+                            data: budgetChartData.variance,
+                            borderColor: "#e7899c",
+                            backgroundColor: "rgba(231, 137, 156, 0.12)",
+                            borderWidth: 3,
+                            pointRadius: 4,
+                            pointHoverRadius: 6,
+                            tension: 0.35,
+                        },
+                    ],
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        mode: "index",
+                        intersect: false,
+                    },
+                    plugins: {
+                        legend: {
+                            display: false,
+                        },
+                        tooltip: {
+                            backgroundColor: "#211a2a",
+                            titleColor: "#ffffff",
+                            bodyColor: "#f4d9cd",
+                            padding: 14,
+                            callbacks: {
+                                label(context) {
+                                    return (
+                                        context.dataset.label
+                                        + ": ₺"
+                                        + new Intl.NumberFormat(
+                                            "tr-TR",
+                                            {
+                                                minimumFractionDigits: 2,
+                                                maximumFractionDigits: 2,
+                                            }
+                                        ).format(context.parsed.y)
+                                    );
+                                },
+                            },
+                        },
+                    },
+                    scales: {
+                        x: {
+                            grid: {
+                                display: false,
+                            },
+                            ticks: {
+                                color: axisColor,
+                            },
+                            border: {
+                                display: false,
+                            },
+                        },
+                        y: {
+                            grid: {
+                                color: gridColor,
+                            },
+                            ticks: {
+                                color: axisColor,
+                                callback(value) {
+                                    return "₺" + value;
+                                },
+                            },
+                            border: {
+                                display: false,
+                            },
+                        },
+                    },
+                },
+            }
+        );
+    }
+</script>
 {% endblock %}
