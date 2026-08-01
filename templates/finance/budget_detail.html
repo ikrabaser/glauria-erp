@@ -8,7 +8,7 @@
 {% block extra_css %}
 <link
     rel="stylesheet"
-    href="{% static 'css/finance.css' %}?v=budget-detail-v1"
+    href="{% static 'css/finance.css' %}?v=budget-detail-v3"
 >
 {% endblock %}
 
@@ -41,6 +41,21 @@
             <span class="finance-panel__count">
                 {{ budget.get_status_display }}
             </span>
+            {% if budget.status != "draft" %}
+    <form
+        method="post"
+        action="{% url 'finance:budget_revision_create' budget.id %}"
+    >
+        {% csrf_token %}
+
+        <button
+            type="submit"
+            class="finance-budget-status-action"
+        >
+            Yeni Revizyon Oluştur
+        </button>
+    </form>
+{% endif %}
 
             {% if budget.status == "draft" %}
                 <form
@@ -152,6 +167,9 @@
                                 <th>Planlanan giriş</th>
                                 <th>Planlanan çıkış</th>
                                 <th>Net plan</th>
+                                {% if budget.status == "draft" %}
+    <th>Aksiyon</th>
+{% endif %}
                             </tr>
                         </thead>
                         <tbody>
@@ -175,7 +193,36 @@
                                    <td class="finance-table__balance">
     ₺{{ line.planned_net|floatformat:2 }}
 </td>
-                                </tr>
+
+{% if budget.status == "draft" %}
+    <td>
+        <div class="finance-table-actions">
+            <a
+                class="finance-table-action"
+                href="{% url 'finance:budget_line_edit' budget.id line.id %}"
+            >
+                Düzenle
+            </a>
+
+            <form
+                method="post"
+                action="{% url 'finance:budget_line_delete' budget.id line.id %}"
+                onsubmit="return confirm('Bu plan satırı silinsin mi?');"
+            >
+                {% csrf_token %}
+
+                <button
+                    type="submit"
+                    class="finance-table-action finance-table-action--delete"
+                >
+                    Sil
+                </button>
+            </form>
+        </div>
+    </td>
+{% endif %}
+
+</tr>
                             {% endfor %}
                         </tbody>
                     </table>
@@ -271,7 +318,7 @@
 
         {% if monthly_summaries %}
             <div class="data-table-wrapper">
-                <table class="data-table">
+                <table class="data-table finance-budget-lines-table">
                     <thead>
                         <tr>
                             <th>Ay</th>

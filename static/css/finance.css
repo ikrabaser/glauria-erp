@@ -1703,3 +1703,61 @@ html[data-theme="dark"] .finance-budget-status-action--close {
         flex-direction: column;
     }
 }
+.finance-table-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.finance-table-actions form {
+    margin: 0;
+}
+
+.finance-table-action {
+    display: inline-flex;
+    align-items: center;
+    min-height: 30px;
+    padding: 0 11px;
+    border: 1px solid rgba(215, 164, 143, 0.28);
+    border-radius: 999px;
+    color: var(--color-rose-gold-light);
+    background: rgba(215, 164, 143, 0.08);
+    font: inherit;
+    font-size: 0.74rem;
+    font-weight: 800;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.finance-table-action:hover {
+    border-color: rgba(215, 164, 143, 0.55);
+    background: rgba(215, 164, 143, 0.16);
+}
+
+.finance-table-action--delete {
+    border-color: rgba(221, 108, 125, 0.28);
+    color: #bd4459;
+    background: rgba(221, 108, 125, 0.08);
+}
+
+html[data-theme="dark"] .finance-table-action--delete {
+    color: #f28e9d;
+}
+.finance-budget-lines-table th:last-child,
+.finance-budget-lines-table td:last-child {
+    position: sticky;
+    right: 0;
+    z-index: 1;
+    box-shadow: -10px 0 18px rgba(74, 43, 57, 0.06);
+}
+
+html[data-theme="light"] .finance-budget-lines-table th:last-child,
+html[data-theme="light"] .finance-budget-lines-table td:last-child {
+    background: #ffffff;
+}
+
+html[data-theme="dark"] .finance-budget-lines-table th:last-child,
+html[data-theme="dark"] .finance-budget-lines-table td:last-child {
+    background: #17131c;
+    box-shadow: -10px 0 18px rgba(0, 0, 0, 0.22);
+}

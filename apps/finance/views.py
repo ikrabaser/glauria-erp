@@ -1,7 +1,15 @@
 import calendar
 from decimal import Decimal, ROUND_DOWN
 from django.contrib.auth.decorators import login_required
-from django.db.models import DecimalField, ExpressionWrapper, F, Q, Sum, Value
+from django.db.models import (
+    DecimalField,
+    ExpressionWrapper,
+    F,
+    Max,
+    Q,
+    Sum,
+    Value,
+)
 from django.db.models.functions import Coalesce, TruncMonth
 from django.utils import timezone
 from datetime import date, timedelta
@@ -18,6 +26,7 @@ from .forms import (
     PaymentPlanForm,
     PaymentPlanAllocationForm,
     FinanceBudgetForm,
+    FinanceBudgetLine,
     FinanceBudgetLineForm,
 )
 from .tasks import (
@@ -983,6 +992,118 @@ def budget_detail(request, budget_id):
     )
 
 @login_required
+def budget_line_edit(request, budget_id, line_id):
+    membership = get_active_membership(request.user)
+
+    if not membership or not has_full_company_data_access(
+        membership
+    ):
+        return redirect("finance:home")
+
+    budget = get_object_or_404(
+        FinanceBudget,
+        id=budget_id,
+        company=membership.company,
+    )
+
+    if budget.status != FinanceBudget.Status.DRAFT:
+        messages.error(
+            request,
+            "Yalnızca taslak bütçenin plan satırları düzenlenebilir.",
+        )
+        return redirect(
+            "finance:budget_detail",
+            budget_id=budget.id,
+        )
+
+    line = get_object_or_404(
+        FinanceBudgetLine,
+        id=line_id,
+        budget=budget,
+    )
+
+    if request.method == "POST":
+        form = FinanceBudgetLineForm(
+            request.POST,
+            instance=line,
+            budget=budget,
+        )
+
+        if form.is_valid():
+            form.save()
+
+            messages.success(
+                request,
+                "Bütçe plan satırı güncellendi.",
+            )
+
+            return redirect(
+                "finance:budget_detail",
+                budget_id=budget.id,
+            )
+    else:
+        form = FinanceBudgetLineForm(
+            instance=line,
+            budget=budget,
+        )
+
+    return render(
+        request,
+        "finance/budget_line_edit.html",
+        {
+            "current_membership": membership,
+            "budget": budget,
+            "line": line,
+            "form": form,
+        },
+    )
+
+
+@login_required
+@require_POST
+def budget_line_delete(request, budget_id, line_id):
+    membership = get_active_membership(request.user)
+
+    if not membership or not has_full_company_data_access(
+        membership
+    ):
+        return redirect("finance:home")
+
+    budget = get_object_or_404(
+        FinanceBudget,
+        id=budget_id,
+        company=membership.company,
+    )
+
+    if budget.status != FinanceBudget.Status.DRAFT:
+        messages.error(
+            request,
+            "Yalnızca taslak bütçenin plan satırları silinebilir.",
+        )
+        return redirect(
+            "finance:budget_detail",
+            budget_id=budget.id,
+        )
+
+    line = get_object_or_404(
+        FinanceBudgetLine,
+        id=line_id,
+        budget=budget,
+    )
+
+    line.delete()
+
+    messages.success(
+        request,
+        "Bütçe plan satırı silindi.",
+    )
+
+    return redirect(
+        "finance:budget_detail",
+        budget_id=budget.id,
+    )
+
+@login_required
 @require_POST
 def budget_status_update(request, budget_id):
     membership = get_active_membership(request.user)
@@ -1036,6 +1157,86 @@ def budget_status_update(request, budget_id):
     return redirect(
         "finance:budget_detail",
         budget_id=budget.id,
+    )
+
+@login_required
+@require_POST
+def budget_revision_create(request, budget_id):
+    membership = get_active_membership(request.user)
+
+    if not membership or not has_full_company_data_access(
+        membership
+    ):
+        return redirect("finance:home")
+
+    budget = get_object_or_404(
+        FinanceBudget,
+        id=budget_id,
+        company=membership.company,
+    )
+
+    if budget.status == FinanceBudget.Status.DRAFT:
+        messages.error(
+            request,
+            "Taslak bütçeden revizyon oluşturulamaz.",
+        )
+        return redirect(
+            "finance:budget_detail",
+            budget_id=budget.id,
+        )
+
+    source_budget = budget.source_budget or budget
+
+    latest_revision = (
+        FinanceBudget.objects.filter(
+            source_budget=source_budget,
+        ).aggregate(
+            latest=Max("revision_number"),
+        )["latest"]
+        or 0
+    )
+
+    revision_number = latest_revision + 1
+
+    with transaction.atomic():
+        revision = FinanceBudget.objects.create(
+            company=membership.company,
+            name=(
+                f"{source_budget.name} Rev.{revision_number}"
+            ),
+            fiscal_year=source_budget.fiscal_year,
+            currency=source_budget.currency,
+            description=source_budget.description,
+            created_by=request.user,
+            source_budget=source_budget,
+            revision_number=revision_number,
+        )
+
+        FinanceBudgetLine.objects.bulk_create(
+            [
+                FinanceBudgetLine(
+                    budget=revision,
+                    period_month=line.period_month,
+                    category=line.category,
+                    planned_inflow=line.planned_inflow,
+                    planned_outflow=line.planned_outflow,
+                    notes=line.notes,
+                )
+                for line in budget.lines.all()
+            ]
+        )
+
+    messages.success(
+        request,
+        (
+            f"{revision.name} taslağı oluşturuldu. "
+            "Plan satırlarını bu revizyonda güncelleyebilirsiniz."
+        ),
+    )
+
+    return redirect(
+        "finance:budget_detail",
+        budget_id=revision.id,
     )
 
 @login_required

@@ -466,6 +466,19 @@ class FinanceBudget(BaseModel):
         related_name="created_finance_budgets",
         verbose_name="Oluşturan kullanıcı",
     )
+    source_budget = models.ForeignKey(
+        "self",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="revisions",
+        verbose_name="Kaynak bütçe",
+    )
+
+    revision_number = models.PositiveSmallIntegerField(
+        default=0,
+        verbose_name="Revizyon numarası",
+    )
 
     class Meta:
         ordering = ["-fiscal_year", "-created_at"]
@@ -475,6 +488,13 @@ class FinanceBudget(BaseModel):
             models.UniqueConstraint(
                 fields=["company", "name", "fiscal_year"],
                 name="unique_finance_budget_name_per_year",
+            ),
+            models.UniqueConstraint(
+                fields=[
+                    "source_budget",
+                    "revision_number",
+                ],
+                name="unique_finance_budget_revision",
             ),
         ]
         indexes = [
