@@ -325,6 +325,8 @@
                             <th>Planlanan net</th>
                             <th>Gerçekleşen net</th>
                             <th>Net sapma</th>
+                            <th>Sapma oranı</th>
+                            <th>Kontrol</th>
                             <th>Planlanan giriş / çıkış</th>
                             <th>Gerçekleşen giriş / çıkış</th>
                         </tr>
@@ -352,6 +354,33 @@
                                         </span>
                                     {% endif %}
                                 </td>
+                                <td>
+    {% if month.variance_rate is None %}
+        —
+    {% else %}
+        %{{ month.variance_rate|floatformat:2 }}
+    {% endif %}
+</td>
+
+<td>
+    {% if month.variance_status == "critical" %}
+        <span class="finance-budget-control finance-budget-control--critical">
+            Kritik
+        </span>
+    {% elif month.variance_status == "warning" %}
+        <span class="finance-budget-control finance-budget-control--warning">
+            Dikkat
+        </span>
+    {% elif month.variance_status == "healthy" %}
+        <span class="finance-budget-control finance-budget-control--healthy">
+            Uyumlu
+        </span>
+    {% else %}
+        <span class="finance-budget-control finance-budget-control--neutral">
+            Veri yok
+        </span>
+    {% endif %}
+</td>
                                 <td>
                                     +₺{{ month.planned_inflow|floatformat:2 }}
                                     /

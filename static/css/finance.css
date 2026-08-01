@@ -1761,3 +1761,51 @@ html[data-theme="dark"] .finance-budget-lines-table td:last-child {
     background: #17131c;
     box-shadow: -10px 0 18px rgba(0, 0, 0, 0.22);
 }
+/* Bütçe sapma kontrol durumu */
+
+.finance-budget-control {
+    display: inline-flex;
+    align-items: center;
+    min-height: 26px;
+    padding: 0 10px;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 800;
+}
+
+.finance-budget-control--healthy {
+    border-color: rgba(79, 201, 155, 0.28);
+    color: #278760;
+    background: rgba(79, 201, 155, 0.12);
+}
+
+.finance-budget-control--warning {
+    border-color: rgba(240, 174, 131, 0.32);
+    color: #9c4e29;
+    background: rgba(240, 174, 131, 0.13);
+}
+
+.finance-budget-control--critical {
+    border-color: rgba(221, 108, 125, 0.3);
+    color: #bd4459;
+    background: rgba(221, 108, 125, 0.12);
+}
+
+.finance-budget-control--neutral {
+    border-color: rgba(255, 255, 255, 0.13);
+    color: rgba(255, 255, 255, 0.58);
+    background: rgba(255, 255, 255, 0.05);
+}
+
+html[data-theme="dark"] .finance-budget-control--healthy {
+    color: #79e2b5;
+}
+
+html[data-theme="dark"] .finance-budget-control--warning {
+    color: #f0ae83;
+}
+
+html[data-theme="dark"] .finance-budget-control--critical {
+    color: #f28e9d;
+}

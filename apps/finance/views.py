@@ -916,6 +916,24 @@ def budget_detail(request, budget_id):
             - actual["actual_outflow"]
         )
 
+        if planned_net == Decimal("0.00"):
+            variance_rate = None
+        else:
+            variance_rate = (
+                (actual_net - planned_net)
+                / abs(planned_net)
+                * Decimal("100")
+            ).quantize(Decimal("0.01"))
+
+        if variance_rate is None:
+            variance_status = "neutral"
+        elif variance_rate <= Decimal("-20.00"):
+            variance_status = "critical"
+        elif variance_rate < Decimal("-5.00"):
+            variance_status = "warning"
+        else:
+            variance_status = "healthy"
+
         monthly_summaries.append(
             {
                 "period_month": period_month,
@@ -926,6 +944,8 @@ def budget_detail(request, budget_id):
                 "actual_outflow": actual["actual_outflow"],
                 "actual_net": actual_net,
                 "net_variance": actual_net - planned_net,
+                "variance_rate": variance_rate,
+                "variance_status": variance_status,
             }
         )
 
