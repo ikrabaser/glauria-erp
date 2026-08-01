@@ -41,6 +41,12 @@
     <span class="finance-panel__count">
         {{ budget.get_status_display }}
     </span>
+    <a
+    href="{% url 'finance:budget_revision_compare' budget.id %}"
+    class="finance-budget-status-action"
+>
+    Revizyonları Karşılaştır
+</a>
 
     {% if budget.status == "active" or budget.status == "closed" %}
         <form

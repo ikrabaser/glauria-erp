@@ -2071,3 +2071,112 @@ html[data-theme="light"] .finance-budget-portfolio__statuses strong {
         grid-template-columns: 1fr;
     }
 }
+/* Bütçe revizyon karşılaştırması */
+
+.finance-revision-compare-panel {
+    padding: 28px;
+    border: 1px solid rgba(215, 164, 143, 0.2);
+    border-radius: 22px;
+    background:
+        radial-gradient(
+            circle at 100% 0%,
+            rgba(111, 68, 143, 0.14),
+            transparent 34%
+        ),
+        rgba(255, 255, 255, 0.03);
+}
+
+.finance-revision-compare-form {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: end;
+    gap: 14px;
+    margin-top: 20px;
+}
+
+.finance-revision-compare-form .finance-form__field {
+    margin: 0;
+}
+
+.finance-revision-compare-form label {
+    display: block;
+    margin-bottom: 8px;
+    color: rgba(255, 255, 255, 0.68);
+    font-size: 0.78rem;
+    font-weight: 800;
+}
+
+.finance-revision-compare-form select {
+    width: 100%;
+    min-height: 48px;
+    padding: 0 14px;
+    border: 1px solid rgba(215, 164, 143, 0.3);
+    border-radius: 12px;
+    color: #ffffff;
+    background: rgba(255, 255, 255, 0.05);
+    font: inherit;
+}
+
+.finance-revision-compare-form option {
+    color: #211a2a;
+    background: #ffffff;
+}
+
+.finance-revision-compare-form .finance-form__submit {
+    min-width: 230px;
+    min-height: 48px;
+    padding: 0 18px;
+    border: 0;
+    border-radius: 13px;
+    color: #20131a;
+    background: linear-gradient(
+        135deg,
+        #e5b39d,
+        #d7a48f
+    );
+    font: inherit;
+    font-size: 0.84rem;
+    font-weight: 800;
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.finance-revision-compare-form .finance-form__submit:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 26px rgba(215, 164, 143, 0.24);
+}
+
+html[data-theme="light"] .finance-revision-compare-panel {
+    border-color: rgba(157, 83, 139, 0.18);
+    background:
+        radial-gradient(
+            circle at 100% 0%,
+            rgba(177, 124, 220, 0.16),
+            transparent 34%
+        ),
+        rgba(255, 255, 255, 0.7);
+}
+
+html[data-theme="light"] .finance-revision-compare-form label {
+    color: rgba(55, 35, 44, 0.68);
+}
+
+html[data-theme="light"] .finance-revision-compare-form select {
+    border-color: rgba(74, 43, 57, 0.16);
+    color: #3b2530;
+    background: rgba(255, 255, 255, 0.82);
+}
+
+@media (max-width: 640px) {
+    .finance-revision-compare-panel {
+        padding: 20px;
+    }
+
+    .finance-revision-compare-form {
+        grid-template-columns: 1fr;
+    }
+
+    .finance-revision-compare-form .finance-form__submit {
+        width: 100%;
+    }
+}

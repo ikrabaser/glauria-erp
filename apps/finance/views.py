@@ -1440,7 +1440,125 @@ def budget_return_to_draft(request, budget_id):
             "budget": budget,
         },
     )
-    
+@login_required
+def budget_revision_compare(request, budget_id):
+    membership = get_active_membership(request.user)
+
+    if not membership or not has_full_company_data_access(
+        membership
+    ):
+        return redirect("finance:home")
+
+    budget = get_object_or_404(
+        FinanceBudget,
+        id=budget_id,
+        company=membership.company,
+    )
+
+    source_budget = budget.source_budget or budget
+
+    revisions = (
+        FinanceBudget.objects.filter(
+            company=membership.company,
+        )
+        .filter(
+            Q(id=source_budget.id)
+            | Q(source_budget=source_budget)
+        )
+        .order_by("revision_number", "created_at")
+    )
+
+    selected_revision_id = request.GET.get("revision")
+
+    selected_revision = budget
+
+    if selected_revision_id:
+        selected_revision = get_object_or_404(
+            revisions,
+            id=selected_revision_id,
+        )
+
+    source_lines = {
+        (line.period_month, line.category): line
+        for line in source_budget.lines.all()
+    }
+    revision_lines = {
+        (line.period_month, line.category): line
+        for line in selected_revision.lines.all()
+    }
+
+    comparison_rows = []
+
+    for period_month, category in sorted(
+        set(source_lines) | set(revision_lines)
+    ):
+        source_line = source_lines.get(
+            (period_month, category)
+        )
+        revision_line = revision_lines.get(
+            (period_month, category)
+        )
+
+        source_inflow = (
+            source_line.planned_inflow
+            if source_line
+            else Decimal("0.00")
+        )
+        source_outflow = (
+            source_line.planned_outflow
+            if source_line
+            else Decimal("0.00")
+        )
+        revision_inflow = (
+            revision_line.planned_inflow
+            if revision_line
+            else Decimal("0.00")
+        )
+        revision_outflow = (
+            revision_line.planned_outflow
+            if revision_line
+            else Decimal("0.00")
+        )
+
+        comparison_rows.append(
+            {
+                "period_month": period_month,
+                "category": category,
+                "source_inflow": source_inflow,
+                "revision_inflow": revision_inflow,
+                "inflow_change": (
+                    revision_inflow - source_inflow
+                ),
+                "source_outflow": source_outflow,
+                "revision_outflow": revision_outflow,
+                "outflow_change": (
+                    revision_outflow - source_outflow
+                ),
+                "source_net": (
+                    source_inflow - source_outflow
+                ),
+                "revision_net": (
+                    revision_inflow - revision_outflow
+                ),
+                "net_change": (
+                    (revision_inflow - revision_outflow)
+                    - (source_inflow - source_outflow)
+                ),
+            }
+        )
+
+    return render(
+        request,
+        "finance/budget_revision_compare.html",
+        {
+            "current_membership": membership,
+            "budget": budget,
+            "source_budget": source_budget,
+            "revisions": revisions,
+            "selected_revision": selected_revision,
+            "comparison_rows": comparison_rows,
+        },
+    )
 @login_required
 @require_POST
 def budget_revision_create(request, budget_id):
