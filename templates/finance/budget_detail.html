@@ -278,6 +278,21 @@
                         </h3>
                     </div>
                 </div>
+                {% if budget.returned_at %}
+    <div class="finance-budget-return-notice">
+        <strong>Son iade kaydı</strong>
+
+        <p>
+            {{ budget.return_reason }}
+        </p>
+
+        <span>
+            {{ budget.returned_by|default:"—" }}
+            ·
+            {{ budget.returned_at|date:"d.m.Y H:i" }}
+        </span>
+    </div>
+{% endif %}
 
                 <form method="post" class="finance-form">
                     {% csrf_token %}

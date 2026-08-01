@@ -1858,3 +1858,48 @@ html[data-theme="light"] .finance-budget-approval-list dd {
         grid-template-columns: 1fr;
     }
 }
+/* Bütçe taslağa iade kaydı */
+
+.finance-budget-return-notice {
+    margin: 4px 0 18px;
+    padding: 14px;
+    border: 1px solid rgba(240, 174, 131, 0.26);
+    border-radius: 14px;
+    background: rgba(240, 174, 131, 0.06);
+}
+
+.finance-budget-return-notice strong {
+    display: block;
+    margin-bottom: 7px;
+    color: #f0ae83;
+    font-size: 0.76rem;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.finance-budget-return-notice p {
+    margin: 0 0 8px;
+    color: rgba(255, 255, 255, 0.82);
+    font-size: 0.86rem;
+    line-height: 1.55;
+}
+
+.finance-budget-return-notice span {
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 0.76rem;
+    font-weight: 700;
+}
+
+html[data-theme="light"] .finance-budget-return-notice {
+    border-color: rgba(156, 78, 41, 0.2);
+    background: rgba(240, 174, 131, 0.12);
+}
+
+html[data-theme="light"] .finance-budget-return-notice p {
+    color: #5d3940;
+}
+
+html[data-theme="light"] .finance-budget-return-notice span {
+    color: rgba(55, 35, 44, 0.58);
+}
