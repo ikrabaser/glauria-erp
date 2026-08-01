@@ -48,6 +48,8 @@ from apps.finance.models import (
     FinanceBudgetLine,
 )
 from apps.sales.models import Invoice
+from apps.accounts.models import OrganizationMembership
+from apps.core.models import Notification
 
 
 def get_active_membership(user):
@@ -1202,6 +1204,35 @@ def budget_status_update(request, budget_id):
                     "updated_at",
                 ],
             )
+            target_url = reverse(
+                "finance:budget_detail",
+                kwargs={"budget_id": budget.id},
+            )
+
+            approver_ids = (
+                OrganizationMembership.objects.filter(
+                    company=membership.company,
+                    is_active=True,
+                    role__in=[
+                        OrganizationMembership.Role.OWNER,
+                        OrganizationMembership.Role.ADMIN,
+                    ],
+                )
+                .values_list("user_id", flat=True)
+                .distinct()
+            )
+
+            for user_id in approver_ids:
+                Notification.objects.create(
+                    user_id=user_id,
+                    notification_type=Notification.NotificationType.INFO,
+                    title="Bütçe onay bekliyor",
+                    message=(
+                        f"{budget.name} bütçesi onayınıza gönderildi."
+                    ),
+                    target_url=target_url,
+                )
+
             messages.success(
                 request,
                 "Bütçe onaya gönderildi.",
@@ -1222,6 +1253,22 @@ def budget_status_update(request, budget_id):
                 "approved_at",
                 "updated_at",
             ],
+            )
+        if budget.submitted_by:
+            Notification.objects.create(
+                user=budget.submitted_by,
+                notification_type=Notification.NotificationType.SUCCESS,
+                title="Bütçe onaylandı",
+                message=(
+                    f"{budget.name} bütçesi onaylandı ve aktifleştirildi."
+                ),
+                target_url=reverse(
+                    "finance:budget_detail",
+                    kwargs={"budget_id": budget.id},
+                ),
+            
+
+            
         )
         messages.success(
             request,
@@ -1254,6 +1301,7 @@ def budget_status_update(request, budget_id):
         "finance:budget_detail",
         budget_id=budget.id,
     )
+    
 @login_required
 @require_POST
 def budget_revision_create(request, budget_id):
