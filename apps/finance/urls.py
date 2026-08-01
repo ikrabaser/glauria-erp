@@ -21,6 +21,7 @@ from .views import (
     budget_revision_create,
     budget_line_delete,
     budget_line_edit,
+    budget_return_to_draft,
 )
 
 
@@ -112,6 +113,11 @@ urlpatterns = [
         "butce-raporlar/<uuid:budget_id>/revizyon-olustur/",
         budget_revision_create,
         name="budget_revision_create",
+    ),
+        path(
+        "butce-raporlar/<uuid:budget_id>/taslaga-iade/",
+        budget_return_to_draft,
+        name="budget_return_to_draft",
     ),
     path(
         "butce-raporlar/<uuid:budget_id>/durum/",

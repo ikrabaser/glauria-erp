@@ -92,6 +92,13 @@
                 value="approve"
             >
 
+                    <a
+            href="{% url 'finance:budget_return_to_draft' budget.id %}"
+            class="finance-budget-status-action finance-budget-status-action--close"
+        >
+            Taslağa İade Et
+        </a>
+
             <button
                 type="submit"
                 class="finance-budget-status-action"

@@ -1301,6 +1301,93 @@ def budget_status_update(request, budget_id):
         "finance:budget_detail",
         budget_id=budget.id,
     )
+
+@login_required
+def budget_return_to_draft(request, budget_id):
+    membership = get_active_membership(request.user)
+
+    if not membership or not has_full_company_data_access(
+        membership
+    ):
+        return redirect("finance:home")
+
+    budget = get_object_or_404(
+        FinanceBudget,
+        id=budget_id,
+        company=membership.company,
+    )
+
+    if budget.status != FinanceBudget.Status.PENDING_APPROVAL:
+        messages.error(
+            request,
+            "Yalnızca onay bekleyen bütçeler taslağa iade edilebilir.",
+        )
+        return redirect(
+            "finance:budget_detail",
+            budget_id=budget.id,
+        )
+
+    if request.method == "POST":
+        return_reason = request.POST.get(
+            "return_reason",
+            "",
+        ).strip()
+
+        if not return_reason:
+            messages.error(
+                request,
+                "Taslağa iade gerekçesi yazmalısınız.",
+            )
+        else:
+            budget.status = FinanceBudget.Status.DRAFT
+            budget.returned_by = request.user
+            budget.returned_at = timezone.now()
+            budget.return_reason = return_reason
+            budget.save(
+                update_fields=[
+                    "status",
+                    "returned_by",
+                    "returned_at",
+                    "return_reason",
+                    "updated_at",
+                ],
+            )
+
+            if budget.submitted_by:
+                Notification.objects.create(
+                    user=budget.submitted_by,
+                    notification_type=(
+                        Notification.NotificationType.WARNING
+                    ),
+                    title="Bütçe taslağa iade edildi",
+                    message=(
+                        f"{budget.name} bütçesi taslağa iade edildi. "
+                        f"Gerekçe: {return_reason}"
+                    ),
+                    target_url=reverse(
+                        "finance:budget_detail",
+                        kwargs={"budget_id": budget.id},
+                    ),
+                )
+
+            messages.success(
+                request,
+                "Bütçe gerekçesiyle taslağa iade edildi.",
+            )
+
+            return redirect(
+                "finance:budget_detail",
+                budget_id=budget.id,
+            )
+
+    return render(
+        request,
+        "finance/budget_return_to_draft.html",
+        {
+            "current_membership": membership,
+            "budget": budget,
+        },
+    )
     
 @login_required
 @require_POST

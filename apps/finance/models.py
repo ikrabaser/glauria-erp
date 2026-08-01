@@ -496,6 +496,25 @@ class FinanceBudget(BaseModel):
         blank=True,
         verbose_name="Onay zamanı",
     )
+    returned_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="returned_finance_budgets",
+        verbose_name="Taslağa iade eden kullanıcı",
+    )
+
+    returned_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="Taslağa iade zamanı",
+    )
+
+    return_reason = models.TextField(
+        blank=True,
+        verbose_name="Taslağa iade gerekçesi",
+    )
     source_budget = models.ForeignKey(
         "self",
         on_delete=models.PROTECT,
