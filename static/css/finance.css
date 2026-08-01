@@ -2384,3 +2384,106 @@ html[data-theme="light"] .finance-budget-history__actor strong {
         gap: 8px;
     }
 }
+/* Bütçe kontrol hesapları */
+
+.finance-budget-toolbar {
+    display: flex;
+    justify-content: flex-end;
+    margin: -10px 0 18px;
+}
+
+.finance-budget-toolbar__action {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 38px;
+    padding: 0 16px;
+    border: 1px solid rgba(79, 201, 155, 0.3);
+    border-radius: 999px;
+    color: #79e2b5;
+    background: rgba(79, 201, 155, 0.1);
+    font-size: 0.78rem;
+    font-weight: 800;
+    text-decoration: none;
+}
+
+.finance-budget-toolbar__action:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 10px 22px rgba(79, 201, 155, 0.14);
+}
+
+.finance-budget-accounts-layout {
+    display: grid;
+    grid-template-columns:
+        minmax(0, 1.55fr)
+        minmax(340px, 0.75fr);
+    align-items: start;
+    gap: 18px;
+}
+
+.finance-budget-account-type,
+.finance-budget-account-status {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 28px;
+    padding: 0 10px;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 800;
+}
+
+.finance-budget-account-type--revenue,
+.finance-budget-account-status--active {
+    border: 1px solid rgba(79, 201, 155, 0.28);
+    color: #79e2b5;
+    background: rgba(79, 201, 155, 0.1);
+}
+
+.finance-budget-account-type--expense {
+    border: 1px solid rgba(240, 174, 131, 0.3);
+    color: #f0ae83;
+    background: rgba(240, 174, 131, 0.1);
+}
+
+.finance-budget-account-status--passive {
+    border: 1px solid rgba(221, 108, 125, 0.28);
+    color: #f28e9d;
+    background: rgba(221, 108, 125, 0.08);
+}
+
+.finance-budget-account-usage {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    color: rgba(255, 255, 255, 0.58);
+    font-size: 0.76rem;
+}
+
+.finance-budget-account-form input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    min-height: 18px;
+    accent-color: #d7a48f;
+}
+
+html[data-theme="light"] .finance-budget-account-usage {
+    color: rgba(55, 35, 44, 0.58);
+}
+
+@media (max-width: 1100px) {
+    .finance-budget-accounts-layout {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 640px) {
+    .finance-budget-toolbar {
+        justify-content: stretch;
+        margin-top: 0;
+    }
+
+    .finance-budget-toolbar__action {
+        width: 100%;
+    }
+}

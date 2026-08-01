@@ -1,0 +1,180 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}
+Bütçe Kontrol Hesapları | Glauria ERP
+{% endblock %}
+
+{% block extra_css %}
+<link
+    rel="stylesheet"
+    href="{% static 'css/finance.css' %}?v=budget-accounts-v1"
+>
+{% endblock %}
+
+{% block content %}
+<section class="module-page finance-dashboard">
+    <a
+        href="{% url 'finance:budget_reports' %}"
+        class="finance-back-link"
+    >
+        ← Bütçe ve Raporlara Dön
+    </a>
+
+    {% include "components/page_header.html" with eyebrow="BÜTÇE KONTROLÜ" title="Bütçe Kontrol Hesapları" description="Gelir ve gider planlarını gerçekleşen finans hareketleriyle aynı kontrol hesabı üzerinden ilişkilendirin." %}
+
+    <div class="finance-budget-accounts-layout">
+        <section class="finance-panel">
+            <div class="finance-panel__heading">
+                <div>
+                    <span class="finance-panel__eyebrow">
+                        KONTROL HİYERARŞİSİ
+                    </span>
+
+                    <h3 class="finance-panel__title">
+                        Hesap Listesi
+                    </h3>
+                </div>
+
+                <span class="finance-panel__count">
+                    {{ accounts|length }} hesap
+                </span>
+            </div>
+
+            {% if accounts %}
+                <div class="data-table-wrapper">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Hesap kodu</th>
+                                <th>Hesap adı</th>
+                                <th>Tür</th>
+                                <th>Kullanım</th>
+                                <th>Durum</th>
+                            </tr>
+                        </thead>
+
+                        <tbody>
+                            {% for account in accounts %}
+                                <tr>
+                                    <td class="finance-table__balance">
+                                        {{ account.code }}
+                                    </td>
+
+                                    <td>
+                                        <div class="customer-cell">
+                                            <strong>{{ account.name }}</strong>
+                                            <span>
+                                                {{ account.description|default:"—" }}
+                                            </span>
+                                        </div>
+                                    </td>
+
+                                    <td>
+                                        <span
+                                            class="
+                                                finance-budget-account-type
+                                                finance-budget-account-type--{{ account.account_type }}
+                                            "
+                                        >
+                                            {{ account.get_account_type_display }}
+                                        </span>
+                                    </td>
+
+                                    <td>
+                                        <div class="finance-budget-account-usage">
+                                            <span>
+                                                {{ account.budget_line_count }}
+                                                plan satırı
+                                            </span>
+
+                                            <span>
+                                                {{ account.transaction_count }}
+                                                hareket
+                                            </span>
+                                        </div>
+                                    </td>
+
+                                    <td>
+                                        <span
+                                            class="
+                                                finance-budget-account-status
+                                                {% if account.is_active %}
+                                                    finance-budget-account-status--active
+                                                {% else %}
+                                                    finance-budget-account-status--passive
+                                                {% endif %}
+                                            "
+                                        >
+                                            {% if account.is_active %}
+                                                Aktif
+                                            {% else %}
+                                                Pasif
+                                            {% endif %}
+                                        </span>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <div class="finance-panel__empty">
+                    Henüz bütçe kontrol hesabı bulunmuyor.
+                </div>
+            {% endif %}
+        </section>
+
+        <section class="finance-panel">
+            <div class="finance-panel__heading">
+                <div>
+                    <span class="finance-panel__eyebrow">
+                        YENİ KONTROL HESABI
+                    </span>
+
+                    <h3 class="finance-panel__title">
+                        Bütçe Hesabı Oluştur
+                    </h3>
+                </div>
+            </div>
+
+            <form
+                method="post"
+                class="finance-form finance-budget-account-form"
+            >
+                {% csrf_token %}
+
+                {% if form.non_field_errors %}
+                    <div class="finance-form__errors">
+                        {{ form.non_field_errors }}
+                    </div>
+                {% endif %}
+
+                {% for field in form %}
+                    <div class="finance-form__field">
+                        <label for="{{ field.id_for_label }}">
+                            {{ field.label }}
+                        </label>
+
+                        {{ field }}
+                        {{ field.errors }}
+
+                        {% if field.help_text %}
+                            <span class="finance-form__help">
+                                {{ field.help_text }}
+                            </span>
+                        {% endif %}
+                    </div>
+                {% endfor %}
+
+                <button
+                    type="submit"
+                    class="finance-form__submit"
+                >
+                    Kontrol Hesabı Oluştur
+                </button>
+            </form>
+        </section>
+    </div>
+</section>
+{% endblock %}

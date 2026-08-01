@@ -297,7 +297,72 @@ class FinancialAccount(BaseModel):
         )
 
         return incoming - outgoing
+class FinanceBudgetAccount(BaseModel):
+    """
+    Bütçe planları, gerçekleşen finans hareketleri ve ileride
+    satın alma taahhütleri tarafından ortak kullanılan kontrol hesabı.
+    """
 
+    class AccountType(models.TextChoices):
+        REVENUE = "revenue", "Gelir"
+        EXPENSE = "expense", "Gider"
+
+    company = models.ForeignKey(
+        Company,
+        on_delete=models.PROTECT,
+        related_name="finance_budget_accounts",
+        verbose_name="Şirket",
+    )
+
+    code = models.CharField(
+        max_length=30,
+        verbose_name="Bütçe hesap kodu",
+    )
+
+    name = models.CharField(
+        max_length=120,
+        verbose_name="Bütçe hesap adı",
+    )
+
+    account_type = models.CharField(
+        max_length=12,
+        choices=AccountType.choices,
+        verbose_name="Hesap türü",
+    )
+
+    description = models.CharField(
+        max_length=255,
+        blank=True,
+        verbose_name="Açıklama",
+    )
+
+    is_active = models.BooleanField(
+        default=True,
+        verbose_name="Aktif",
+    )
+
+    class Meta:
+        ordering = ["code", "name"]
+        verbose_name = "Finans bütçe hesabı"
+        verbose_name_plural = "Finans bütçe hesapları"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["company", "code"],
+                name="unique_finance_budget_account_code",
+            ),
+        ]
+        indexes = [
+            models.Index(
+                fields=[
+                    "company",
+                    "account_type",
+                    "is_active",
+                ],
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.code} · {self.name}"
 
 class FinancialAccountTransaction(BaseModel):
     """
@@ -331,6 +396,15 @@ class FinancialAccountTransaction(BaseModel):
         on_delete=models.PROTECT,
         related_name="financial_account_transactions",
         verbose_name="Şirket",
+    )
+
+    budget_account = models.ForeignKey(
+        FinanceBudgetAccount,
+        on_delete=models.PROTECT,
+        related_name="financial_transactions",
+        null=True,
+        blank=True,
+        verbose_name="Bütçe kontrol hesabı",
     )
 
     customer_account_transaction = models.OneToOneField(
@@ -658,6 +732,12 @@ class FinanceBudgetLine(BaseModel):
         related_name="lines",
         verbose_name="Bütçe",
     )
+    budget_account = models.ForeignKey(
+        FinanceBudgetAccount,
+        on_delete=models.PROTECT,
+        related_name="budget_lines",
+        verbose_name="Bütçe kontrol hesabı",
+    )
 
     period_month = models.DateField(
         verbose_name="Bütçe ayı",
@@ -694,9 +774,13 @@ class FinanceBudgetLine(BaseModel):
         verbose_name_plural = "Finans bütçe satırları"
         constraints = [
             models.UniqueConstraint(
-                fields=["budget", "period_month", "category"],
-                name="unique_finance_budget_line_per_month",
-            ),
+    fields=[
+        "budget",
+        "period_month",
+        "budget_account",
+    ],
+    name="unique_budget_account_line_per_month",
+),
             models.CheckConstraint(
                 condition=(
                     Q(planned_inflow__gt=0)

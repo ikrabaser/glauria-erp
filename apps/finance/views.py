@@ -29,6 +29,7 @@ from .forms import (
     FinanceBudgetForm,
     FinanceBudgetLine,
     FinanceBudgetLineForm,
+    FinanceBudgetAccountForm,
 )
 from .tasks import (
     analyze_finance_snapshot,
@@ -48,6 +49,7 @@ from apps.finance.models import (
     FinanceBudget,
     FinanceBudgetLine,
     FinanceBudgetWorkflowEvent,
+    FinanceBudgetAccount,
 )
 from apps.sales.models import Invoice
 from apps.accounts.models import OrganizationMembership
@@ -736,6 +738,69 @@ def customer_accounts(request):
             "accounts": accounts,
         },
     )
+@login_required
+def budget_accounts(request):
+    membership = get_active_membership(request.user)
+
+    if not membership or not has_full_company_data_access(
+        membership
+    ):
+        return redirect("finance:home")
+
+    accounts = (
+        FinanceBudgetAccount.objects.filter(
+            company=membership.company,
+        )
+        .annotate(
+            budget_line_count=Count(
+                "budget_lines",
+                distinct=True,
+            ),
+            transaction_count=Count(
+                "financial_transactions",
+                distinct=True,
+            ),
+        )
+        .order_by(
+            "account_type",
+            "code",
+        )
+    )
+
+    if request.method == "POST":
+        form = FinanceBudgetAccountForm(
+            request.POST,
+            company=membership.company,
+        )
+
+        if form.is_valid():
+            account = form.save(commit=False)
+            account.company = membership.company
+            account.save()
+
+            messages.success(
+                request,
+                "Bütçe kontrol hesabı oluşturuldu.",
+            )
+
+            return redirect(
+                "finance:budget_accounts",
+            )
+    else:
+        form = FinanceBudgetAccountForm(
+            company=membership.company,
+        )
+
+    return render(
+        request,
+        "finance/budget_accounts.html",
+        {
+            "current_membership": membership,
+            "accounts": accounts,
+            "form": form,
+        },
+    )
+
 
 @login_required
 def budget_reports(request):
@@ -1660,10 +1725,11 @@ def budget_revision_create(request, budget_id):
             revision_number=revision_number,
         )
 
-        FinanceBudgetLine.objects.bulk_create
-        [
+        FinanceBudgetLine.objects.bulk_create(
+            [
                 FinanceBudgetLine(
                     budget=revision,
+                    budget_account_id=line.budget_account_id,
                     period_month=line.period_month,
                     category=line.category,
                     planned_inflow=line.planned_inflow,
@@ -1672,6 +1738,7 @@ def budget_revision_create(request, budget_id):
                 )
                 for line in budget.lines.all()
             ]
+        )
     messages.success(
         request,
         (

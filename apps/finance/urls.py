@@ -23,6 +23,7 @@ from .views import (
     budget_line_edit,
     budget_return_to_draft,
     budget_revision_compare,
+    budget_accounts,
 )
 
 
@@ -90,6 +91,11 @@ urlpatterns = [
         cash_flow,
         name="cash_flow",
     ),
+    path(
+    "butce-hesaplari/",
+    budget_accounts,
+    name="budget_accounts",
+),
     path(
         "butce-raporlar/",
         budget_reports,
