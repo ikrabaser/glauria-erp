@@ -1,7 +1,16 @@
 import calendar
 from decimal import Decimal, ROUND_DOWN
 from django.contrib.auth.decorators import login_required
-from django.db.models import DecimalField, ExpressionWrapper, F, Q, Sum, Value
+from django.db.models import (
+    Count,
+    DecimalField,
+    ExpressionWrapper,
+    F,
+    Max,
+    Q,
+    Sum,
+    Value,
+)
 from django.db.models.functions import Coalesce, TruncMonth
 from django.utils import timezone
 from datetime import date, timedelta
@@ -18,6 +27,7 @@ from .forms import (
     PaymentPlanForm,
     PaymentPlanAllocationForm,
     FinanceBudgetForm,
+    FinanceBudgetLine,
     FinanceBudgetLineForm,
 )
 from .tasks import (
@@ -39,6 +49,8 @@ from apps.finance.models import (
     FinanceBudgetLine,
 )
 from apps.sales.models import Invoice
+from apps.accounts.models import OrganizationMembership
+from apps.core.models import Notification
 
 
 def get_active_membership(user):
@@ -741,11 +753,18 @@ def budget_reports(request):
         Decimal("0.00"),
         output_field=money_field,
     )
+    selected_status = request.GET.get("status", "")
+
+    valid_statuses = {
+        value
+        for value, _ in FinanceBudget.Status.choices
+    }
 
     budgets = (
         FinanceBudget.objects.filter(
             company=membership.company,
         )
+        .select_related("source_budget")
         .annotate(
             planned_inflow_total=Coalesce(
                 Sum("lines__planned_inflow"),
@@ -759,18 +778,56 @@ def budget_reports(request):
         .order_by("-fiscal_year", "-created_at")
     )
 
-    if (
-        request.method == "POST"
-        and budget.status != FinanceBudget.Status.DRAFT
-    ):
-        messages.error(
-            request,
-            "Aktif veya kapalı bütçeye plan satırı eklenemez.",
+    if selected_status in valid_statuses:
+        budgets = budgets.filter(
+            status=selected_status,
         )
-        return redirect(
-            "finance:budget_detail",
-            budget_id=budget.id,
+
+    active_budget_totals = (
+        FinanceBudget.objects.filter(
+            company=membership.company,
+            status=FinanceBudget.Status.ACTIVE,
         )
+        .aggregate(
+            planned_inflow=Coalesce(
+                Sum("lines__planned_inflow"),
+                zero_amount,
+            ),
+            planned_outflow=Coalesce(
+                Sum("lines__planned_outflow"),
+                zero_amount,
+            ),
+        )
+    )
+
+    active_budget_net_total = (
+        active_budget_totals["planned_inflow"]
+        - active_budget_totals["planned_outflow"]
+    )
+
+    status_count_rows = (
+        FinanceBudget.objects.filter(
+            company=membership.company,
+        )
+        .values("status")
+        .annotate(total=Count("id"))
+    )
+
+    status_counts = {
+        row["status"]: row["total"]
+        for row in status_count_rows
+    }
+
+    budget_portfolio_chart = {
+        "labels": [
+            label
+            for _, label in FinanceBudget.Status.choices
+        ],
+        "values": [
+            status_counts.get(status, 0)
+            for status, _ in FinanceBudget.Status.choices
+        ],
+    }
 
     if request.method == "POST":
         form = FinanceBudgetForm(request.POST)
@@ -803,6 +860,12 @@ def budget_reports(request):
             "current_membership": membership,
             "budgets": budgets,
             "form": form,
+            "selected_status": selected_status,
+            "budget_status_choices": FinanceBudget.Status.choices,
+            "active_budget_totals": active_budget_totals,
+            "active_budget_net_total": active_budget_net_total,
+            "status_counts": status_counts,
+            "budget_portfolio_chart": budget_portfolio_chart,
         },
     )
 
@@ -907,6 +970,24 @@ def budget_detail(request, budget_id):
             - actual["actual_outflow"]
         )
 
+        if planned_net == Decimal("0.00"):
+            variance_rate = None
+        else:
+            variance_rate = (
+                (actual_net - planned_net)
+                / abs(planned_net)
+                * Decimal("100")
+            ).quantize(Decimal("0.01"))
+
+        if variance_rate is None:
+            variance_status = "neutral"
+        elif variance_rate <= Decimal("-20.00"):
+            variance_status = "critical"
+        elif variance_rate < Decimal("-5.00"):
+            variance_status = "warning"
+        else:
+            variance_status = "healthy"
+
         monthly_summaries.append(
             {
                 "period_month": period_month,
@@ -917,8 +998,47 @@ def budget_detail(request, budget_id):
                 "actual_outflow": actual["actual_outflow"],
                 "actual_net": actual_net,
                 "net_variance": actual_net - planned_net,
+                "variance_rate": variance_rate,
+                "variance_status": variance_status,
             }
         )
+
+    month_names = [
+        "Ocak",
+        "Şubat",
+        "Mart",
+        "Nisan",
+        "Mayıs",
+        "Haziran",
+        "Temmuz",
+        "Ağustos",
+        "Eylül",
+        "Ekim",
+        "Kasım",
+        "Aralık",
+    ]
+
+    budget_chart = {
+        "labels": [
+            (
+                f"{month_names[item['period_month'].month - 1]} "
+                f"{item['period_month'].year}"
+            )
+            for item in monthly_summaries
+        ],
+        "planned_net": [
+            float(item["planned_net"])
+            for item in monthly_summaries
+        ],
+        "actual_net": [
+            float(item["actual_net"])
+            for item in monthly_summaries
+        ],
+        "variance": [
+            float(item["net_variance"])
+            for item in monthly_summaries
+        ],
+    }
 
     planned_inflow_total = sum(
         (
@@ -979,7 +1099,120 @@ def budget_detail(request, budget_id):
             ),
             "form": form,
             "monthly_summaries": monthly_summaries,
+            "budget_chart": budget_chart,
         },
+    )
+
+@login_required
+def budget_line_edit(request, budget_id, line_id):
+    membership = get_active_membership(request.user)
+
+    if not membership or not has_full_company_data_access(
+        membership
+    ):
+        return redirect("finance:home")
+
+    budget = get_object_or_404(
+        FinanceBudget,
+        id=budget_id,
+        company=membership.company,
+    )
+
+    if budget.status != FinanceBudget.Status.DRAFT:
+        messages.error(
+            request,
+            "Yalnızca taslak bütçenin plan satırları düzenlenebilir.",
+        )
+        return redirect(
+            "finance:budget_detail",
+            budget_id=budget.id,
+        )
+
+    line = get_object_or_404(
+        FinanceBudgetLine,
+        id=line_id,
+        budget=budget,
+    )
+
+    if request.method == "POST":
+        form = FinanceBudgetLineForm(
+            request.POST,
+            instance=line,
+            budget=budget,
+        )
+
+        if form.is_valid():
+            form.save()
+
+            messages.success(
+                request,
+                "Bütçe plan satırı güncellendi.",
+            )
+
+            return redirect(
+                "finance:budget_detail",
+                budget_id=budget.id,
+            )
+    else:
+        form = FinanceBudgetLineForm(
+            instance=line,
+            budget=budget,
+        )
+
+    return render(
+        request,
+        "finance/budget_line_edit.html",
+        {
+            "current_membership": membership,
+            "budget": budget,
+            "line": line,
+            "form": form,
+        },
+    )
+
+
+@login_required
+@require_POST
+def budget_line_delete(request, budget_id, line_id):
+    membership = get_active_membership(request.user)
+
+    if not membership or not has_full_company_data_access(
+        membership
+    ):
+        return redirect("finance:home")
+
+    budget = get_object_or_404(
+        FinanceBudget,
+        id=budget_id,
+        company=membership.company,
+    )
+
+    if budget.status != FinanceBudget.Status.DRAFT:
+        messages.error(
+            request,
+            "Yalnızca taslak bütçenin plan satırları silinebilir.",
+        )
+        return redirect(
+            "finance:budget_detail",
+            budget_id=budget.id,
+        )
+
+    line = get_object_or_404(
+        FinanceBudgetLine,
+        id=line_id,
+        budget=budget,
+    )
+
+    line.delete()
+
+    messages.success(
+        request,
+        "Bütçe plan satırı silindi.",
+    )
+
+    return redirect(
+        "finance:budget_detail",
+        budget_id=budget.id,
     )
 
 @login_required
@@ -1001,32 +1234,115 @@ def budget_status_update(request, budget_id):
     action = request.POST.get("action")
 
     if (
-        action == "activate"
+        action == "submit"
         and budget.status == FinanceBudget.Status.DRAFT
     ):
         if not budget.lines.exists():
             messages.error(
                 request,
-                "Aktifleştirmek için en az bir bütçe satırı ekleyin.",
+                "Onaya göndermek için en az bir bütçe satırı ekleyin.",
             )
         else:
-            budget.status = FinanceBudget.Status.ACTIVE
-            budget.save(update_fields=["status", "updated_at"])
+            budget.status = (
+                FinanceBudget.Status.PENDING_APPROVAL
+            )
+            budget.submitted_by = request.user
+            budget.submitted_at = timezone.now()
+            budget.save(
+                update_fields=[
+                    "status",
+                    "submitted_by",
+                    "submitted_at",
+                    "updated_at",
+                ],
+            )
+            target_url = reverse(
+                "finance:budget_detail",
+                kwargs={"budget_id": budget.id},
+            )
+
+            approver_ids = (
+                OrganizationMembership.objects.filter(
+                    company=membership.company,
+                    is_active=True,
+                    role__in=[
+                        OrganizationMembership.Role.OWNER,
+                        OrganizationMembership.Role.ADMIN,
+                    ],
+                )
+                .values_list("user_id", flat=True)
+                .distinct()
+            )
+
+            for user_id in approver_ids:
+                Notification.objects.create(
+                    user_id=user_id,
+                    notification_type=Notification.NotificationType.INFO,
+                    title="Bütçe onay bekliyor",
+                    message=(
+                        f"{budget.name} bütçesi onayınıza gönderildi."
+                    ),
+                    target_url=target_url,
+                )
+
             messages.success(
                 request,
-                "Bütçe aktifleştirildi. Sapma takibi başladı.",
+                "Bütçe onaya gönderildi.",
             )
+
+    elif (
+        action == "approve"
+        and budget.status
+        == FinanceBudget.Status.PENDING_APPROVAL
+    ):
+        budget.status = FinanceBudget.Status.ACTIVE
+        budget.approved_by = request.user
+        budget.approved_at = timezone.now()
+        budget.save(
+            update_fields=[
+                "status",
+                "approved_by",
+                "approved_at",
+                "updated_at",
+            ],
+            )
+        if budget.submitted_by:
+            Notification.objects.create(
+                user=budget.submitted_by,
+                notification_type=Notification.NotificationType.SUCCESS,
+                title="Bütçe onaylandı",
+                message=(
+                    f"{budget.name} bütçesi onaylandı ve aktifleştirildi."
+                ),
+                target_url=reverse(
+                    "finance:budget_detail",
+                    kwargs={"budget_id": budget.id},
+                ),
+            
+
+            
+        )
+        messages.success(
+            request,
+            "Bütçe onaylandı ve aktifleştirildi.",
+        )
 
     elif (
         action == "close"
         and budget.status == FinanceBudget.Status.ACTIVE
     ):
         budget.status = FinanceBudget.Status.CLOSED
-        budget.save(update_fields=["status", "updated_at"])
+        budget.save(
+            update_fields=[
+                "status",
+                "updated_at",
+            ],
+        )
         messages.success(
             request,
             "Bütçe kapatıldı ve salt okunur duruma alındı.",
         )
+
     else:
         messages.error(
             request,
@@ -1036,6 +1352,173 @@ def budget_status_update(request, budget_id):
     return redirect(
         "finance:budget_detail",
         budget_id=budget.id,
+    )
+
+@login_required
+def budget_return_to_draft(request, budget_id):
+    membership = get_active_membership(request.user)
+
+    if not membership or not has_full_company_data_access(
+        membership
+    ):
+        return redirect("finance:home")
+
+    budget = get_object_or_404(
+        FinanceBudget,
+        id=budget_id,
+        company=membership.company,
+    )
+
+    if budget.status != FinanceBudget.Status.PENDING_APPROVAL:
+        messages.error(
+            request,
+            "Yalnızca onay bekleyen bütçeler taslağa iade edilebilir.",
+        )
+        return redirect(
+            "finance:budget_detail",
+            budget_id=budget.id,
+        )
+
+    if request.method == "POST":
+        return_reason = request.POST.get(
+            "return_reason",
+            "",
+        ).strip()
+
+        if not return_reason:
+            messages.error(
+                request,
+                "Taslağa iade gerekçesi yazmalısınız.",
+            )
+        else:
+            budget.status = FinanceBudget.Status.DRAFT
+            budget.returned_by = request.user
+            budget.returned_at = timezone.now()
+            budget.return_reason = return_reason
+            budget.save(
+                update_fields=[
+                    "status",
+                    "returned_by",
+                    "returned_at",
+                    "return_reason",
+                    "updated_at",
+                ],
+            )
+
+            if budget.submitted_by:
+                Notification.objects.create(
+                    user=budget.submitted_by,
+                    notification_type=(
+                        Notification.NotificationType.WARNING
+                    ),
+                    title="Bütçe taslağa iade edildi",
+                    message=(
+                        f"{budget.name} bütçesi taslağa iade edildi. "
+                        f"Gerekçe: {return_reason}"
+                    ),
+                    target_url=reverse(
+                        "finance:budget_detail",
+                        kwargs={"budget_id": budget.id},
+                    ),
+                )
+
+            messages.success(
+                request,
+                "Bütçe gerekçesiyle taslağa iade edildi.",
+            )
+
+            return redirect(
+                "finance:budget_detail",
+                budget_id=budget.id,
+            )
+
+    return render(
+        request,
+        "finance/budget_return_to_draft.html",
+        {
+            "current_membership": membership,
+            "budget": budget,
+        },
+    )
+    
+@login_required
+@require_POST
+def budget_revision_create(request, budget_id):
+    membership = get_active_membership(request.user)
+
+    if not membership or not has_full_company_data_access(
+        membership
+    ):
+        return redirect("finance:home")
+
+    budget = get_object_or_404(
+        FinanceBudget,
+        id=budget_id,
+        company=membership.company,
+    )
+
+    if budget.status == FinanceBudget.Status.DRAFT:
+        messages.error(
+            request,
+            "Taslak bütçeden revizyon oluşturulamaz.",
+        )
+        return redirect(
+            "finance:budget_detail",
+            budget_id=budget.id,
+        )
+
+    source_budget = budget.source_budget or budget
+
+    latest_revision = (
+        FinanceBudget.objects.filter(
+            source_budget=source_budget,
+        ).aggregate(
+            latest=Max("revision_number"),
+        )["latest"]
+        or 0
+    )
+
+    revision_number = latest_revision + 1
+
+    with transaction.atomic():
+        revision = FinanceBudget.objects.create(
+            company=membership.company,
+            name=(
+                f"{source_budget.name} Rev.{revision_number}"
+            ),
+            fiscal_year=source_budget.fiscal_year,
+            currency=source_budget.currency,
+            description=source_budget.description,
+            created_by=request.user,
+            source_budget=source_budget,
+            revision_number=revision_number,
+        )
+
+        FinanceBudgetLine.objects.bulk_create(
+            [
+                FinanceBudgetLine(
+                    budget=revision,
+                    period_month=line.period_month,
+                    category=line.category,
+                    planned_inflow=line.planned_inflow,
+                    planned_outflow=line.planned_outflow,
+                    notes=line.notes,
+                )
+                for line in budget.lines.all()
+            ]
+        )
+
+    messages.success(
+        request,
+        (
+            f"{revision.name} taslağı oluşturuldu. "
+            "Plan satırlarını bu revizyonda güncelleyebilirsiniz."
+        ),
+    )
+
+    return redirect(
+        "finance:budget_detail",
+        budget_id=revision.id,
     )
 
 @login_required
@@ -1390,6 +1873,12 @@ def payment_plan_detail(request, plan_id):
         Decimal("0.00"),
         output_field=money_field,
     )
+    selected_status = request.GET.get("status", "")
+
+    valid_statuses = {
+        value
+        for value, _ in FinanceBudget.Status.choices
+    }
 
     installments = list(
         PaymentPlanInstallment.objects.filter(

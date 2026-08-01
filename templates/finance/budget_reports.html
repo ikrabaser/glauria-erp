@@ -8,13 +8,112 @@ Bütçe ve Raporlar | Glauria ERP
 {% block extra_css %}
     <link
         rel="stylesheet"
-        href="{% static 'css/finance.css' %}?v=budget-v1"
+        href="{% static 'css/finance.css' %}?v=budget-list-v2"
     >
 {% endblock %}
 
 {% block content %}
 <section class="module-page finance-dashboard">
     {% include "components/page_header.html" with eyebrow="FİNANS VE MUHASEBE" title="Bütçe ve Raporlar" description="Bütçe hedeflerinizi oluşturun, aylık nakit planınızı takip edin ve gerçekleşen hareketlerle karşılaştırın." %}
+
+
+<div class="finance-metrics finance-budget-portfolio__metrics">
+    <article class="finance-metric-card finance-metric-card--primary">
+        <span class="finance-metric-card__label">
+            AKTİF BÜTÇE NET PLANI
+        </span>
+        <strong class="finance-metric-card__value">
+            ₺{{ active_budget_net_total|floatformat:2 }}
+        </strong>
+        <span class="finance-metric-card__meta">
+            Aktif bütçelerin net nakit hedefi
+        </span>
+    </article>
+
+    <article class="finance-metric-card">
+        <span class="finance-metric-card__label">
+            AKTİF PLANLANAN GİRİŞ
+        </span>
+        <strong class="finance-metric-card__value finance-metric-card__value--positive">
+            ₺{{ active_budget_totals.planned_inflow|floatformat:2 }}
+        </strong>
+        <span class="finance-metric-card__meta">
+            Aktif bütçelerin toplam gelir hedefi
+        </span>
+    </article>
+
+    <article class="finance-metric-card">
+        <span class="finance-metric-card__label">
+            AKTİF PLANLANAN ÇIKIŞ
+        </span>
+        <strong class="finance-metric-card__value finance-metric-card__value--warning">
+            ₺{{ active_budget_totals.planned_outflow|floatformat:2 }}
+        </strong>
+        <span class="finance-metric-card__meta">
+            Aktif bütçelerin toplam gider hedefi
+        </span>
+    </article>
+
+    <article class="finance-metric-card">
+        <span class="finance-metric-card__label">
+            ONAY BEKLEYEN BÜTÇE
+        </span>
+        <strong class="finance-metric-card__value">
+            {{ status_counts.pending_approval|default:0 }}
+        </strong>
+        <span class="finance-metric-card__meta">
+            Yönetici onayı bekleyen taslaklar
+        </span>
+    </article>
+</div>
+
+<section class="finance-panel finance-budget-portfolio">
+    <div class="finance-panel__heading">
+        <div>
+            <span class="finance-panel__eyebrow">
+                BÜTÇE PORTFÖYÜ
+            </span>
+
+            <h3 class="finance-panel__title">
+                Bütçe Durum Dağılımı
+            </h3>
+        </div>
+
+        <span class="finance-panel__count">
+            {{ status_counts.active|default:0 }} aktif bütçe
+        </span>
+    </div>
+
+    <div class="finance-budget-portfolio__grid">
+        <div class="finance-budget-portfolio__chart">
+            <canvas id="finance-budget-portfolio-chart"></canvas>
+        </div>
+
+        <div class="finance-budget-portfolio__statuses">
+            <div>
+                <span>Taslak</span>
+                <strong>{{ status_counts.draft|default:0 }}</strong>
+            </div>
+
+            <div>
+                <span>Onay bekliyor</span>
+                <strong>{{ status_counts.pending_approval|default:0 }}</strong>
+            </div>
+
+            <div>
+                <span>Aktif</span>
+                <strong>{{ status_counts.active|default:0 }}</strong>
+            </div>
+
+            <div>
+                <span>Kapandı</span>
+                <strong>{{ status_counts.closed|default:0 }}</strong>
+            </div>
+        </div>
+    </div>
+</section>
+
+{{ budget_portfolio_chart|json_script:"finance-budget-portfolio-chart-data" }}
 
     <div class="finance-dashboard__grid">
         <section class="finance-panel finance-panel--wide">
@@ -34,6 +133,24 @@ Bütçe ve Raporlar | Glauria ERP
                 </span>
             </div>
 
+            <div class="finance-budget-filters">
+    <a
+        href="{% url 'finance:budget_reports' %}"
+        class="finance-budget-filter{% if not selected_status %} finance-budget-filter--active{% endif %}"
+    >
+        Tümü
+    </a>
+
+    {% for status_value, status_label in budget_status_choices %}
+        <a
+            href="{% url 'finance:budget_reports' %}?status={{ status_value }}"
+            class="finance-budget-filter{% if selected_status == status_value %} finance-budget-filter--active{% endif %}"
+        >
+            {{ status_label }}
+        </a>
+    {% endfor %}
+</div>
+
             {% if budgets %}
                 <div class="data-table-wrapper">
                     <table class="data-table">
@@ -41,6 +158,7 @@ Bütçe ve Raporlar | Glauria ERP
                             <tr>
                                 <th>Bütçe</th>
                                 <th>Mali yıl</th>
+                                <th>Revizyon</th>
                                 <th>Planlanan giriş</th>
                                 <th>Planlanan çıkış</th>
                                 <th>Durum</th>
@@ -63,6 +181,21 @@ Bütçe ve Raporlar | Glauria ERP
                                         </div>
                                     </td>
                                     <td>{{ budget.fiscal_year }}</td>
+                                    <td>
+    <div class="finance-budget-revision">
+        {% if budget.source_budget %}
+            <strong>Rev.{{ budget.revision_number }}</strong>
+
+            <a
+                href="{% url 'finance:budget_detail' budget.source_budget.id %}"
+            >
+                ← {{ budget.source_budget.name }}
+            </a>
+        {% else %}
+            <span>İlk sürüm</span>
+        {% endif %}
+    </div>
+</td>
                                     <td class="finance-amount--positive">
                                         ₺{{ budget.planned_inflow_total|floatformat:2 }}
                                     </td>
@@ -74,6 +207,11 @@ Bütçe ve Raporlar | Glauria ERP
                                             <span class="status-pill status-pill--active">
                                                 Aktif
                                             </span>
+
+                                        {% elif budget.status == "pending_approval" %}
+    <span class="status-pill status-pill--lead">
+        Onay bekliyor
+    </span>
                                         {% elif budget.status == "closed" %}
                                             <span class="status-pill">
                                                 Kapandı
@@ -136,4 +274,91 @@ Bütçe ve Raporlar | Glauria ERP
         </section>
     </div>
 </section>
+{% endblock %}
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
+
+<script>
+    const portfolioChartDataElement = document.getElementById(
+        "finance-budget-portfolio-chart-data"
+    );
+
+    const portfolioChartCanvas = document.getElementById(
+        "finance-budget-portfolio-chart"
+    );
+
+    if (portfolioChartDataElement && portfolioChartCanvas) {
+        const portfolioChartData = JSON.parse(
+            portfolioChartDataElement.textContent
+        );
+
+        const isLightTheme = (
+            document.documentElement.dataset.theme === "light"
+        );
+
+        new Chart(
+            portfolioChartCanvas,
+            {
+                type: "doughnut",
+                data: {
+                    labels: portfolioChartData.labels,
+                    datasets: [
+                        {
+                            data: portfolioChartData.values,
+                            backgroundColor: [
+                                "#b982d3",
+                                "#e5a77f",
+                                "#53c5cc",
+                                "#6d6875",
+                            ],
+                            borderColor: isLightTheme
+                                ? "#ffffff"
+                                : "#17131c",
+                            borderWidth: 5,
+                            hoverOffset: 8,
+                        },
+                    ],
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: "67%",
+                    plugins: {
+                        legend: {
+                            position: "bottom",
+                            labels: {
+                                color: isLightTheme
+                                    ? "#3b2530"
+                                    : "rgba(255, 255, 255, 0.72)",
+                                boxWidth: 10,
+                                boxHeight: 10,
+                                padding: 16,
+                                font: {
+                                    size: 12,
+                                    weight: "700",
+                                },
+                            },
+                        },
+                        tooltip: {
+                            backgroundColor: "#211a2a",
+                            titleColor: "#ffffff",
+                            bodyColor: "#f4d9cd",
+                            padding: 12,
+                            callbacks: {
+                                label(context) {
+                                    return (
+                                        context.label
+                                        + ": "
+                                        + context.parsed
+                                        + " bütçe"
+                                    );
+                                },
+                            },
+                        },
+                    },
+                },
+            }
+        );
+    }
+</script>
 {% endblock %}

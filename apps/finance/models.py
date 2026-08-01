@@ -420,6 +420,7 @@ class FinanceBudget(BaseModel):
 
     class Status(models.TextChoices):
         DRAFT = "draft", "Taslak"
+        PENDING_APPROVAL = "pending_approval", "Onay bekliyor"
         ACTIVE = "active", "Aktif"
         CLOSED = "closed", "Kapandı"
 
@@ -446,7 +447,7 @@ class FinanceBudget(BaseModel):
     )
 
     status = models.CharField(
-        max_length=12,
+        max_length=20,
         choices=Status.choices,
         default=Status.DRAFT,
         verbose_name="Durum",
@@ -466,6 +467,67 @@ class FinanceBudget(BaseModel):
         related_name="created_finance_budgets",
         verbose_name="Oluşturan kullanıcı",
     )
+    submitted_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="submitted_finance_budgets",
+        verbose_name="Onaya gönderen kullanıcı",
+    )
+
+    submitted_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="Onaya gönderim zamanı",
+    )
+
+    approved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="approved_finance_budgets",
+        verbose_name="Onaylayan kullanıcı",
+    )
+
+    approved_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="Onay zamanı",
+    )
+    returned_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="returned_finance_budgets",
+        verbose_name="Taslağa iade eden kullanıcı",
+    )
+
+    returned_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="Taslağa iade zamanı",
+    )
+
+    return_reason = models.TextField(
+        blank=True,
+        verbose_name="Taslağa iade gerekçesi",
+    )
+    source_budget = models.ForeignKey(
+        "self",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="revisions",
+        verbose_name="Kaynak bütçe",
+    )
+
+    revision_number = models.PositiveSmallIntegerField(
+        default=0,
+        verbose_name="Revizyon numarası",
+    )
 
     class Meta:
         ordering = ["-fiscal_year", "-created_at"]
@@ -475,6 +537,13 @@ class FinanceBudget(BaseModel):
             models.UniqueConstraint(
                 fields=["company", "name", "fiscal_year"],
                 name="unique_finance_budget_name_per_year",
+            ),
+            models.UniqueConstraint(
+                fields=[
+                    "source_budget",
+                    "revision_number",
+                ],
+                name="unique_finance_budget_revision",
             ),
         ]
         indexes = [

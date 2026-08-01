@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}
+Bütçeyi Taslağa İade Et | Glauria ERP
+{% endblock %}
+
+{% block extra_css %}
+    <link
+        rel="stylesheet"
+        href="{% static 'css/finance.css' %}?v=budget-return-v1"
+    >
+{% endblock %}
+
+{% block content %}
+<section class="module-page finance-dashboard">
+    <a
+        class="finance-back-link"
+        href="{% url 'finance:budget_detail' budget.id %}"
+    >
+        ← {{ budget.name }} bütçesine dön
+    </a>
+
+    <section class="finance-panel finance-panel--wide">
+        <div class="finance-panel__heading">
+            <div>
+                <span class="finance-panel__eyebrow">
+                    ONAY SÜRECİ
+                </span>
+
+                <h2 class="finance-panel__title">
+                    Bütçeyi Taslağa İade Et
+                </h2>
+            </div>
+
+            <span class="finance-panel__count">
+                Onay bekliyor
+            </span>
+        </div>
+
+        <p class="finance-panel__empty">
+            {{ budget.name }} bütçesi düzenlenebilmesi için tekrar
+            taslağa dönecek. İade gerekçesi denetim izi olarak saklanır.
+        </p>
+
+        <form method="post" class="finance-form">
+            {% csrf_token %}
+
+            <div class="finance-form__field">
+                <label for="return_reason">
+                    İade gerekçesi
+                </label>
+
+                <textarea
+                    id="return_reason"
+                    name="return_reason"
+                    rows="5"
+                    maxlength="2000"
+                    placeholder="Örn. Eylül gider hedefleri güncellenmeli."
+                    required
+                ></textarea>
+            </div>
+
+            <button type="submit" class="finance-form__submit">
+                Gerekçeyle Taslağa İade Et
+            </button>
+        </form>
+    </section>
+</section>
+{% endblock %}

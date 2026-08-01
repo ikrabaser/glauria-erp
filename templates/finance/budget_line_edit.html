@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}
+Plan Satırını Düzenle | Glauria ERP
+{% endblock %}
+
+{% block extra_css %}
+    <link
+        rel="stylesheet"
+        href="{% static 'css/finance.css' %}?v=budget-revision-v1"
+    >
+{% endblock %}
+
+{% block content %}
+<section class="module-page finance-dashboard">
+    <a
+        class="finance-back-link"
+        href="{% url 'finance:budget_detail' budget.id %}"
+    >
+        ← {{ budget.name }} bütçesine dön
+    </a>
+
+    <div class="page-header">
+        <div>
+            <span class="page-header__eyebrow">
+                BÜTÇE REVİZYONU
+            </span>
+
+            <h1 class="page-header__title">
+                Plan Satırını Düzenle
+            </h1>
+
+            <p class="page-header__description">
+                {{ line.period_month|date:"F Y" }} dönemi için
+                {{ line.category }} hedefini güncelleyin.
+            </p>
+        </div>
+    </div>
+
+    <section class="finance-panel">
+        <div class="finance-panel__heading">
+            <div>
+                <span class="finance-panel__eyebrow">
+                    TASLAK BÜTÇE
+                </span>
+
+                <h2 class="finance-panel__title">
+                    {{ budget.name }}
+                </h2>
+            </div>
+        </div>
+
+        <form method="post" class="finance-form">
+            {% csrf_token %}
+
+            {% if form.non_field_errors %}
+                <div class="finance-form__errors">
+                    {{ form.non_field_errors }}
+                </div>
+            {% endif %}
+
+            {% for field in form %}
+                <div class="finance-form__field">
+                    <label for="{{ field.id_for_label }}">
+                        {{ field.label }}
+                    </label>
+
+                    {{ field }}
+                    {{ field.errors }}
+                </div>
+            {% endfor %}
+
+            <button type="submit" class="finance-form__submit">
+                Değişiklikleri Kaydet
+            </button>
+        </form>
+    </section>
+</section>
+{% endblock %}

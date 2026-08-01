@@ -18,6 +18,10 @@ from .views import (
     budget_reports,
     budget_detail,
     budget_status_update,
+    budget_revision_create,
+    budget_line_delete,
+    budget_line_edit,
+    budget_return_to_draft,
 )
 
 
@@ -94,6 +98,26 @@ urlpatterns = [
         "butce-raporlar/<uuid:budget_id>/",
         budget_detail,
         name="budget_detail",
+    ),
+    path(
+        "butce-raporlar/<uuid:budget_id>/satirlar/<uuid:line_id>/duzenle/",
+        budget_line_edit,
+        name="budget_line_edit",
+    ),
+    path(
+        "butce-raporlar/<uuid:budget_id>/satirlar/<uuid:line_id>/sil/",
+        budget_line_delete,
+        name="budget_line_delete",
+    ),
+    path(
+        "butce-raporlar/<uuid:budget_id>/revizyon-olustur/",
+        budget_revision_create,
+        name="budget_revision_create",
+    ),
+        path(
+        "butce-raporlar/<uuid:budget_id>/taslaga-iade/",
+        budget_return_to_draft,
+        name="budget_return_to_draft",
     ),
     path(
         "butce-raporlar/<uuid:budget_id>/durum/",
