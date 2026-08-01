@@ -1,0 +1,265 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}
+Bütçe Revizyon Karşılaştırması | Glauria ERP
+{% endblock %}
+
+{% block extra_css %}
+<link
+    rel="stylesheet"
+    href="{% static 'css/finance.css' %}?v=budget-revision-compare-v3"
+>
+
+<style>
+    .finance-revision-compare-panel {
+        padding: 28px;
+        border-color: rgba(215, 164, 143, 0.28);
+        background:
+            radial-gradient(
+                circle at 92% 12%,
+                rgba(116, 78, 159, 0.2),
+                transparent 34%
+            ),
+            linear-gradient(
+                135deg,
+                rgba(37, 27, 43, 0.96),
+                rgba(20, 18, 25, 0.96)
+            );
+    }
+
+    .finance-revision-compare-form {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: end;
+        gap: 14px;
+        margin-top: 22px;
+    }
+
+    .finance-revision-compare-form .finance-form__field {
+        margin: 0;
+    }
+
+    .finance-revision-compare-form .finance-form__field label {
+        display: block;
+        margin-bottom: 8px;
+        color: rgba(255, 255, 255, 0.68);
+        font-size: 0.78rem;
+        font-weight: 800;
+    }
+
+    .finance-revision-compare-form select {
+        width: 100%;
+        min-height: 48px;
+        padding: 0 14px;
+        border: 1px solid rgba(215, 164, 143, 0.34);
+        border-radius: 12px;
+        color: #ffffff;
+        background: rgba(12, 10, 15, 0.62);
+        font: inherit;
+    }
+
+    .finance-revision-compare-form .finance-form__submit {
+        min-width: 230px;
+        min-height: 48px;
+        padding: 0 20px;
+        border: 0;
+        border-radius: 12px;
+        color: #20131a;
+        background: linear-gradient(135deg, #e5b39d, #d7a48f);
+        font: inherit;
+        font-weight: 800;
+        cursor: pointer;
+    }
+
+    .finance-revision-compare-form .finance-form__submit:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 10px 24px rgba(215, 164, 143, 0.22);
+    }
+
+    @media (max-width: 760px) {
+        .finance-revision-compare-form {
+            grid-template-columns: 1fr;
+        }
+
+        .finance-revision-compare-form .finance-form__submit {
+            width: 100%;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<section class="module-page">
+    <a
+        href="{% url 'finance:budget_detail' budget.id %}"
+        class="finance-back-link"
+    >
+        ← {{ budget.name }} bütçesine dön
+    </a>
+
+    <header class="page-header">
+        <div class="page-header__content">
+            <span class="page-header__eyebrow">
+                BÜTÇE REVİZYON YÖNETİMİ
+            </span>
+
+            <h2 class="page-header__title">
+                Revizyon Karşılaştırması
+            </h2>
+
+            <p class="page-header__description">
+                İlk sürüm ile seçilen bütçe revizyonu arasındaki
+                aylık plan değişikliklerini inceleyin.
+            </p>
+        </div>
+    </header>
+
+    <section class="finance-panel finance-revision-compare-panel">
+        <div class="finance-panel__heading">
+            <div>
+                <span class="finance-panel__eyebrow">
+                    KARŞILAŞTIRMA KAPSAMI
+                </span>
+
+                <h3 class="finance-panel__title">
+                    {{ source_budget.name }} → {{ selected_revision.name }}
+                </h3>
+            </div>
+        </div>
+
+        <form
+    method="get"
+    class="finance-revision-compare-form"
+>
+            <div class="finance-form__field">
+                <label for="revision">
+                    Karşılaştırılacak revizyon
+                </label>
+
+                <select id="revision" name="revision">
+                    {% for revision in revisions %}
+                        <option
+                            value="{{ revision.id }}"
+                            {% if revision.id == selected_revision.id %}
+                                selected
+                            {% endif %}
+                        >
+                            {{ revision.name }}
+                            · {{ revision.get_status_display }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <button type="submit" class="finance-form__submit">
+                Karşılaştırmayı Güncelle
+            </button>
+        </form>
+    </section>
+
+    <section class="finance-panel finance-panel--upcoming">
+        <div class="finance-panel__heading">
+            <div>
+                <span class="finance-panel__eyebrow">
+                    PLAN FARKLARI
+                </span>
+
+                <h3 class="finance-panel__title">
+                    Aylık Revizyon Değişimleri
+                </h3>
+            </div>
+
+            <span class="finance-panel__count">
+                {{ comparison_rows|length }} satır
+            </span>
+        </div>
+
+        {% if comparison_rows %}
+            <div class="data-table-wrapper">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Ay</th>
+                            <th>Kategori</th>
+                            <th>İlk sürüm net</th>
+                            <th>Seçilen revizyon net</th>
+                            <th>Net değişim</th>
+                            <th>Giriş değişimi</th>
+                            <th>Çıkış değişimi</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        {% for row in comparison_rows %}
+                            <tr>
+                                <td>
+                                    {{ row.period_month|date:"F Y" }}
+                                </td>
+
+                                <td>
+                                    {{ row.category }}
+                                </td>
+
+                                <td class="finance-table__balance">
+                                    ₺{{ row.source_net|floatformat:2 }}
+                                </td>
+
+                                <td class="finance-table__balance">
+                                    ₺{{ row.revision_net|floatformat:2 }}
+                                </td>
+
+                                <td>
+                                    {% if row.net_change < 0 %}
+                                        <span class="finance-amount--negative">
+                                            ₺{{ row.net_change|floatformat:2 }}
+                                        </span>
+                                    {% elif row.net_change > 0 %}
+                                        <span class="finance-amount--positive">
+                                            +₺{{ row.net_change|floatformat:2 }}
+                                        </span>
+                                    {% else %}
+                                        —
+                                    {% endif %}
+                                </td>
+
+                                <td>
+                                    {% if row.inflow_change < 0 %}
+                                        <span class="finance-amount--negative">
+                                            ₺{{ row.inflow_change|floatformat:2 }}
+                                        </span>
+                                    {% elif row.inflow_change > 0 %}
+                                        <span class="finance-amount--positive">
+                                            +₺{{ row.inflow_change|floatformat:2 }}
+                                        </span>
+                                    {% else %}
+                                        —
+                                    {% endif %}
+                                </td>
+
+                                <td>
+                                    {% if row.outflow_change > 0 %}
+                                        <span class="finance-amount--negative">
+                                            +₺{{ row.outflow_change|floatformat:2 }}
+                                        </span>
+                                    {% elif row.outflow_change < 0 %}
+                                        <span class="finance-amount--positive">
+                                            ₺{{ row.outflow_change|floatformat:2 }}
+                                        </span>
+                                    {% else %}
+                                        —
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="finance-panel__empty">
+                Karşılaştırılacak bütçe satırı bulunmuyor.
+            </div>
+        {% endif %}
+    </section>
+</section>
+{% endblock %}

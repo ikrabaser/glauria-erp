@@ -8,7 +8,7 @@
 {% block extra_css %}
 <link
     rel="stylesheet"
-    href="{% static 'css/finance.css' %}?v=budget-detail-v3"
+    href="{% static 'css/finance.css' %}?v=budget-detail-v8"
 >
 {% endblock %}
 
@@ -41,6 +41,12 @@
     <span class="finance-panel__count">
         {{ budget.get_status_display }}
     </span>
+    <a
+    href="{% url 'finance:budget_revision_compare' budget.id %}"
+    class="finance-budget-status-action"
+>
+    Revizyonları Karşılaştır
+</a>
 
     {% if budget.status == "active" or budget.status == "closed" %}
         <form
@@ -524,7 +530,75 @@
         </div>
     {% endif %}
 </section>
+<section class="finance-panel finance-budget-history">
+    <div class="finance-panel__heading">
+        <div>
+            <span class="finance-panel__eyebrow">
+                BÜTÇE İŞ AKIŞI
+            </span>
 
+            <h3 class="finance-panel__title">
+                İşlem ve Onay Geçmişi
+            </h3>
+        </div>
+
+        <span class="finance-panel__count">
+            {{ workflow_events|length }} işlem
+        </span>
+    </div>
+
+    {% if workflow_events %}
+        <div class="finance-budget-history__timeline">
+            {% for event in workflow_events %}
+                <article
+                    class="finance-budget-history__item finance-budget-history__item--{{ event.action }}"
+                >
+                    <span
+                        class="finance-budget-history__marker"
+                        aria-hidden="true"
+                    ></span>
+
+                    <div class="finance-budget-history__content">
+                        <div class="finance-budget-history__top">
+                            <div>
+                                <span class="finance-budget-history__action">
+                                    {{ event.get_action_display }}
+                                </span>
+
+                                <strong class="finance-budget-history__transition">
+                                    {{ event.from_status_display }}
+                                    →
+                                    {{ event.to_status_display }}
+                                </strong>
+                            </div>
+
+                            <time datetime="{{ event.created_at|date:'c' }}">
+                                {{ event.created_at|date:"d.m.Y H:i" }}
+                            </time>
+                        </div>
+
+                        {% if event.note %}
+                            <p class="finance-budget-history__note">
+                                {{ event.note }}
+                            </p>
+                        {% endif %}
+
+                        <span class="finance-budget-history__actor">
+                            İşlemi yapan:
+                            <strong>
+                                {{ event.actor|default:"Sistem" }}
+                            </strong>
+                        </span>
+                    </div>
+                </article>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="finance-panel__empty">
+            Bu bütçe için henüz kayıtlı bir iş akışı işlemi bulunmuyor.
+        </div>
+    {% endif %}
+</section>
 {{ budget_chart|json_script:"finance-budget-chart-data" }}
 </section>
 {% endblock %}

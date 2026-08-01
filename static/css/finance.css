@@ -1654,10 +1654,22 @@ html[data-theme="light"] .finance-ai-panel__summary {
     background: rgba(255, 255, 255, 0.52);
 }
 .finance-budget-status-actions {
+    font-family: Inter, "Segoe UI", sans-serif;
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    line-height: 1;
+    white-space: nowrap;
     display: flex;
     align-items: center;
     justify-content: flex-end;
     gap: 10px;
+}
+.finance-budget-status-actions .finance-panel__count {
+    font-family: Inter, "Segoe UI", sans-serif;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.01em;
 }
 
 .finance-budget-status-actions form {
@@ -2069,5 +2081,409 @@ html[data-theme="light"] .finance-budget-portfolio__statuses strong {
 @media (max-width: 480px) {
     .finance-budget-portfolio__statuses {
         grid-template-columns: 1fr;
+    }
+}
+/* Bütçe revizyon karşılaştırması */
+
+.finance-revision-compare-panel {
+    padding: 28px;
+    border: 1px solid rgba(215, 164, 143, 0.2);
+    border-radius: 22px;
+    background:
+        radial-gradient(
+            circle at 100% 0%,
+            rgba(111, 68, 143, 0.14),
+            transparent 34%
+        ),
+        rgba(255, 255, 255, 0.03);
+}
+
+.finance-revision-compare-form {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: end;
+    gap: 14px;
+    margin-top: 20px;
+}
+
+.finance-revision-compare-form .finance-form__field {
+    margin: 0;
+}
+
+.finance-revision-compare-form label {
+    display: block;
+    margin-bottom: 8px;
+    color: rgba(255, 255, 255, 0.68);
+    font-size: 0.78rem;
+    font-weight: 800;
+}
+
+.finance-revision-compare-form select {
+    width: 100%;
+    min-height: 48px;
+    padding: 0 14px;
+    border: 1px solid rgba(215, 164, 143, 0.3);
+    border-radius: 12px;
+    color: #ffffff;
+    background: rgba(255, 255, 255, 0.05);
+    font: inherit;
+}
+
+.finance-revision-compare-form option {
+    color: #211a2a;
+    background: #ffffff;
+}
+
+.finance-revision-compare-form .finance-form__submit {
+    min-width: 230px;
+    min-height: 48px;
+    padding: 0 18px;
+    border: 0;
+    border-radius: 13px;
+    color: #20131a;
+    background: linear-gradient(
+        135deg,
+        #e5b39d,
+        #d7a48f
+    );
+    font: inherit;
+    font-size: 0.84rem;
+    font-weight: 800;
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.finance-revision-compare-form .finance-form__submit:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 26px rgba(215, 164, 143, 0.24);
+}
+
+html[data-theme="light"] .finance-revision-compare-panel {
+    border-color: rgba(157, 83, 139, 0.18);
+    background:
+        radial-gradient(
+            circle at 100% 0%,
+            rgba(177, 124, 220, 0.16),
+            transparent 34%
+        ),
+        rgba(255, 255, 255, 0.7);
+}
+
+html[data-theme="light"] .finance-revision-compare-form label {
+    color: rgba(55, 35, 44, 0.68);
+}
+
+html[data-theme="light"] .finance-revision-compare-form select {
+    border-color: rgba(74, 43, 57, 0.16);
+    color: #3b2530;
+    background: rgba(255, 255, 255, 0.82);
+}
+
+@media (max-width: 640px) {
+    .finance-revision-compare-panel {
+        padding: 20px;
+    }
+
+    .finance-revision-compare-form {
+        grid-template-columns: 1fr;
+    }
+
+    .finance-revision-compare-form .finance-form__submit {
+        width: 100%;
+    }
+}
+/* Bütçe durum aksiyonlarını masaüstünde aynı hizaya getir */
+
+@media (min-width: 1101px) {
+    .finance-budget-status-actions {
+        align-items: center;
+    }
+
+    .finance-budget-status-actions form {
+        display: flex;
+        align-items: center;
+        margin: 0;
+    }
+
+    .finance-budget-status-actions .finance-panel__count,
+    .finance-budget-status-actions .finance-budget-status-action {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        box-sizing: border-box;
+        height: 36px;
+        min-height: 36px;
+        margin: 0;
+        padding: 0 14px;
+        line-height: 1;
+        text-align: center;
+        white-space: nowrap;
+    }
+}
+/* Bütçe işlem ve onay geçmişi */
+
+.finance-budget-history {
+    margin-top: 24px;
+}
+
+.finance-budget-history__timeline {
+    position: relative;
+    display: grid;
+    gap: 14px;
+    padding-left: 34px;
+}
+
+.finance-budget-history__timeline::before {
+    content: "";
+    position: absolute;
+    top: 12px;
+    bottom: 12px;
+    left: 10px;
+    width: 2px;
+    border-radius: 999px;
+    background: rgba(215, 164, 143, 0.18);
+}
+
+.finance-budget-history__item {
+    position: relative;
+}
+
+.finance-budget-history__marker {
+    position: absolute;
+    top: 22px;
+    left: -29px;
+    z-index: 1;
+    width: 12px;
+    height: 12px;
+    border: 3px solid #17131c;
+    border-radius: 50%;
+    background: #d7a48f;
+    box-shadow: 0 0 0 4px rgba(215, 164, 143, 0.12);
+}
+
+.finance-budget-history__content {
+    padding: 18px 20px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.025);
+}
+
+.finance-budget-history__top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 18px;
+}
+
+.finance-budget-history__action {
+    color: #d7a48f;
+    font-size: 0.7rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.finance-budget-history__transition {
+    display: block;
+    margin-top: 5px;
+    color: #ffffff;
+    font-size: 0.94rem;
+}
+
+.finance-budget-history__top time {
+    flex-shrink: 0;
+    color: rgba(255, 255, 255, 0.46);
+    font-size: 0.76rem;
+}
+
+.finance-budget-history__note {
+    margin: 12px 0 0;
+    color: rgba(255, 255, 255, 0.68);
+    font-size: 0.84rem;
+    line-height: 1.6;
+}
+
+.finance-budget-history__actor {
+    display: block;
+    margin-top: 10px;
+    color: rgba(255, 255, 255, 0.42);
+    font-size: 0.74rem;
+}
+
+.finance-budget-history__actor strong {
+    color: rgba(255, 255, 255, 0.72);
+}
+
+.finance-budget-history__item--submitted
+.finance-budget-history__marker {
+    background: #53c5cc;
+    box-shadow: 0 0 0 4px rgba(83, 197, 204, 0.12);
+}
+
+.finance-budget-history__item--approved
+.finance-budget-history__marker {
+    background: #4fc99b;
+    box-shadow: 0 0 0 4px rgba(79, 201, 155, 0.12);
+}
+
+.finance-budget-history__item--returned
+.finance-budget-history__marker {
+    background: #e7899c;
+    box-shadow: 0 0 0 4px rgba(231, 137, 156, 0.12);
+}
+
+.finance-budget-history__item--closed
+.finance-budget-history__marker {
+    background: #f0ae83;
+    box-shadow: 0 0 0 4px rgba(240, 174, 131, 0.12);
+}
+
+.finance-budget-history__item--revision_created
+.finance-budget-history__marker {
+    background: #b17cdc;
+    box-shadow: 0 0 0 4px rgba(177, 124, 220, 0.12);
+}
+
+html[data-theme="light"] .finance-budget-history__content {
+    border-color: rgba(74, 43, 57, 0.1);
+    background: rgba(255, 255, 255, 0.58);
+}
+
+html[data-theme="light"] .finance-budget-history__marker {
+    border-color: #ffffff;
+}
+
+html[data-theme="light"] .finance-budget-history__transition {
+    color: #3b2530;
+}
+
+html[data-theme="light"] .finance-budget-history__note {
+    color: rgba(55, 35, 44, 0.68);
+}
+
+html[data-theme="light"] .finance-budget-history__top time,
+html[data-theme="light"] .finance-budget-history__actor {
+    color: rgba(55, 35, 44, 0.48);
+}
+
+html[data-theme="light"] .finance-budget-history__actor strong {
+    color: rgba(55, 35, 44, 0.78);
+}
+
+@media (max-width: 640px) {
+    .finance-budget-history__timeline {
+        padding-left: 28px;
+    }
+
+    .finance-budget-history__marker {
+        left: -24px;
+    }
+
+    .finance-budget-history__top {
+        flex-direction: column;
+        gap: 8px;
+    }
+}
+/* Bütçe kontrol hesapları */
+
+.finance-budget-toolbar {
+    display: flex;
+    justify-content: flex-end;
+    margin: -10px 0 18px;
+}
+
+.finance-budget-toolbar__action {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 38px;
+    padding: 0 16px;
+    border: 1px solid rgba(79, 201, 155, 0.3);
+    border-radius: 999px;
+    color: #79e2b5;
+    background: rgba(79, 201, 155, 0.1);
+    font-size: 0.78rem;
+    font-weight: 800;
+    text-decoration: none;
+}
+
+.finance-budget-toolbar__action:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 10px 22px rgba(79, 201, 155, 0.14);
+}
+
+.finance-budget-accounts-layout {
+    display: grid;
+    grid-template-columns:
+        minmax(0, 1.55fr)
+        minmax(340px, 0.75fr);
+    align-items: start;
+    gap: 18px;
+}
+
+.finance-budget-account-type,
+.finance-budget-account-status {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 28px;
+    padding: 0 10px;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 800;
+}
+
+.finance-budget-account-type--revenue,
+.finance-budget-account-status--active {
+    border: 1px solid rgba(79, 201, 155, 0.28);
+    color: #79e2b5;
+    background: rgba(79, 201, 155, 0.1);
+}
+
+.finance-budget-account-type--expense {
+    border: 1px solid rgba(240, 174, 131, 0.3);
+    color: #f0ae83;
+    background: rgba(240, 174, 131, 0.1);
+}
+
+.finance-budget-account-status--passive {
+    border: 1px solid rgba(221, 108, 125, 0.28);
+    color: #f28e9d;
+    background: rgba(221, 108, 125, 0.08);
+}
+
+.finance-budget-account-usage {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    color: rgba(255, 255, 255, 0.58);
+    font-size: 0.76rem;
+}
+
+.finance-budget-account-form input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    min-height: 18px;
+    accent-color: #d7a48f;
+}
+
+html[data-theme="light"] .finance-budget-account-usage {
+    color: rgba(55, 35, 44, 0.58);
+}
+
+@media (max-width: 1100px) {
+    .finance-budget-accounts-layout {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 640px) {
+    .finance-budget-toolbar {
+        justify-content: stretch;
+        margin-top: 0;
+    }
+
+    .finance-budget-toolbar__action {
+        width: 100%;
     }
 }

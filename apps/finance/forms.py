@@ -8,6 +8,7 @@ from .models import (
     FinancialAccount,
     FinanceBudget,
     FinanceBudgetLine,
+    FinanceBudgetAccount,
     PaymentPlan,
     PaymentPlanAllocation,
 )
@@ -396,12 +397,71 @@ class FinanceBudgetForm(forms.ModelForm):
     def clean_currency(self):
         return self.cleaned_data["currency"].upper().strip()
 
+class FinanceBudgetAccountForm(forms.ModelForm):
+    class Meta:
+        model = FinanceBudgetAccount
+        fields = [
+            "code",
+            "name",
+            "account_type",
+            "description",
+            "is_active",
+        ]
+        widgets = {
+            "code": forms.TextInput(
+                attrs={
+                    "placeholder": "Örn. GID-PAZARLAMA",
+                }
+            ),
+            "name": forms.TextInput(
+                attrs={
+                    "placeholder": "Örn. Pazarlama Giderleri",
+                }
+            ),
+            "description": forms.TextInput(
+                attrs={
+                    "placeholder": "Kontrol hesabının kapsamı",
+                }
+            ),
+        }
+
+    def __init__(self, *args, company=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.company = company
+
+    def clean_code(self):
+        code = self.cleaned_data["code"].strip().upper()
+
+        if " " in code:
+            raise forms.ValidationError(
+                "Hesap kodunda boşluk kullanmayın. "
+                "Kelime ayırmak için kısa çizgi kullanabilirsiniz."
+            )
+
+        if (
+            self.company
+            and FinanceBudgetAccount.objects.filter(
+                company=self.company,
+                code=code,
+            )
+            .exclude(pk=self.instance.pk)
+            .exists()
+        ):
+            raise forms.ValidationError(
+                "Bu bütçe kontrol hesap kodu zaten kullanılıyor."
+            )
+
+        return code
+
+    def clean_name(self):
+        return self.cleaned_data["name"].strip()
+
 class FinanceBudgetLineForm(forms.ModelForm):
     class Meta:
         model = FinanceBudgetLine
         fields = [
             "period_month",
-            "category",
+            "budget_account",
             "planned_inflow",
             "planned_outflow",
             "notes",
@@ -410,11 +470,6 @@ class FinanceBudgetLineForm(forms.ModelForm):
             "period_month": forms.DateInput(
                 attrs={
                     "type": "date",
-                }
-            ),
-            "category": forms.TextInput(
-                attrs={
-                    "placeholder": "Örn. Tahsilatlar",
                 }
             ),
             "planned_inflow": forms.NumberInput(
@@ -442,10 +497,34 @@ class FinanceBudgetLineForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.budget = budget
 
+        budget_account_field = self.fields["budget_account"]
+        budget_account_field.required = True
+        budget_account_field.empty_label = (
+            "Bütçe kontrol hesabı seçin"
+        )
+
+        if budget:
+            budget_account_field.queryset = (
+                FinanceBudgetAccount.objects.filter(
+                    company=budget.company,
+                    is_active=True,
+                ).order_by(
+                    "account_type",
+                    "code",
+                )
+            )
+        else:
+            budget_account_field.queryset = (
+                FinanceBudgetAccount.objects.none()
+            )
+
     def clean_period_month(self):
         period_month = self.cleaned_data["period_month"]
 
-        if self.budget and period_month.year != self.budget.fiscal_year:
+        if (
+            self.budget
+            and period_month.year != self.budget.fiscal_year
+        ):
             raise forms.ValidationError(
                 "Bütçe satırı seçilen mali yıl içinde olmalıdır."
             )
@@ -454,6 +533,10 @@ class FinanceBudgetLineForm(forms.ModelForm):
 
     def clean(self):
         cleaned_data = super().clean()
+
+        budget_account = cleaned_data.get("budget_account")
+        period_month = cleaned_data.get("period_month")
+
         planned_inflow = (
             cleaned_data.get("planned_inflow")
             or Decimal("0.00")
@@ -472,4 +555,60 @@ class FinanceBudgetLineForm(forms.ModelForm):
                 "sıfırdan büyük olmalıdır."
             )
 
+        if budget_account:
+            if (
+                budget_account.account_type
+                == FinanceBudgetAccount.AccountType.REVENUE
+                and planned_outflow > Decimal("0.00")
+            ):
+                self.add_error(
+                    "planned_outflow",
+                    "Gelir hesabına planlanan nakit çıkışı girilemez.",
+                )
+
+            if (
+                budget_account.account_type
+                == FinanceBudgetAccount.AccountType.EXPENSE
+                and planned_inflow > Decimal("0.00")
+            ):
+                self.add_error(
+                    "planned_inflow",
+                    "Gider hesabına planlanan nakit girişi girilemez.",
+                )
+
+        if (
+            self.budget
+            and budget_account
+            and period_month
+        ):
+            duplicate_lines = FinanceBudgetLine.objects.filter(
+                budget=self.budget,
+                budget_account=budget_account,
+                period_month=period_month,
+            )
+
+            if self.instance.pk:
+                duplicate_lines = duplicate_lines.exclude(
+                    pk=self.instance.pk,
+                )
+
+            if duplicate_lines.exists():
+                self.add_error(
+                    "budget_account",
+                    "Bu bütçe hesabı için seçilen ayda zaten "
+                    "bir plan satırı bulunuyor.",
+                )
+
         return cleaned_data
+
+    def save(self, commit=True):
+        line = super().save(commit=False)
+
+        if line.budget_account_id:
+            line.category = line.budget_account.name
+
+        if commit:
+            line.save()
+            self.save_m2m()
+
+        return line

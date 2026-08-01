@@ -22,6 +22,8 @@ from .views import (
     budget_line_delete,
     budget_line_edit,
     budget_return_to_draft,
+    budget_revision_compare,
+    budget_accounts,
 )
 
 
@@ -90,6 +92,11 @@ urlpatterns = [
         name="cash_flow",
     ),
     path(
+    "butce-hesaplari/",
+    budget_accounts,
+    name="budget_accounts",
+),
+    path(
         "butce-raporlar/",
         budget_reports,
         name="budget_reports",
@@ -109,6 +116,11 @@ urlpatterns = [
         budget_line_delete,
         name="budget_line_delete",
     ),
+    path(
+    "butce-raporlar/<uuid:budget_id>/revizyon-karsilastir/",
+    budget_revision_compare,
+    name="budget_revision_compare",
+),
     path(
         "butce-raporlar/<uuid:budget_id>/revizyon-olustur/",
         budget_revision_create,

@@ -8,13 +8,21 @@ Bütçe ve Raporlar | Glauria ERP
 {% block extra_css %}
     <link
         rel="stylesheet"
-        href="{% static 'css/finance.css' %}?v=budget-list-v2"
+        href="{% static 'css/finance.css' %}?v=budget-list-v3"
     >
 {% endblock %}
 
 {% block content %}
 <section class="module-page finance-dashboard">
     {% include "components/page_header.html" with eyebrow="FİNANS VE MUHASEBE" title="Bütçe ve Raporlar" description="Bütçe hedeflerinizi oluşturun, aylık nakit planınızı takip edin ve gerçekleşen hareketlerle karşılaştırın." %}
+    <div class="finance-budget-toolbar">
+    <a
+        href="{% url 'finance:budget_accounts' %}"
+        class="finance-budget-toolbar__action"
+    >
+        Bütçe Kontrol Hesapları
+    </a>
+</div>
 
 
 <div class="finance-metrics finance-budget-portfolio__metrics">
