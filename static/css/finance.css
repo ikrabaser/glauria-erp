@@ -2192,3 +2192,31 @@ html[data-theme="light"] .finance-revision-compare-form select {
         width: 100%;
     }
 }
+/* Bütçe durum aksiyonlarını masaüstünde aynı hizaya getir */
+
+@media (min-width: 1101px) {
+    .finance-budget-status-actions {
+        align-items: center;
+    }
+
+    .finance-budget-status-actions form {
+        display: flex;
+        align-items: center;
+        margin: 0;
+    }
+
+    .finance-budget-status-actions .finance-panel__count,
+    .finance-budget-status-actions .finance-budget-status-action {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        box-sizing: border-box;
+        height: 36px;
+        min-height: 36px;
+        margin: 0;
+        padding: 0 14px;
+        line-height: 1;
+        text-align: center;
+        white-space: nowrap;
+    }
+}
