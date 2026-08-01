@@ -2,6 +2,7 @@ import calendar
 from decimal import Decimal, ROUND_DOWN
 from django.contrib.auth.decorators import login_required
 from django.db.models import (
+    Count,
     DecimalField,
     ExpressionWrapper,
     F,
@@ -782,6 +783,52 @@ def budget_reports(request):
             status=selected_status,
         )
 
+    active_budget_totals = (
+        FinanceBudget.objects.filter(
+            company=membership.company,
+            status=FinanceBudget.Status.ACTIVE,
+        )
+        .aggregate(
+            planned_inflow=Coalesce(
+                Sum("lines__planned_inflow"),
+                zero_amount,
+            ),
+            planned_outflow=Coalesce(
+                Sum("lines__planned_outflow"),
+                zero_amount,
+            ),
+        )
+    )
+
+    active_budget_net_total = (
+        active_budget_totals["planned_inflow"]
+        - active_budget_totals["planned_outflow"]
+    )
+
+    status_count_rows = (
+        FinanceBudget.objects.filter(
+            company=membership.company,
+        )
+        .values("status")
+        .annotate(total=Count("id"))
+    )
+
+    status_counts = {
+        row["status"]: row["total"]
+        for row in status_count_rows
+    }
+
+    budget_portfolio_chart = {
+        "labels": [
+            label
+            for _, label in FinanceBudget.Status.choices
+        ],
+        "values": [
+            status_counts.get(status, 0)
+            for status, _ in FinanceBudget.Status.choices
+        ],
+    }
+
     if request.method == "POST":
         form = FinanceBudgetForm(request.POST)
 
@@ -815,6 +862,10 @@ def budget_reports(request):
             "form": form,
             "selected_status": selected_status,
             "budget_status_choices": FinanceBudget.Status.choices,
+            "active_budget_totals": active_budget_totals,
+            "active_budget_net_total": active_budget_net_total,
+            "status_counts": status_counts,
+            "budget_portfolio_chart": budget_portfolio_chart,
         },
     )
 

@@ -1979,3 +1979,95 @@ html[data-theme="light"] .finance-budget-revision a {
         padding: 0 10px;
     }
 }
+/* Bütçe portföyü özeti */
+
+.finance-budget-portfolio {
+    margin-top: 24px;
+}
+
+.finance-budget-portfolio__grid {
+    display: grid;
+    grid-template-columns: minmax(230px, 0.72fr) minmax(0, 1fr);
+    align-items: center;
+    gap: 32px;
+}
+
+.finance-budget-portfolio__chart {
+    position: relative;
+    height: 250px;
+}
+
+.finance-budget-portfolio__statuses {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.finance-budget-portfolio__statuses div {
+    min-height: 92px;
+    padding: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.025);
+}
+
+.finance-budget-portfolio__statuses span {
+    display: block;
+    margin-bottom: 10px;
+    color: rgba(255, 255, 255, 0.52);
+    font-size: 0.76rem;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+.finance-budget-portfolio__statuses strong {
+    color: #ffffff;
+    font-size: 1.65rem;
+    line-height: 1;
+}
+
+.finance-budget-portfolio__statuses div:nth-child(1) strong {
+    color: #c695e6;
+}
+
+.finance-budget-portfolio__statuses div:nth-child(2) strong {
+    color: #f0ae83;
+}
+
+.finance-budget-portfolio__statuses div:nth-child(3) strong {
+    color: #4fc99b;
+}
+
+.finance-budget-portfolio__statuses div:nth-child(4) strong {
+    color: #a9a4b2;
+}
+
+html[data-theme="light"] .finance-budget-portfolio__statuses div {
+    border-color: rgba(74, 43, 57, 0.12);
+    background: rgba(255, 255, 255, 0.62);
+}
+
+html[data-theme="light"] .finance-budget-portfolio__statuses span {
+    color: rgba(55, 35, 44, 0.58);
+}
+
+html[data-theme="light"] .finance-budget-portfolio__statuses strong {
+    color: #3b2530;
+}
+
+@media (max-width: 860px) {
+    .finance-budget-portfolio__grid {
+        grid-template-columns: 1fr;
+    }
+
+    .finance-budget-portfolio__chart {
+        height: 220px;
+    }
+}
+
+@media (max-width: 480px) {
+    .finance-budget-portfolio__statuses {
+        grid-template-columns: 1fr;
+    }
+}
