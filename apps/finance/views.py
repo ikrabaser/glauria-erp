@@ -1180,32 +1180,70 @@ def budget_status_update(request, budget_id):
     action = request.POST.get("action")
 
     if (
-        action == "activate"
+        action == "submit"
         and budget.status == FinanceBudget.Status.DRAFT
     ):
         if not budget.lines.exists():
             messages.error(
                 request,
-                "Aktifleştirmek için en az bir bütçe satırı ekleyin.",
+                "Onaya göndermek için en az bir bütçe satırı ekleyin.",
             )
         else:
-            budget.status = FinanceBudget.Status.ACTIVE
-            budget.save(update_fields=["status", "updated_at"])
+            budget.status = (
+                FinanceBudget.Status.PENDING_APPROVAL
+            )
+            budget.submitted_by = request.user
+            budget.submitted_at = timezone.now()
+            budget.save(
+                update_fields=[
+                    "status",
+                    "submitted_by",
+                    "submitted_at",
+                    "updated_at",
+                ],
+            )
             messages.success(
                 request,
-                "Bütçe aktifleştirildi. Sapma takibi başladı.",
+                "Bütçe onaya gönderildi.",
             )
+
+    elif (
+        action == "approve"
+        and budget.status
+        == FinanceBudget.Status.PENDING_APPROVAL
+    ):
+        budget.status = FinanceBudget.Status.ACTIVE
+        budget.approved_by = request.user
+        budget.approved_at = timezone.now()
+        budget.save(
+            update_fields=[
+                "status",
+                "approved_by",
+                "approved_at",
+                "updated_at",
+            ],
+        )
+        messages.success(
+            request,
+            "Bütçe onaylandı ve aktifleştirildi.",
+        )
 
     elif (
         action == "close"
         and budget.status == FinanceBudget.Status.ACTIVE
     ):
         budget.status = FinanceBudget.Status.CLOSED
-        budget.save(update_fields=["status", "updated_at"])
+        budget.save(
+            update_fields=[
+                "status",
+                "updated_at",
+            ],
+        )
         messages.success(
             request,
             "Bütçe kapatıldı ve salt okunur duruma alındı.",
         )
+
     else:
         messages.error(
             request,
@@ -1216,7 +1254,6 @@ def budget_status_update(request, budget_id):
         "finance:budget_detail",
         budget_id=budget.id,
     )
-
 @login_required
 @require_POST
 def budget_revision_create(request, budget_id):

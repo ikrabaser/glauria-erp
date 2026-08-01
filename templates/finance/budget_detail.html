@@ -38,67 +38,90 @@
         </div>
 
                 <div class="finance-budget-status-actions">
-            <span class="finance-panel__count">
-                {{ budget.get_status_display }}
-            </span>
-            {% if budget.status != "draft" %}
-    <form
-        method="post"
-        action="{% url 'finance:budget_revision_create' budget.id %}"
-    >
-        {% csrf_token %}
+    <span class="finance-panel__count">
+        {{ budget.get_status_display }}
+    </span>
 
-        <button
-            type="submit"
-            class="finance-budget-status-action"
+    {% if budget.status == "active" or budget.status == "closed" %}
+        <form
+            method="post"
+            action="{% url 'finance:budget_revision_create' budget.id %}"
         >
-            Yeni Revizyon Oluştur
-        </button>
-    </form>
-{% endif %}
+            {% csrf_token %}
 
-            {% if budget.status == "draft" %}
-                <form
-                    method="post"
-                    action="{% url 'finance:budget_status_update' budget.id %}"
-                >
-                    {% csrf_token %}
+            <button
+                type="submit"
+                class="finance-budget-status-action"
+            >
+                Yeni Revizyon Oluştur
+            </button>
+        </form>
+    {% endif %}
 
-                    <input
-                        type="hidden"
-                        name="action"
-                        value="activate"
-                    >
+    {% if budget.status == "draft" %}
+        <form
+            method="post"
+            action="{% url 'finance:budget_status_update' budget.id %}"
+        >
+            {% csrf_token %}
 
-                    <button
-                        type="submit"
-                        class="finance-budget-status-action"
-                    >
-                        Bütçeyi Aktifleştir
-                    </button>
-                </form>
-            {% elif budget.status == "active" %}
-                <form
-                    method="post"
-                    action="{% url 'finance:budget_status_update' budget.id %}"
-                >
-                    {% csrf_token %}
+            <input
+                type="hidden"
+                name="action"
+                value="submit"
+            >
 
-                    <input
-                        type="hidden"
-                        name="action"
-                        value="close"
-                    >
+            <button
+                type="submit"
+                class="finance-budget-status-action"
+            >
+                Onaya Gönder
+            </button>
+        </form>
 
-                    <button
-                        type="submit"
-                        class="finance-budget-status-action finance-budget-status-action--close"
-                    >
-                        Bütçeyi Kapat
-                    </button>
-                </form>
-            {% endif %}
-        </div>
+    {% elif budget.status == "pending_approval" %}
+        <form
+            method="post"
+            action="{% url 'finance:budget_status_update' budget.id %}"
+        >
+            {% csrf_token %}
+
+            <input
+                type="hidden"
+                name="action"
+                value="approve"
+            >
+
+            <button
+                type="submit"
+                class="finance-budget-status-action"
+            >
+                Onayla ve Aktifleştir
+            </button>
+        </form>
+
+    {% elif budget.status == "active" %}
+        <form
+            method="post"
+            action="{% url 'finance:budget_status_update' budget.id %}"
+        >
+            {% csrf_token %}
+
+            <input
+                type="hidden"
+                name="action"
+                value="close"
+            >
+
+            <button
+                type="submit"
+                class="finance-budget-status-action finance-budget-status-action--close"
+            >
+                Bütçeyi Kapat
+            </button>
+        </form>
+    {% endif %}
+</div>
     </header>
 
     <div class="finance-metrics">
@@ -273,28 +296,64 @@
                     </button>
                 </form>
             {% else %}
-                <div class="finance-panel__heading">
-                    <div>
-                        <span class="finance-panel__eyebrow">
-                            BÜTÇE KONTROLÜ
-                        </span>
+               <div class="finance-panel__heading">
+    <div>
+        <span class="finance-panel__eyebrow">
+            BÜTÇE KONTROLÜ
+        </span>
 
-                        <h3 class="finance-panel__title">
-                            Plan Satırları Kilitli
-                        </h3>
-                    </div>
-                </div>
+        <h3 class="finance-panel__title">
+            {% if budget.status == "pending_approval" %}
+                Onay Bekliyor
+            {% else %}
+                Plan Satırları Kilitli
+            {% endif %}
+        </h3>
+    </div>
+</div>
 
-                <div class="finance-panel__empty">
-                    {% if budget.status == "active" %}
-                        Bütçe aktif durumda. Hedefler kilitli; bu ekranda
-                        gerçekleşen nakit hareketleri ve aylık sapmalar
-                        izlenir.
-                    {% else %}
-                        Bütçe kapatıldı. Plan ve gerçekleşen verileri
-                        salt okunur olarak korunur.
-                    {% endif %}
-                </div>
+<div class="finance-panel__empty">
+    {% if budget.status == "pending_approval" %}
+        Bütçe onay bekliyor. Onaylanana kadar plan satırları
+        değiştirilemez.
+
+    {% elif budget.status == "active" %}
+        Bütçe aktif durumda. Hedefler kilitli; bu ekranda
+        gerçekleşen nakit hareketleri ve aylık sapmalar izlenir.
+
+    {% else %}
+        Bütçe kapatıldı. Plan ve gerçekleşen verileri salt okunur
+        olarak korunur.
+    {% endif %}
+</div>
+
+{% if budget.submitted_at or budget.approved_at %}
+    <dl class="finance-detail-list finance-budget-approval-list">
+        {% if budget.submitted_at %}
+            <div>
+                <dt>Onaya gönderen</dt>
+                <dd>{{ budget.submitted_by|default:"—" }}</dd>
+            </div>
+
+            <div>
+                <dt>Gönderim zamanı</dt>
+                <dd>{{ budget.submitted_at|date:"d.m.Y H:i" }}</dd>
+            </div>
+        {% endif %}
+
+        {% if budget.approved_at %}
+            <div>
+                <dt>Onaylayan</dt>
+                <dd>{{ budget.approved_by|default:"—" }}</dd>
+            </div>
+
+            <div>
+                <dt>Onay zamanı</dt>
+                <dd>{{ budget.approved_at|date:"d.m.Y H:i" }}</dd>
+            </div>
+        {% endif %}
+    </dl>
+{% endif %}
             {% endif %}
         </section>
        </div>
