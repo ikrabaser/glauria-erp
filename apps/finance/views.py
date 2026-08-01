@@ -47,6 +47,7 @@ from apps.finance.models import (
     PaymentPlanInstallment,
     FinanceBudget,
     FinanceBudgetLine,
+    FinanceBudgetWorkflowEvent,
 )
 from apps.sales.models import Invoice
 from apps.accounts.models import OrganizationMembership
@@ -838,6 +839,14 @@ def budget_reports(request):
             budget.created_by = request.user
             budget.status = FinanceBudget.Status.DRAFT
             budget.save()
+            FinanceBudgetWorkflowEvent.objects.create(
+                budget=budget,
+                action=FinanceBudgetWorkflowEvent.Action.CREATED,
+                actor=request.user,
+                from_status="",
+                to_status=FinanceBudget.Status.DRAFT,
+                note="Bütçe taslağı oluşturuldu.",
+            )
 
             messages.success(
                 request,
@@ -1085,6 +1094,12 @@ def budget_detail(request, budget_id):
             budget=budget,
         )
 
+    workflow_events = (
+        budget.workflow_events
+        .select_related("actor")
+        .order_by("-created_at")[:20]
+    )
+
     return render(
         request,
         "finance/budget_detail.html",
@@ -1100,6 +1115,7 @@ def budget_detail(request, budget_id):
             "form": form,
             "monthly_summaries": monthly_summaries,
             "budget_chart": budget_chart,
+            "workflow_events": workflow_events,
         },
     )
 
@@ -1256,6 +1272,14 @@ def budget_status_update(request, budget_id):
                     "updated_at",
                 ],
             )
+            FinanceBudgetWorkflowEvent.objects.create(
+                budget=budget,
+                action=FinanceBudgetWorkflowEvent.Action.SUBMITTED,
+                actor=request.user,
+                from_status=FinanceBudget.Status.DRAFT,
+                to_status=FinanceBudget.Status.PENDING_APPROVAL,
+                note="Bütçe onaya gönderildi.",
+            )
             target_url = reverse(
                 "finance:budget_detail",
                 kwargs={"budget_id": budget.id},
@@ -1306,6 +1330,14 @@ def budget_status_update(request, budget_id):
                 "updated_at",
             ],
             )
+        FinanceBudgetWorkflowEvent.objects.create(
+            budget=budget,
+            action=FinanceBudgetWorkflowEvent.Action.APPROVED,
+            actor=request.user,
+            from_status=FinanceBudget.Status.PENDING_APPROVAL,
+            to_status=FinanceBudget.Status.ACTIVE,
+            note="Bütçe onaylandı ve aktifleştirildi.",
+        )
         if budget.submitted_by:
             Notification.objects.create(
                 user=budget.submitted_by,
@@ -1337,6 +1369,14 @@ def budget_status_update(request, budget_id):
                 "status",
                 "updated_at",
             ],
+        )
+        FinanceBudgetWorkflowEvent.objects.create(
+            budget=budget,
+            action=FinanceBudgetWorkflowEvent.Action.CLOSED,
+            actor=request.user,
+            from_status=FinanceBudget.Status.ACTIVE,
+            to_status=FinanceBudget.Status.CLOSED,
+            note="Bütçe kapatıldı ve salt okunur duruma alındı.",
         )
         messages.success(
             request,
@@ -1403,6 +1443,14 @@ def budget_return_to_draft(request, budget_id):
                     "return_reason",
                     "updated_at",
                 ],
+            )
+            FinanceBudgetWorkflowEvent.objects.create(
+                budget=budget,
+                action=FinanceBudgetWorkflowEvent.Action.RETURNED,
+                actor=request.user,
+                from_status=FinanceBudget.Status.PENDING_APPROVAL,
+                to_status=FinanceBudget.Status.DRAFT,
+                note=return_reason,
             )
 
             if budget.submitted_by:
@@ -1612,8 +1660,8 @@ def budget_revision_create(request, budget_id):
             revision_number=revision_number,
         )
 
-        FinanceBudgetLine.objects.bulk_create(
-            [
+        FinanceBudgetLine.objects.bulk_create
+        [
                 FinanceBudgetLine(
                     budget=revision,
                     period_month=line.period_month,
@@ -1624,8 +1672,6 @@ def budget_revision_create(request, budget_id):
                 )
                 for line in budget.lines.all()
             ]
-        )
-
     messages.success(
         request,
         (

@@ -553,6 +553,98 @@ class FinanceBudget(BaseModel):
     def __str__(self):
         return f"{self.name} · {self.fiscal_year}"
 
+class FinanceBudgetWorkflowEvent(BaseModel):
+    """
+    Bütçenin yaşam döngüsündeki işlemleri değiştirilemez
+    geçmiş kayıtları olarak saklar.
+    """
+
+    class Action(models.TextChoices):
+        CREATED = "created", "Oluşturuldu"
+        SUBMITTED = "submitted", "Onaya gönderildi"
+        APPROVED = "approved", "Onaylandı"
+        RETURNED = "returned", "Taslağa iade edildi"
+        CLOSED = "closed", "Kapatıldı"
+        REVISION_CREATED = (
+            "revision_created",
+            "Revizyon oluşturuldu",
+        )
+
+    budget = models.ForeignKey(
+        FinanceBudget,
+        on_delete=models.CASCADE,
+        related_name="workflow_events",
+        verbose_name="Bütçe",
+    )
+
+    action = models.CharField(
+        max_length=20,
+        choices=Action.choices,
+        verbose_name="İşlem",
+    )
+
+    actor = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="finance_budget_workflow_events",
+        verbose_name="İşlemi yapan",
+    )
+
+    from_status = models.CharField(
+        max_length=20,
+        blank=True,
+        verbose_name="Önceki durum",
+    )
+
+    to_status = models.CharField(
+        max_length=20,
+        blank=True,
+        verbose_name="Yeni durum",
+    )
+
+    note = models.TextField(
+        blank=True,
+        verbose_name="İşlem notu",
+    )
+
+    class Meta:
+        ordering = ["-created_at"]
+        verbose_name = "Bütçe işlem geçmişi"
+        verbose_name_plural = "Bütçe işlem geçmişi"
+        indexes = [
+            models.Index(
+                fields=["budget", "created_at"],
+            ),
+            models.Index(
+                fields=["budget", "action"],
+            ),
+        ]
+
+    def __str__(self):
+        return (
+            f"{self.budget.name} · "
+            f"{self.get_action_display()}"
+        )
+    @property
+    def from_status_display(self):
+        status_labels = dict(FinanceBudget.Status.choices)
+
+        return status_labels.get(
+            self.from_status,
+            "Başlangıç",
+        )
+
+    @property
+    def to_status_display(self):
+        status_labels = dict(FinanceBudget.Status.choices)
+
+        return status_labels.get(
+            self.to_status,
+            self.to_status or "—",
+        )
+
 
 class FinanceBudgetLine(BaseModel):
     """
