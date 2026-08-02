@@ -4,6 +4,7 @@ from .views import (
     home,
     purchase_request_detail,
     purchase_request_status_update,
+    purchase_request_line_delete,
 )
 
 
@@ -20,5 +21,10 @@ urlpatterns = [
     "talepler/<uuid:request_id>/durum/",
     purchase_request_status_update,
     name="purchase_request_status_update",
+),
+path(
+    "talepler/<uuid:request_id>/kalemler/<uuid:line_id>/sil/",
+    purchase_request_line_delete,
+    name="purchase_request_line_delete",
 ),
 ]

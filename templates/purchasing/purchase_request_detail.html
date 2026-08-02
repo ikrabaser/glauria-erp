@@ -77,6 +77,26 @@
         <input
             type="hidden"
             name="action"
+            value="return_to_draft"
+        >
+
+        <button
+            type="submit"
+            class="finance-budget-status-action finance-budget-status-action--close"
+        >
+            Taslağa İade Et
+        </button>
+    </form>
+
+    <form
+        method="post"
+        action="{% url 'purchasing:purchase_request_status_update' purchase_request.id %}"
+    >
+        {% csrf_token %}
+
+        <input
+            type="hidden"
+            name="action"
             value="approve"
         >
 
@@ -86,6 +106,14 @@
         >
             Onayla ve Taahhüt Oluştur
         </button>
+    </form>
+        {% csrf_token %}
+
+        <input
+            type="hidden"
+            name="action"
+            value="approve"
+        >
     </form>
 {% endif %}
 </div>
@@ -164,6 +192,9 @@
                                 <th>Miktar</th>
                                 <th>Birim fiyat</th>
                                 <th>Tahmini tutar</th>
+                                {% if purchase_request.status == "draft" %}
+                                <th>Aksiyon</th>
+                                {% endif %}
                             </tr>
                         </thead>
 
@@ -205,6 +236,24 @@
                                     <td class="finance-table__balance">
                                         ₺{{ line.estimated_amount|floatformat:2 }}
                                     </td>
+                                    {% if purchase_request.status == "draft" %}
+    <td>
+        <form
+            method="post"
+            action="{% url 'purchasing:purchase_request_line_delete' purchase_request.id line.id %}"
+            onsubmit="return confirm('Bu talep kalemi silinsin mi?');"
+        >
+            {% csrf_token %}
+
+            <button
+                type="submit"
+                class="finance-table-action finance-table-action--delete"
+            >
+                Sil
+            </button>
+        </form>
+    </td>
+{% endif %}
                                 </tr>
                             {% endfor %}
                         </tbody>

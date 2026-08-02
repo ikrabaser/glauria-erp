@@ -10,6 +10,7 @@ from .forms import PurchaseRequestForm, PurchaseRequestLineForm
 from .models import (
     PurchaseBudgetCommitment,
     PurchaseRequest,
+    PurchaseRequestLine,
 )
 from decimal import Decimal
 
@@ -210,6 +211,27 @@ def purchase_request_status_update(request, request_id):
             )
 
     elif (
+        action == "return_to_draft"
+        and purchase_request.status
+        == PurchaseRequest.Status.PENDING_APPROVAL
+    ):
+        purchase_request.status = PurchaseRequest.Status.DRAFT
+        purchase_request.save(
+            update_fields=[
+                "status",
+                "updated_at",
+            ],
+        )
+
+        messages.success(
+            request,
+            (
+                "Satın alma talebi taslağa iade edildi. "
+                "Kalemleri güncelleyip yeniden onaya gönderebilirsiniz."
+            ),
+        )
+
+    elif (
         action == "approve"
         and purchase_request.status
         == PurchaseRequest.Status.PENDING_APPROVAL
@@ -330,6 +352,49 @@ def purchase_request_status_update(request, request_id):
             request,
             "Bu talep için seçilen aksiyon uygulanamadı.",
         )
+
+    return redirect(
+        "purchasing:purchase_request_detail",
+        request_id=purchase_request.id,
+    )
+
+@login_required
+@require_POST
+def purchase_request_line_delete(request, request_id, line_id):
+    membership = get_active_membership(request.user)
+
+    if not membership or not has_full_company_data_access(
+        membership
+    ):
+        return redirect("finance:home")
+
+    purchase_request = get_object_or_404(
+        PurchaseRequest,
+        id=request_id,
+        company=membership.company,
+    )
+
+    if purchase_request.status != PurchaseRequest.Status.DRAFT:
+        messages.error(
+            request,
+            "Yalnızca taslak taleplerin kalemleri silinebilir.",
+        )
+        return redirect(
+            "purchasing:purchase_request_detail",
+            request_id=purchase_request.id,
+        )
+
+    line = get_object_or_404(
+        PurchaseRequestLine,
+        id=line_id,
+        purchase_request=purchase_request,
+    )
+    line.delete()
+
+    messages.success(
+        request,
+        "Satın alma talep kalemi silindi.",
+    )
 
     return redirect(
         "purchasing:purchase_request_detail",
