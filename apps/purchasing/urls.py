@@ -8,6 +8,7 @@ from .views import (
     purchase_request_detail,
     purchase_request_status_update,
     purchase_request_line_delete,
+    purchase_order_receipt_create,
     suppliers,
 )
 
@@ -45,6 +46,11 @@ path(
     purchase_order_status_update,
     name="purchase_order_status_update",
 ),
+ path(
+        "siparisler/<uuid:order_id>/teslim-al/",
+        purchase_order_receipt_create,
+        name="purchase_order_receipt_create",
+    ),
 path(
     "talepler/<uuid:request_id>/kalemler/<uuid:line_id>/sil/",
     purchase_request_line_delete,

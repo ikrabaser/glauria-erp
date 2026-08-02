@@ -294,6 +294,149 @@
                 </div>
             {% endif %}
         </section>
+        {% if receipt_form %}
+    <section class="finance-panel">
+        <div class="finance-panel__heading">
+            <div>
+                <span class="finance-panel__eyebrow">
+                    TESLİM ALMA
+                </span>
+
+                <h3 class="finance-panel__title">
+                    Teslim Kaydı Oluştur
+                </h3>
+            </div>
+        </div>
+
+        <form
+            method="post"
+            action="{% url 'purchasing:purchase_order_receipt_create' purchase_order.id %}"
+            class="finance-form"
+        >
+            {% csrf_token %}
+
+            <div class="finance-form__field">
+                <label for="purchase_order_line">
+                    Sipariş kalemi
+                </label>
+
+                <select
+                    id="purchase_order_line"
+                    name="purchase_order_line"
+                    required
+                >
+                    <option value="">
+                        Teslim alınacak kalemi seçin
+                    </option>
+
+                    {% for line in lines %}
+                        {% if line.received_quantity < line.quantity %}
+                            <option value="{{ line.id }}">
+                                {{ line.budget_account.code }}
+                                · {{ line.description }}
+                                · Kalan:
+                                {{ line.remaining_quantity|floatformat:2 }}
+                            </option>
+                        {% endif %}
+                    {% endfor %}
+                </select>
+            </div>
+
+            {% for field in receipt_form %}
+                <div class="finance-form__field">
+                    <label for="{{ field.id_for_label }}">
+                        {{ field.label }}
+                    </label>
+
+                    {{ field }}
+                    {{ field.errors }}
+                </div>
+            {% endfor %}
+
+            <button
+                type="submit"
+                class="finance-form__submit"
+            >
+                Teslim Kaydını Oluştur
+            </button>
+        </form>
+    </section>
+{% endif %}
     </div>
+        <section class="finance-panel">
+        <div class="finance-panel__heading">
+            <div>
+                <span class="finance-panel__eyebrow">
+                    TESLİM GEÇMİŞİ
+                </span>
+
+                <h3 class="finance-panel__title">
+                    İrsaliye ve Teslim Kayıtları
+                </h3>
+            </div>
+
+            <span class="finance-panel__count">
+                {{ receipts|length }} kayıt
+            </span>
+        </div>
+
+        {% if receipts %}
+            <div class="data-table-wrapper">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Teslim tarihi</th>
+                            <th>Bütçe hesabı</th>
+                            <th>Teslim miktarı</th>
+                            <th>İrsaliye / referans</th>
+                            <th>Not</th>
+                            <th>Teslim alan</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        {% for receipt in receipts %}
+                            <tr>
+                                <td>
+                                    {{ receipt.receipt_date|date:"d.m.Y" }}
+                                </td>
+
+                                <td>
+                                    <div class="customer-cell">
+                                        <strong>
+                                            {{ receipt.purchase_order_line.budget_account.code }}
+                                        </strong>
+                                        <span>
+                                            {{ receipt.purchase_order_line.description }}
+                                        </span>
+                                    </div>
+                                </td>
+
+                                <td class="finance-table__balance">
+                                    {{ receipt.quantity|floatformat:2 }}
+                                </td>
+
+                                <td>
+                                    {{ receipt.reference_number|default:"—" }}
+                                </td>
+
+                                <td>
+                                    {{ receipt.notes|default:"—" }}
+                                </td>
+
+                                <td>
+                                    {{ receipt.received_by|default:"—" }}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="finance-panel__empty">
+                Bu sipariş için henüz teslim kaydı bulunmuyor.
+            </div>
+        {% endif %}
+    </section>
 </section>
 {% endblock %}

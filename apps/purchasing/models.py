@@ -430,6 +430,8 @@ class PurchaseOrder(BaseModel):
         DRAFT = "draft", "Taslak"
         SENT = "sent", "Tedarikçiye gönderildi"
         CONFIRMED = "confirmed", "Tedarikçi onayladı"
+        PARTIALLY_RECEIVED = "partially_received", "Kısmi teslim alındı"
+        RECEIVED = "received", "Tam teslim alındı"
         CANCELLED = "cancelled", "İptal edildi"
 
     company = models.ForeignKey(
@@ -646,3 +648,78 @@ class PurchaseOrderLine(BaseModel):
     @property
     def line_total(self):
         return self.quantity * self.unit_price
+class PurchaseOrderReceipt(BaseModel):
+    """
+    Sipariş kalemi için teslim alınan miktarın izlenebilir kaydı.
+    """
+
+    company = models.ForeignKey(
+        Company,
+        on_delete=models.PROTECT,
+        related_name="purchase_order_receipts",
+        verbose_name="Şirket",
+    )
+
+    purchase_order_line = models.ForeignKey(
+        PurchaseOrderLine,
+        on_delete=models.PROTECT,
+        related_name="receipts",
+        verbose_name="Sipariş kalemi",
+    )
+
+    receipt_date = models.DateField(
+        default=timezone.localdate,
+        verbose_name="Teslim alma tarihi",
+    )
+
+    quantity = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        verbose_name="Teslim alınan miktar",
+    )
+
+    reference_number = models.CharField(
+        max_length=80,
+        blank=True,
+        verbose_name="İrsaliye / teslim referansı",
+    )
+
+    notes = models.CharField(
+        max_length=255,
+        blank=True,
+        verbose_name="Teslim alma notu",
+    )
+
+    received_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="received_purchase_order_receipts",
+        verbose_name="Teslim alan kullanıcı",
+    )
+
+    class Meta:
+        ordering = ["-receipt_date", "-created_at"]
+        verbose_name = "Sipariş teslim kaydı"
+        verbose_name_plural = "Sipariş teslim kayıtları"
+        indexes = [
+            models.Index(
+                fields=["company", "receipt_date"],
+            ),
+            models.Index(
+                fields=["purchase_order_line", "receipt_date"],
+            ),
+        ]
+        constraints = [
+            models.CheckConstraint(
+                condition=Q(quantity__gt=0),
+                name="purchase_order_receipt_quantity_positive",
+            ),
+        ]
+
+    def __str__(self):
+        return (
+            f"{self.purchase_order_line.purchase_order.order_number} "
+            f"· {self.quantity}"
+        )

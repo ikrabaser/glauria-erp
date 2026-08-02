@@ -13,6 +13,7 @@ from .forms import (
     PurchaseOrderForm,
     PurchaseRequestForm,
     PurchaseRequestLineForm,
+    PurchaseOrderReceiptForm,
     SupplierForm,
 )
 from .models import (
@@ -20,6 +21,7 @@ from .models import (
     PurchaseOrder,
     PurchaseOrderLine,
     PurchaseRequest,
+    PurchaseOrderReceipt,
     PurchaseRequestLine,
     Supplier,
 )
@@ -351,10 +353,39 @@ def purchase_order_detail(request, order_id):
         company=membership.company,
     )
 
-    lines = purchase_order.lines.select_related(
-        "budget_account",
-        "purchase_request_line",
-    ).order_by("created_at")
+    lines = list(
+        purchase_order.lines.select_related(
+            "budget_account",
+            "purchase_request_line",
+        ).order_by("created_at")
+    )
+
+    for line in lines:
+        line.remaining_quantity = (
+            line.quantity - line.received_quantity
+        )
+
+    receipt_form = None
+
+    if purchase_order.status in [
+        PurchaseOrder.Status.CONFIRMED,
+        PurchaseOrder.Status.PARTIALLY_RECEIVED,
+    ]:
+        receipt_form = PurchaseOrderReceiptForm()
+
+    receipts = (
+        PurchaseOrderReceipt.objects.filter(
+            purchase_order_line__purchase_order=purchase_order,
+        )
+        .select_related(
+            "purchase_order_line__budget_account",
+            "received_by",
+        )
+        .order_by(
+            "-receipt_date",
+            "-created_at",
+        )
+    )
 
     return render(
         request,
@@ -364,7 +395,113 @@ def purchase_order_detail(request, order_id):
             "purchase_order": purchase_order,
             "lines": lines,
             "total_amount": purchase_order.total_amount,
+            "receipt_form": receipt_form,
+            "receipts": receipts,
         },
+    )
+@login_required
+@require_POST
+def purchase_order_receipt_create(request, order_id):
+    membership = get_active_membership(request.user)
+
+    if not membership or not has_full_company_data_access(
+        membership
+    ):
+        return redirect("finance:home")
+
+    purchase_order = get_object_or_404(
+        PurchaseOrder,
+        id=order_id,
+        company=membership.company,
+    )
+
+    if purchase_order.status not in [
+        PurchaseOrder.Status.CONFIRMED,
+        PurchaseOrder.Status.PARTIALLY_RECEIVED,
+    ]:
+        messages.error(
+            request,
+            "Teslim alma yalnızca onaylanmış siparişler için kaydedilebilir.",
+        )
+        return redirect(
+            "purchasing:purchase_order_detail",
+            order_id=purchase_order.id,
+        )
+
+    line_id = request.POST.get("purchase_order_line")
+
+    with transaction.atomic():
+        purchase_order_line = get_object_or_404(
+            PurchaseOrderLine.objects.select_for_update(),
+            id=line_id,
+            purchase_order=purchase_order,
+        )
+
+        form = PurchaseOrderReceiptForm(
+            request.POST,
+            purchase_order_line=purchase_order_line,
+        )
+
+        if not form.is_valid():
+            messages.error(
+                request,
+                "Teslim kaydı için form alanlarını kontrol edin.",
+            )
+            return redirect(
+                "purchasing:purchase_order_detail",
+                order_id=purchase_order.id,
+            )
+
+        receipt = form.save(commit=False)
+        receipt.company = membership.company
+        receipt.purchase_order_line = purchase_order_line
+        receipt.received_by = request.user
+        receipt.save()
+
+        purchase_order_line.received_quantity += receipt.quantity
+        purchase_order_line.save(
+            update_fields=[
+                "received_quantity",
+                "updated_at",
+            ],
+        )
+
+        order_lines = list(
+            PurchaseOrderLine.objects.filter(
+                purchase_order=purchase_order,
+            )
+        )
+
+        if all(
+            line.received_quantity >= line.quantity
+            for line in order_lines
+        ):
+            purchase_order.status = PurchaseOrder.Status.RECEIVED
+            status_message = "Siparişin tüm kalemleri teslim alındı."
+        else:
+            purchase_order.status = (
+                PurchaseOrder.Status.PARTIALLY_RECEIVED
+            )
+            status_message = "Kısmi teslim kaydı oluşturuldu."
+
+        purchase_order.save(
+            update_fields=[
+                "status",
+                "updated_at",
+            ],
+        )
+
+    messages.success(
+        request,
+        (
+            f"{status_message} "
+            f"{receipt.quantity:.2f} miktar teslim olarak kaydedildi."
+        ),
+    )
+
+    return redirect(
+        "purchasing:purchase_order_detail",
+        order_id=purchase_order.id,
     )
 
 @login_required

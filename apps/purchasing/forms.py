@@ -3,6 +3,7 @@ from django import forms
 from apps.finance.models import FinanceBudgetAccount
 
 from .models import (
+    PurchaseOrderReceipt,
     PurchaseOrder,
     PurchaseRequest,
     PurchaseRequestLine,
@@ -219,3 +220,62 @@ class PurchaseRequestLineForm(forms.ModelForm):
         self.fields["budget_account"].empty_label = (
             "Gider kontrol hesabı seçin"
         )
+class PurchaseOrderReceiptForm(forms.ModelForm):
+    class Meta:
+        model = PurchaseOrderReceipt
+        fields = [
+            "receipt_date",
+            "quantity",
+            "reference_number",
+            "notes",
+        ]
+        widgets = {
+            "receipt_date": forms.DateInput(
+                attrs={
+                    "type": "date",
+                }
+            ),
+            "quantity": forms.NumberInput(
+                attrs={
+                    "min": "0.01",
+                    "step": "0.01",
+                    "placeholder": "0,00",
+                }
+            ),
+            "reference_number": forms.TextInput(
+                attrs={
+                    "placeholder": "İrsaliye / teslim referansı",
+                }
+            ),
+            "notes": forms.TextInput(
+                attrs={
+                    "placeholder": "Örn. Kısmi teslim alındı",
+                }
+            ),
+        }
+
+    def __init__(self, *args, purchase_order_line=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.purchase_order_line = purchase_order_line
+
+    def clean_quantity(self):
+        quantity = self.cleaned_data["quantity"]
+
+        if quantity <= 0:
+            raise forms.ValidationError(
+                "Teslim alınan miktar sıfırdan büyük olmalıdır."
+            )
+
+        if self.purchase_order_line:
+            remaining_quantity = (
+                self.purchase_order_line.quantity
+                - self.purchase_order_line.received_quantity
+            )
+
+            if quantity > remaining_quantity:
+                raise forms.ValidationError(
+                    "Teslim miktarı kalan sipariş miktarını aşamaz. "
+                    f"Kalan miktar: {remaining_quantity:.2f}"
+                )
+
+        return quantity
