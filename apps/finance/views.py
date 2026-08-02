@@ -852,8 +852,20 @@ def budget_accounts(request):
                 actual_totals["actual_inflow"]
             )
 
+        committed_amount = (
+            account.purchase_budget_commitments.filter(
+                status="active",
+            ).aggregate(
+                total=Sum("amount"),
+            )["total"]
+            or Decimal("0.00")
+        )
+
+        account.committed_amount = committed_amount
         account.remaining_amount = (
-            account.planned_amount - account.actual_amount
+            account.planned_amount
+            - account.actual_amount
+            - committed_amount
         )
 
     if request.method == "POST":

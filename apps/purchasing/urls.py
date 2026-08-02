@@ -1,10 +1,24 @@
 from django.urls import path
 
-from .views import home
+from .views import (
+    home,
+    purchase_request_detail,
+    purchase_request_status_update,
+)
 
 
 app_name = "purchasing"
 
 urlpatterns = [
     path("", home, name="home"),
+    path(
+        "talepler/<uuid:request_id>/",
+        purchase_request_detail,
+        name="purchase_request_detail",
+    ),
+    path(
+    "talepler/<uuid:request_id>/durum/",
+    purchase_request_status_update,
+    name="purchase_request_status_update",
+),
 ]

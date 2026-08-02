@@ -1,19 +1,163 @@
 {% extends "base.html" %}
+{% load static %}
 
 {% block title %}
-Satın Alma | Glauria ERP
+Satın Alma Talepleri | Glauria ERP
+{% endblock %}
+
+{% block extra_css %}
+<link
+    rel="stylesheet"
+    href="{% static 'css/finance.css' %}?v=purchasing-requests-v1"
+>
 {% endblock %}
 
 {% block content %}
-<section class="module-page">
+<section class="module-page finance-dashboard">
+    {% include "components/page_header.html" with eyebrow="SATIN ALMA YÖNETİMİ" title="Satın Alma Talepleri" description="Bütçe kontrolüne bağlı satın alma ihtiyaçlarını oluşturun, onaya gönderin ve taahhüt sürecini izleyin." %}
 
-    {% include "components/page_header.html" with eyebrow="TEDARİK YÖNETİMİ" title="Satın Alma" description="Tedarikçileri, satın alma taleplerini ve sipariş süreçlerini tek merkezden yönetin." action_text="+ Yeni Satın Alma" action_url="#" %}
+    <div class="finance-budget-accounts-layout">
+        <section class="finance-panel">
+            <div class="finance-panel__heading">
+                <div>
+                    <span class="finance-panel__eyebrow">
+                        TALEP HAVUZU
+                    </span>
 
-    {% include "components/list_toolbar.html" with search_placeholder="Tedarikçi, sipariş veya talep ara..." filter_text="Filtrele" %}
+                    <h3 class="finance-panel__title">
+                        Açık Satın Alma Talepleri
+                    </h3>
+                </div>
 
-    <div class="module-empty-wrapper">
-        {% include "components/empty_state.html" with icon="↓" title="Henüz satın alma kaydı bulunmuyor" description="İlk satın alma talebinizi veya tedarikçi siparişinizi oluşturarak süreci başlatabilirsiniz." action_text="+ Yeni Satın Alma" action_url="#" %}
+                <span class="finance-panel__count">
+                    {{ purchase_requests|length }} talep
+                </span>
+            </div>
+
+            {% if purchase_requests %}
+                <div class="data-table-wrapper">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Talep no</th>
+                                <th>Başlık</th>
+                                <th>İhtiyaç tarihi</th>
+                                <th>Kalem</th>
+                                <th>Talep eden</th>
+                                <th>Durum</th>
+                            </tr>
+                        </thead>
+
+                        <tbody>
+                            {% for purchase_request in purchase_requests %}
+                                <tr>
+                                    <td class="finance-table__balance">
+    <a
+        href="{% url 'purchasing:purchase_request_detail' purchase_request.id %}"
+        class="finance-back-link"
+    >
+        {{ purchase_request.request_number }}
+    </a>
+</td>
+
+                                    <td>
+                                        <div class="customer-cell">
+                                            <strong>
+                                                {{ purchase_request.title }}
+                                            </strong>
+                                            <span>
+                                                {{ purchase_request.description|default:"—" }}
+                                            </span>
+                                        </div>
+                                    </td>
+
+                                    <td>
+                                        {% if purchase_request.needed_by_date %}
+                                            {{ purchase_request.needed_by_date|date:"d.m.Y" }}
+                                        {% else %}
+                                            —
+                                        {% endif %}
+                                    </td>
+
+                                    <td>
+                                        {{ purchase_request.line_count }} kalem
+                                    </td>
+
+                                    <td>
+                                        {{ purchase_request.requested_by|default:"—" }}
+                                    </td>
+
+                                    <td>
+                                        <span
+                                            class="
+                                                finance-budget-account-status
+                                                {% if purchase_request.status == 'approved' %}
+                                                    finance-budget-account-status--active
+                                                {% elif purchase_request.status == 'rejected' or purchase_request.status == 'cancelled' %}
+                                                    finance-budget-account-status--passive
+                                                {% endif %}
+                                            "
+                                        >
+                                            {{ purchase_request.get_status_display }}
+                                        </span>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <div class="finance-panel__empty">
+                    Henüz satın alma talebi bulunmuyor.
+                    Sağdaki formdan ilk taslağı oluşturabilirsiniz.
+                </div>
+            {% endif %}
+        </section>
+
+        <section class="finance-panel">
+            <div class="finance-panel__heading">
+                <div>
+                    <span class="finance-panel__eyebrow">
+                        YENİ SATIN ALMA TALEBİ
+                    </span>
+
+                    <h3 class="finance-panel__title">
+                        Talep Taslağı Oluştur
+                    </h3>
+                </div>
+            </div>
+
+            <form method="post" class="finance-form">
+                {% csrf_token %}
+
+                {% if form.non_field_errors %}
+                    <div class="finance-form__errors">
+                        {{ form.non_field_errors }}
+                    </div>
+                {% endif %}
+
+                {% for field in form %}
+                    <div class="finance-form__field">
+                        <label for="{{ field.id_for_label }}">
+                            {{ field.label }}
+                        </label>
+
+                        {{ field }}
+                        {{ field.errors }}
+
+                        {% if field.help_text %}
+                            <span class="finance-form__help">
+                                {{ field.help_text }}
+                            </span>
+                        {% endif %}
+                    </div>
+                {% endfor %}
+
+                <button type="submit" class="finance-form__submit">
+                    Talep Taslağı Oluştur
+                </button>
+            </form>
+        </section>
     </div>
-
 </section>
 {% endblock %}

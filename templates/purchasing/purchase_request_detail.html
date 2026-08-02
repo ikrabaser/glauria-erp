@@ -1,0 +1,268 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}
+{{ purchase_request.request_number }} | Satın Alma Talebi
+{% endblock %}
+
+{% block extra_css %}
+<link
+    rel="stylesheet"
+    href="{% static 'css/finance.css' %}?v=purchasing-request-detail-v1"
+>
+{% endblock %}
+
+{% block content %}
+<section class="module-page finance-dashboard">
+    <a
+        href="{% url 'purchasing:home' %}"
+        class="finance-back-link"
+    >
+        ← Satın Alma Taleplerine Dön
+    </a>
+
+    <header class="page-header">
+        <div class="page-header__content">
+            <span class="page-header__eyebrow">
+                SATIN ALMA TALEBİ
+            </span>
+
+            <h2 class="page-header__title">
+                {{ purchase_request.title }}
+            </h2>
+
+            <p class="page-header__description">
+                {{ purchase_request.request_number }}
+                · {{ purchase_request.currency }}
+                {% if purchase_request.needed_by_date %}
+                    · İhtiyaç tarihi:
+                    {{ purchase_request.needed_by_date|date:"d.m.Y" }}
+                {% endif %}
+            </p>
+        </div>
+
+        <div class="finance-budget-status-actions">
+    <span class="finance-panel__count">
+        {{ purchase_request.get_status_display }}
+    </span>
+
+    {% if purchase_request.status == "draft" %}
+    <form
+        method="post"
+        action="{% url 'purchasing:purchase_request_status_update' purchase_request.id %}"
+    >
+        {% csrf_token %}
+
+        <input
+            type="hidden"
+            name="action"
+            value="submit"
+        >
+
+        <button
+            type="submit"
+            class="finance-budget-status-action"
+        >
+            Onaya Gönder
+        </button>
+    </form>
+
+{% elif purchase_request.status == "pending_approval" %}
+    <form
+        method="post"
+        action="{% url 'purchasing:purchase_request_status_update' purchase_request.id %}"
+    >
+        {% csrf_token %}
+
+        <input
+            type="hidden"
+            name="action"
+            value="approve"
+        >
+
+        <button
+            type="submit"
+            class="finance-budget-status-action"
+        >
+            Onayla ve Taahhüt Oluştur
+        </button>
+    </form>
+{% endif %}
+</div>
+    </header>
+
+    <div class="finance-metrics">
+        <article class="finance-metric-card finance-metric-card--primary">
+            <span class="finance-metric-card__label">
+                TAHMİNİ TOPLAM
+            </span>
+
+            <strong class="finance-metric-card__value">
+                ₺{{ total_estimated_amount|floatformat:2 }}
+            </strong>
+
+            <span class="finance-metric-card__meta">
+                Talep kalemleri toplamı
+            </span>
+        </article>
+
+        <article class="finance-metric-card">
+            <span class="finance-metric-card__label">
+                TALEP KALEMİ
+            </span>
+
+            <strong class="finance-metric-card__value">
+                {{ lines|length }}
+            </strong>
+
+            <span class="finance-metric-card__meta">
+                Bütçe hesabına bağlı ihtiyaç satırı
+            </span>
+        </article>
+
+        <article class="finance-metric-card">
+            <span class="finance-metric-card__label">
+                TALEP EDEN
+            </span>
+
+            <strong class="finance-metric-card__value">
+                {{ purchase_request.requested_by|default:"—" }}
+            </strong>
+
+            <span class="finance-metric-card__meta">
+                Taslağı oluşturan kullanıcı
+            </span>
+        </article>
+    </div>
+
+    <div class="finance-dashboard__grid">
+        <section class="finance-panel">
+            <div class="finance-panel__heading">
+                <div>
+                    <span class="finance-panel__eyebrow">
+                        TALEP KALEMLERİ
+                    </span>
+
+                    <h3 class="finance-panel__title">
+                        Bütçe Bağlantılı İhtiyaçlar
+                    </h3>
+                </div>
+
+                <span class="finance-panel__count">
+                    {{ lines|length }} kalem
+                </span>
+            </div>
+
+            {% if lines %}
+                <div class="data-table-wrapper">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Bütçe hesabı</th>
+                                <th>Açıklama</th>
+                                <th>İhtiyaç tarihi</th>
+                                <th>Miktar</th>
+                                <th>Birim fiyat</th>
+                                <th>Tahmini tutar</th>
+                            </tr>
+                        </thead>
+
+                        <tbody>
+                            {% for line in lines %}
+                                <tr>
+                                    <td>
+                                        <div class="customer-cell">
+                                            <strong>
+                                                {{ line.budget_account.code }}
+                                            </strong>
+                                            <span>
+                                                {{ line.budget_account.name }}
+                                            </span>
+                                        </div>
+                                    </td>
+
+                                    <td>
+                                        <div class="customer-cell">
+                                            <strong>{{ line.description }}</strong>
+                                            <span>
+                                                {{ line.notes|default:"—" }}
+                                            </span>
+                                        </div>
+                                    </td>
+
+                                    <td>
+                                        {{ line.needed_by_date|date:"d.m.Y" }}
+                                    </td>
+
+                                    <td>
+                                        {{ line.quantity|floatformat:2 }}
+                                    </td>
+
+                                    <td>
+                                        ₺{{ line.unit_price|floatformat:2 }}
+                                    </td>
+
+                                    <td class="finance-table__balance">
+                                        ₺{{ line.estimated_amount|floatformat:2 }}
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <div class="finance-panel__empty">
+                    Henüz talep kalemi eklenmedi. Sağdaki formdan
+                    gider kontrol hesabına bağlı ilk ihtiyacı ekleyin.
+                </div>
+            {% endif %}
+        </section>
+
+        <section class="finance-panel">
+            <div class="finance-panel__heading">
+                <div>
+                    <span class="finance-panel__eyebrow">
+                        YENİ TALEP KALEMİ
+                    </span>
+
+                    <h3 class="finance-panel__title">
+                        Bütçe Hesabına Bağla
+                    </h3>
+                </div>
+            </div>
+
+            {% if purchase_request.status == "draft" %}
+                <form method="post" class="finance-form">
+                    {% csrf_token %}
+
+                    {% if form.non_field_errors %}
+                        <div class="finance-form__errors">
+                            {{ form.non_field_errors }}
+                        </div>
+                    {% endif %}
+
+                    {% for field in form %}
+                        <div class="finance-form__field">
+                            <label for="{{ field.id_for_label }}">
+                                {{ field.label }}
+                            </label>
+
+                            {{ field }}
+                            {{ field.errors }}
+                        </div>
+                    {% endfor %}
+
+                    <button type="submit" class="finance-form__submit">
+                        Talep Kalemi Ekle
+                    </button>
+                </form>
+            {% else %}
+                <div class="finance-panel__empty">
+                    Onay sürecindeki veya sonuçlanmış taleplere
+                    kalem eklenemez.
+                </div>
+            {% endif %}
+        </section>
+    </div>
+</section>
+{% endblock %}

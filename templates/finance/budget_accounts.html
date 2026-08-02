@@ -52,6 +52,7 @@ Bütçe Kontrol Hesapları | Glauria ERP
                                 <th>Kullanım</th>
                                 <th>Planlanan</th>
                                 <th>Gerçekleşen</th>
+                                <th>Taahhüt</th>
                                 <th>Kullanılabilir</th>
                                 <th>Durum</th>
                             </tr>
@@ -103,6 +104,10 @@ Bütçe Kontrol Hesapları | Glauria ERP
 
 <td class="finance-table__balance">
     ₺{{ account.actual_amount|floatformat:2 }}
+</td>
+
+<td class="finance-table__balance">
+    ₺{{ account.committed_amount|floatformat:2 }}
 </td>
 
 <td>

@@ -2511,3 +2511,13 @@ html[data-theme="light"] .finance-account-expense__description {
     color: #ffffff;
     background: #1a171e;
 }
+/* Satın alma talep kalemi formunda koyu seçim menüsü */
+
+.finance-form select {
+    color-scheme: dark;
+}
+
+.finance-form select option {
+    color: #ffffff;
+    background: #1a171e;
+}
