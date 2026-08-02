@@ -9,7 +9,10 @@ from .views import (
     purchase_request_status_update,
     purchase_request_line_delete,
     purchase_order_receipt_create,
+    supplier_invoice_detail,
     suppliers,
+    supplier_invoices,
+    supplier_invoice_status_update,
 )
 
 app_name = "purchasing"
@@ -20,6 +23,21 @@ urlpatterns = [
         "tedarikciler/",
         suppliers,
         name="suppliers",
+    ),
+    path(
+        "faturalar/",
+        supplier_invoices,
+        name="supplier_invoices",
+    ),
+    path(
+        "faturalar/<uuid:invoice_id>/durum/",
+        supplier_invoice_status_update,
+        name="supplier_invoice_status_update",
+    ),
+    path(
+        "faturalar/<uuid:invoice_id>/",
+        supplier_invoice_detail,
+        name="supplier_invoice_detail", 
     ),
     path(
         "talepler/<uuid:request_id>/",

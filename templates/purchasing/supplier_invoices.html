@@ -1,0 +1,164 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}
+Tedarikçi Faturaları | Glauria ERP
+{% endblock %}
+
+{% block extra_css %}
+<link
+    rel="stylesheet"
+    href="{% static 'css/finance.css' %}?v=supplier-invoices-v1"
+>
+{% endblock %}
+
+{% block content %}
+<section class="module-page finance-dashboard">
+    {% include "components/page_header.html" with eyebrow="BORÇ HESAPLARI" title="Tedarikçi Faturaları" description="Teslim alınmış satın alma siparişlerinden fatura taslakları oluşturun, onay ve ödeme sürecini yönetin." %}
+
+    <div class="finance-budget-accounts-layout">
+        <section class="finance-panel">
+            <div class="finance-panel__heading">
+                <div>
+                    <span class="finance-panel__eyebrow">
+                        FATURA HAVUZU
+                    </span>
+
+                    <h3 class="finance-panel__title">
+                        Tedarikçi Borçları
+                    </h3>
+                </div>
+
+                <span class="finance-panel__count">
+                    {{ invoices|length }} fatura
+                </span>
+            </div>
+
+            {% if invoices %}
+                <div class="data-table-wrapper">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Fatura no</th>
+                                <th>Tedarikçi</th>
+                                <th>Kaynak sipariş</th>
+                                <th>Fatura tarihi</th>
+                                <th>Vade tarihi</th>
+                                <th>Tutar</th>
+                                <th>Durum</th>
+                            </tr>
+                        </thead>
+
+                        <tbody>
+                            {% for invoice in invoices %}
+                                <tr>
+                                    <td class="finance-table__balance">
+    <a
+        href="{% url 'purchasing:supplier_invoice_detail' invoice.id %}"
+        class="finance-back-link"
+    >
+        {{ invoice.invoice_number }}
+    </a>
+</td>
+
+                                    <td>
+                                        <div class="customer-cell">
+                                            <strong>
+                                                {{ invoice.supplier.name }}
+                                            </strong>
+                                            <span>
+                                                {{ invoice.supplier.code }}
+                                            </span>
+                                        </div>
+                                    </td>
+
+                                    <td>
+                                        <a
+                                            href="{% url 'purchasing:purchase_order_detail' invoice.purchase_order.id %}"
+                                            class="finance-back-link"
+                                        >
+                                            {{ invoice.purchase_order.order_number }}
+                                        </a>
+                                    </td>
+
+                                    <td>
+                                        {{ invoice.invoice_date|date:"d.m.Y" }}
+                                    </td>
+
+                                    <td>
+                                        {{ invoice.due_date|date:"d.m.Y" }}
+                                    </td>
+
+                                    <td class="finance-table__balance">
+                                        ₺{{ invoice.total_amount|floatformat:2 }}
+                                    </td>
+
+                                    <td>
+                                        <span class="finance-panel__count">
+                                            {{ invoice.get_status_display }}
+                                        </span>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <div class="finance-panel__empty">
+                    Henüz tedarikçi faturası bulunmuyor. Sağdaki
+                    formdan teslim alınmış bir sipariş için ilk
+                    fatura taslağını oluşturabilirsiniz.
+                </div>
+            {% endif %}
+        </section>
+
+        <section class="finance-panel">
+            <div class="finance-panel__heading">
+                <div>
+                    <span class="finance-panel__eyebrow">
+                        YENİ TEDARİKÇİ FATURASI
+                    </span>
+
+                    <h3 class="finance-panel__title">
+                        Fatura Taslağı Oluştur
+                    </h3>
+                </div>
+            </div>
+
+            <form method="post" class="finance-form">
+                {% csrf_token %}
+
+                {% if form.non_field_errors %}
+                    <div class="finance-form__errors">
+                        {{ form.non_field_errors }}
+                    </div>
+                {% endif %}
+
+                {% for field in form %}
+                    <div class="finance-form__field">
+                        <label for="{{ field.id_for_label }}">
+                            {{ field.label }}
+                        </label>
+
+                        {{ field }}
+                        {{ field.errors }}
+
+                        {% if field.help_text %}
+                            <span class="finance-form__help">
+                                {{ field.help_text }}
+                            </span>
+                        {% endif %}
+                    </div>
+                {% endfor %}
+
+                <button
+                    type="submit"
+                    class="finance-form__submit"
+                >
+                    Fatura Taslağı Oluştur
+                </button>
+            </form>
+        </section>
+    </div>
+</section>
+{% endblock %}

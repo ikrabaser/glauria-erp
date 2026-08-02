@@ -3,13 +3,13 @@ from django import forms
 from apps.finance.models import FinanceBudgetAccount
 
 from .models import (
-    PurchaseOrderReceipt,
     PurchaseOrder,
+    PurchaseOrderReceipt,
     PurchaseRequest,
     PurchaseRequestLine,
     Supplier,
+    SupplierInvoice,
 )
-
 
 class PurchaseRequestForm(forms.ModelForm):
     class Meta:
@@ -279,3 +279,62 @@ class PurchaseOrderReceiptForm(forms.ModelForm):
                 )
 
         return quantity
+class SupplierInvoiceForm(forms.ModelForm):
+    class Meta:
+        model = SupplierInvoice
+        fields = [
+            "purchase_order",
+            "invoice_number",
+            "invoice_date",
+            "due_date",
+            "notes",
+        ]
+        widgets = {
+            "invoice_number": forms.TextInput(
+                attrs={
+                    "placeholder": "Örn. FTR-2026-0915",
+                }
+            ),
+            "invoice_date": forms.DateInput(
+                attrs={
+                    "type": "date",
+                }
+            ),
+            "due_date": forms.DateInput(
+                attrs={
+                    "type": "date",
+                }
+            ),
+            "notes": forms.Textarea(
+                attrs={
+                    "rows": 3,
+                    "placeholder": (
+                        "Fatura veya ödeme koşullarıyla ilgili not"
+                    ),
+                }
+            ),
+        }
+
+    def __init__(self, *args, company=None, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        if company:
+            self.fields["purchase_order"].queryset = (
+                PurchaseOrder.objects.filter(
+                    company=company,
+                    status__in=[
+                        PurchaseOrder.Status.CONFIRMED,
+                        PurchaseOrder.Status.PARTIALLY_RECEIVED,
+                        PurchaseOrder.Status.RECEIVED,
+                    ],
+                )
+                .select_related("supplier")
+                .order_by("-order_date", "-created_at")
+            )
+
+        self.fields["purchase_order"].empty_label = (
+            "Teslimatı başlamış sipariş seçin"
+        )
+
+    def clean_invoice_number(self):
+        return self.cleaned_data["invoice_number"].strip().upper()

@@ -15,6 +15,7 @@ from .forms import (
     PurchaseRequestLineForm,
     PurchaseOrderReceiptForm,
     SupplierForm,
+    SupplierInvoiceForm,
 )
 from .models import (
     PurchaseBudgetCommitment,
@@ -24,6 +25,8 @@ from .models import (
     PurchaseOrderReceipt,
     PurchaseRequestLine,
     Supplier,
+    SupplierInvoice,
+    SupplierInvoiceLine,
 )
 
 from apps.finance.models import (
@@ -870,4 +873,230 @@ def purchase_request_line_delete(request, request_id, line_id):
     return redirect(
         "purchasing:purchase_request_detail",
         request_id=purchase_request.id,
+    )
+@login_required
+def supplier_invoices(request):
+    membership = get_active_membership(request.user)
+
+    if not membership or not has_full_company_data_access(
+        membership
+    ):
+        return redirect("finance:home")
+
+    invoices = (
+        SupplierInvoice.objects.filter(
+            company=membership.company,
+        )
+        .select_related(
+            "supplier",
+            "purchase_order",
+        )
+        .annotate(
+            line_count=Count("lines"),
+        )
+        .order_by(
+            "-invoice_date",
+            "-created_at",
+        )
+    )
+
+    if request.method == "POST":
+        form = SupplierInvoiceForm(
+            request.POST,
+            company=membership.company,
+        )
+
+        if form.is_valid():
+            purchase_order = form.cleaned_data["purchase_order"]
+
+            received_lines = [
+                line
+                for line in purchase_order.lines.all()
+                if line.received_quantity > Decimal("0.00")
+            ]
+
+            if not received_lines:
+                messages.error(
+                    request,
+                    (
+                        "Fatura taslağı oluşturmak için siparişte "
+                        "teslim alınmış en az bir kalem olmalıdır."
+                    ),
+                )
+            else:
+                with transaction.atomic():
+                    supplier_invoice = form.save(commit=False)
+                    supplier_invoice.company = membership.company
+                    supplier_invoice.supplier = (
+                        purchase_order.supplier
+                    )
+                    supplier_invoice.currency = (
+                        purchase_order.currency
+                    )
+                    supplier_invoice.created_by = request.user
+                    supplier_invoice.save()
+
+                    SupplierInvoiceLine.objects.bulk_create(
+                        [
+                            SupplierInvoiceLine(
+                                supplier_invoice=supplier_invoice,
+                                purchase_order_line=line,
+                                description=line.description,
+                                quantity=line.received_quantity,
+                                unit_price=line.unit_price,
+                            )
+                            for line in received_lines
+                        ]
+                    )
+
+                messages.success(
+                    request,
+                    (
+                        f"{supplier_invoice.invoice_number} numaralı "
+                        "tedarikçi faturası taslak olarak oluşturuldu."
+                    ),
+                )
+
+                return redirect("purchasing:supplier_invoices")
+    else:
+        form = SupplierInvoiceForm(
+            company=membership.company,
+        )
+
+    return render(
+        request,
+        "purchasing/supplier_invoices.html",
+        {
+            "current_membership": membership,
+            "invoices": invoices,
+            "form": form,
+        },
+    )
+@login_required
+def supplier_invoice_detail(request, invoice_id):
+    membership = get_active_membership(request.user)
+
+    if not membership or not has_full_company_data_access(
+        membership
+    ):
+        return redirect("finance:home")
+
+    supplier_invoice = get_object_or_404(
+        SupplierInvoice.objects.select_related(
+            "supplier",
+            "purchase_order",
+            "created_by",
+            "approved_by",
+        ),
+        id=invoice_id,
+        company=membership.company,
+    )
+
+    lines = supplier_invoice.lines.select_related(
+        "purchase_order_line__budget_account",
+    ).order_by("created_at")
+
+    return render(
+        request,
+        "purchasing/supplier_invoice_detail.html",
+        {
+            "current_membership": membership,
+            "supplier_invoice": supplier_invoice,
+            "lines": lines,
+            "total_amount": supplier_invoice.total_amount,
+        },
+    )
+@login_required
+@require_POST
+def supplier_invoice_status_update(request, invoice_id):
+    membership = get_active_membership(request.user)
+
+    if not membership or not has_full_company_data_access(
+        membership
+    ):
+        return redirect("finance:home")
+
+    supplier_invoice = get_object_or_404(
+        SupplierInvoice.objects.prefetch_related("lines"),
+        id=invoice_id,
+        company=membership.company,
+    )
+
+    action = request.POST.get("action")
+
+    if (
+        action == "submit"
+        and supplier_invoice.status
+        == SupplierInvoice.Status.DRAFT
+    ):
+        if not supplier_invoice.lines.exists():
+            messages.error(
+                request,
+                "Onaya göndermek için en az bir fatura kalemi olmalıdır.",
+            )
+        else:
+            supplier_invoice.status = (
+                SupplierInvoice.Status.PENDING_APPROVAL
+            )
+            supplier_invoice.save(
+                update_fields=[
+                    "status",
+                    "updated_at",
+                ],
+            )
+
+            messages.success(
+                request,
+                "Tedarikçi faturası onaya gönderildi.",
+            )
+
+    elif (
+        action == "return_to_draft"
+        and supplier_invoice.status
+        == SupplierInvoice.Status.PENDING_APPROVAL
+    ):
+        supplier_invoice.status = SupplierInvoice.Status.DRAFT
+        supplier_invoice.save(
+            update_fields=[
+                "status",
+                "updated_at",
+            ],
+        )
+
+        messages.success(
+            request,
+            "Tedarikçi faturası taslağa iade edildi.",
+        )
+
+    elif (
+        action == "approve"
+        and supplier_invoice.status
+        == SupplierInvoice.Status.PENDING_APPROVAL
+    ):
+        supplier_invoice.status = SupplierInvoice.Status.APPROVED
+        supplier_invoice.approved_by = request.user
+        supplier_invoice.approved_at = timezone.now()
+        supplier_invoice.save(
+            update_fields=[
+                "status",
+                "approved_by",
+                "approved_at",
+                "updated_at",
+            ],
+        )
+
+        messages.success(
+            request,
+            "Tedarikçi faturası onaylandı ve ödeme için hazır.",
+        )
+
+    else:
+        messages.error(
+            request,
+            "Bu fatura için seçilen aksiyon uygulanamadı.",
+        )
+
+    return redirect(
+        "purchasing:supplier_invoice_detail",
+        invoice_id=supplier_invoice.id,
     )

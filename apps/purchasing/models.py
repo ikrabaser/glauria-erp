@@ -723,3 +723,194 @@ class PurchaseOrderReceipt(BaseModel):
             f"{self.purchase_order_line.purchase_order.order_number} "
             f"· {self.quantity}"
         )
+class SupplierInvoice(BaseModel):
+    """
+    Tedarikçiden gelen, satın alma siparişine bağlı fatura.
+    """
+
+    class Status(models.TextChoices):
+        DRAFT = "draft", "Taslak"
+        PENDING_APPROVAL = "pending_approval", "Onay bekliyor"
+        APPROVED = "approved", "Onaylandı"
+        PARTIALLY_PAID = "partially_paid", "Kısmi ödendi"
+        PAID = "paid", "Ödendi"
+        CANCELLED = "cancelled", "İptal edildi"
+
+    company = models.ForeignKey(
+        Company,
+        on_delete=models.PROTECT,
+        related_name="supplier_invoices",
+        verbose_name="Şirket",
+    )
+
+    purchase_order = models.ForeignKey(
+        PurchaseOrder,
+        on_delete=models.PROTECT,
+        related_name="supplier_invoices",
+        verbose_name="Satın alma siparişi",
+    )
+
+    supplier = models.ForeignKey(
+        Supplier,
+        on_delete=models.PROTECT,
+        related_name="invoices",
+        verbose_name="Tedarikçi",
+    )
+
+    invoice_number = models.CharField(
+        max_length=80,
+        verbose_name="Tedarikçi fatura numarası",
+    )
+
+    invoice_date = models.DateField(
+        default=timezone.localdate,
+        verbose_name="Fatura tarihi",
+    )
+
+    due_date = models.DateField(
+        verbose_name="Vade tarihi",
+    )
+
+    currency = models.CharField(
+        max_length=3,
+        default="TRY",
+        verbose_name="Para birimi",
+    )
+
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.DRAFT,
+        verbose_name="Durum",
+    )
+
+    notes = models.TextField(
+        blank=True,
+        verbose_name="Fatura notu",
+    )
+
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="created_supplier_invoices",
+        verbose_name="Oluşturan kullanıcı",
+    )
+
+    approved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="approved_supplier_invoices",
+        verbose_name="Onaylayan kullanıcı",
+    )
+
+    approved_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="Onay zamanı",
+    )
+
+    class Meta:
+        ordering = ["-invoice_date", "-created_at"]
+        verbose_name = "Tedarikçi faturası"
+        verbose_name_plural = "Tedarikçi faturaları"
+        indexes = [
+            models.Index(
+                fields=["company", "status", "due_date"],
+            ),
+            models.Index(
+                fields=["supplier", "status"],
+            ),
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=[
+                    "company",
+                    "supplier",
+                    "invoice_number",
+                ],
+                name="unique_supplier_invoice_number_per_company",
+            ),
+        ]
+
+    def __str__(self):
+        return (
+            f"{self.supplier.code} · {self.invoice_number}"
+        )
+
+    @property
+    def total_amount(self):
+        return (
+            self.lines.aggregate(
+                total=Sum(
+                    models.F("quantity")
+                    * models.F("unit_price"),
+                ),
+            )["total"]
+            or Decimal("0.00")
+        )
+
+
+class SupplierInvoiceLine(BaseModel):
+    """
+    Tedarikçi faturasındaki sipariş kalemine bağlı tutar.
+    """
+
+    supplier_invoice = models.ForeignKey(
+        SupplierInvoice,
+        on_delete=models.CASCADE,
+        related_name="lines",
+        verbose_name="Tedarikçi faturası",
+    )
+
+    purchase_order_line = models.ForeignKey(
+        PurchaseOrderLine,
+        on_delete=models.PROTECT,
+        related_name="supplier_invoice_lines",
+        verbose_name="Sipariş kalemi",
+    )
+
+    description = models.CharField(
+        max_length=255,
+        verbose_name="Fatura kalemi açıklaması",
+    )
+
+    quantity = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        verbose_name="Faturalanan miktar",
+    )
+
+    unit_price = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        verbose_name="Birim fiyat",
+    )
+
+    class Meta:
+        ordering = ["created_at"]
+        verbose_name = "Tedarikçi fatura kalemi"
+        verbose_name_plural = "Tedarikçi fatura kalemleri"
+        constraints = [
+            models.CheckConstraint(
+                condition=Q(quantity__gt=0),
+                name="supplier_invoice_line_quantity_positive",
+            ),
+            models.CheckConstraint(
+                condition=Q(unit_price__gte=0),
+                name="supplier_invoice_line_unit_price_nonnegative",
+            ),
+        ]
+
+    def __str__(self):
+        return (
+            f"{self.supplier_invoice.invoice_number} · "
+            f"{self.description}"
+        )
+
+    @property
+    def line_total(self):
+        return self.quantity * self.unit_price
