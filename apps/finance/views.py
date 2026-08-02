@@ -767,6 +767,94 @@ def budget_accounts(request):
             "code",
         )
     )
+    budget_plan_rows = (
+        FinanceBudgetLine.objects.filter(
+            budget__company=membership.company,
+            budget__status=FinanceBudget.Status.ACTIVE,
+            budget_account__isnull=False,
+        )
+        .values("budget_account_id")
+        .annotate(
+            planned_inflow=Sum("planned_inflow"),
+            planned_outflow=Sum("planned_outflow"),
+        )
+    )
+
+    actual_transaction_rows = (
+        FinancialAccountTransaction.objects.filter(
+            company=membership.company,
+            status=FinancialAccountTransaction.Status.ACTIVE,
+            budget_account__isnull=False,
+        )
+        .values(
+            "budget_account_id",
+            "direction",
+        )
+        .annotate(
+            total=Sum("amount"),
+        )
+    )
+
+    plan_totals_by_account = {
+        row["budget_account_id"]: row
+        for row in budget_plan_rows
+    }
+
+    actual_totals_by_account = {}
+
+    for row in actual_transaction_rows:
+        totals = actual_totals_by_account.setdefault(
+            row["budget_account_id"],
+            {
+                "actual_inflow": Decimal("0.00"),
+                "actual_outflow": Decimal("0.00"),
+            },
+        )
+
+        if row["direction"] == (
+            FinancialAccountTransaction.Direction.IN
+        ):
+            totals["actual_inflow"] = row["total"]
+        else:
+            totals["actual_outflow"] = row["total"]
+
+    for account in accounts:
+        plan_totals = plan_totals_by_account.get(
+            account.id,
+            {
+                "planned_inflow": Decimal("0.00"),
+                "planned_outflow": Decimal("0.00"),
+            },
+        )
+
+        actual_totals = actual_totals_by_account.get(
+            account.id,
+            {
+                "actual_inflow": Decimal("0.00"),
+                "actual_outflow": Decimal("0.00"),
+            },
+        )
+
+        if account.account_type == (
+            FinanceBudgetAccount.AccountType.EXPENSE
+        ):
+            account.planned_amount = (
+                plan_totals["planned_outflow"]
+            )
+            account.actual_amount = (
+                actual_totals["actual_outflow"]
+            )
+        else:
+            account.planned_amount = (
+                plan_totals["planned_inflow"]
+            )
+            account.actual_amount = (
+                actual_totals["actual_inflow"]
+            )
+
+        account.remaining_amount = (
+            account.planned_amount - account.actual_amount
+        )
 
     if request.method == "POST":
         form = FinanceBudgetAccountForm(
