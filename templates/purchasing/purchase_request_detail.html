@@ -107,13 +107,25 @@
             Onayla ve Taahhüt Oluştur
         </button>
     </form>
+    {% elif purchase_request.status == "approved" %}
+    <form
+        method="post"
+        action="{% url 'purchasing:purchase_request_status_update' purchase_request.id %}"
+    >
         {% csrf_token %}
 
         <input
             type="hidden"
             name="action"
-            value="approve"
+            value="cancel"
         >
+
+        <button
+            type="submit"
+            class="finance-budget-status-action finance-budget-status-action--close"
+        >
+            Talebi İptal Et
+        </button>
     </form>
 {% endif %}
 </div>

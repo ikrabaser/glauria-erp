@@ -321,7 +321,9 @@ def purchase_request_status_update(request, request_id):
                         purchase_request=purchase_request,
                         purchase_request_line=line,
                         budget_account=line.budget_account,
-                        period_month=line.needed_by_date.replace(day=1),
+                        period_month=(
+                            line.needed_by_date.replace(day=1)
+                        ),
                         amount=line.estimated_amount,
                         created_by=request.user,
                     )
@@ -343,14 +345,43 @@ def purchase_request_status_update(request, request_id):
             messages.success(
                 request,
                 (
-                    "Satın alma talebi onaylandı ve bütçe taahhütleri "
-                    "oluşturuldu."
+                    "Satın alma talebi onaylandı ve bütçe "
+                    "taahhütleri oluşturuldu."
                 ),
             )
-    else:
-        messages.error(
+
+    elif (
+        action == "cancel"
+        and purchase_request.status
+        == PurchaseRequest.Status.APPROVED
+    ):
+        with transaction.atomic():
+            released_count = (
+                PurchaseBudgetCommitment.objects.filter(
+                    purchase_request=purchase_request,
+                    status=PurchaseBudgetCommitment.Status.ACTIVE,
+                ).update(
+                    status=PurchaseBudgetCommitment.Status.RELEASED,
+                    updated_at=timezone.now(),
+                )
+            )
+
+            purchase_request.status = (
+                PurchaseRequest.Status.CANCELLED
+            )
+            purchase_request.save(
+                update_fields=[
+                    "status",
+                    "updated_at",
+                ],
+            )
+
+        messages.success(
             request,
-            "Bu talep için seçilen aksiyon uygulanamadı.",
+            (
+                "Satın alma talebi iptal edildi. "
+                f"{released_count} bütçe taahhüdü serbest bırakıldı."
+            ),
         )
 
     return redirect(
