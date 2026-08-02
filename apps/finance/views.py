@@ -965,6 +965,70 @@ def budget_detail(request, budget_id):
             "category",
         )
     )
+    actual_line_rows = (
+        FinancialAccountTransaction.objects.filter(
+            company=membership.company,
+            status=FinancialAccountTransaction.Status.ACTIVE,
+            budget_account__isnull=False,
+            transaction_date__year=budget.fiscal_year,
+        )
+        .annotate(
+            month=TruncMonth("transaction_date"),
+        )
+        .values(
+            "budget_account_id",
+            "month",
+            "direction",
+        )
+        .annotate(
+            total=Sum("amount"),
+        )
+    )
+
+    actual_by_budget_line = {}
+
+    for row in actual_line_rows:
+        key = (
+            row["budget_account_id"],
+            row["month"],
+        )
+
+        totals = actual_by_budget_line.setdefault(
+            key,
+            {
+                "actual_inflow": Decimal("0.00"),
+                "actual_outflow": Decimal("0.00"),
+            },
+        )
+
+        if row["direction"] == (
+            FinancialAccountTransaction.Direction.IN
+        ):
+            totals["actual_inflow"] = row["total"]
+        else:
+            totals["actual_outflow"] = row["total"]
+
+    for line in lines:
+        actual = actual_by_budget_line.get(
+            (
+                line.budget_account_id,
+                line.period_month,
+            ),
+            {
+                "actual_inflow": Decimal("0.00"),
+                "actual_outflow": Decimal("0.00"),
+            },
+        )
+
+        line.actual_inflow = actual["actual_inflow"]
+        line.actual_outflow = actual["actual_outflow"]
+
+        line.remaining_inflow = (
+            line.planned_inflow - line.actual_inflow
+        )
+        line.remaining_outflow = (
+            line.planned_outflow - line.actual_outflow
+        )
 
     monthly_budget_totals = {}
     for line in lines:
