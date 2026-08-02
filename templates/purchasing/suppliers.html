@@ -1,0 +1,164 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}
+Tedarikçiler | Glauria ERP
+{% endblock %}
+
+{% block extra_css %}
+<link
+    rel="stylesheet"
+    href="{% static 'css/finance.css' %}?v=purchasing-suppliers-v1"
+>
+{% endblock %}
+
+{% block content %}
+<section class="module-page finance-dashboard">
+    {% include "components/page_header.html" with eyebrow="TEDARİKÇİ YÖNETİMİ" title="Tedarikçiler" description="Satın alma siparişlerinde kullanılacak tedarikçi ana verilerini ve ödeme koşullarını yönetin." %}
+
+    <div class="finance-budget-accounts-layout">
+        <section class="finance-panel">
+            <div class="finance-panel__heading">
+                <div>
+                    <span class="finance-panel__eyebrow">
+                        TEDARİKÇİ PORTFÖYÜ
+                    </span>
+
+                    <h3 class="finance-panel__title">
+                        Aktif ve Pasif Tedarikçiler
+                    </h3>
+                </div>
+
+                <span class="finance-panel__count">
+                    {{ suppliers|length }} tedarikçi
+                </span>
+            </div>
+
+            {% if suppliers %}
+                <div class="data-table-wrapper">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Tedarikçi kodu</th>
+                                <th>Tedarikçi</th>
+                                <th>İletişim</th>
+                                <th>Ödeme vadesi</th>
+                                <th>Durum</th>
+                            </tr>
+                        </thead>
+
+                        <tbody>
+                            {% for supplier in suppliers %}
+                                <tr>
+                                    <td class="finance-table__balance">
+                                        {{ supplier.code }}
+                                    </td>
+
+                                    <td>
+                                        <div class="customer-cell">
+                                            <strong>{{ supplier.name }}</strong>
+                                            <span>
+                                                {{ supplier.legal_name|default:"—" }}
+                                            </span>
+                                        </div>
+                                    </td>
+
+                                    <td>
+                                        <div class="customer-cell">
+                                            <strong>
+                                                {{ supplier.contact_name|default:"—" }}
+                                            </strong>
+                                            <span>
+                                                {{ supplier.email|default:supplier.phone|default:"—" }}
+                                            </span>
+                                        </div>
+                                    </td>
+
+                                    <td>
+                                        {{ supplier.payment_term_days }} gün
+                                    </td>
+
+                                    <td>
+                                        <span
+                                            class="
+                                                finance-budget-account-status
+                                                {% if supplier.is_active %}
+                                                    finance-budget-account-status--active
+                                                {% else %}
+                                                    finance-budget-account-status--passive
+                                                {% endif %}
+                                            "
+                                        >
+                                            {% if supplier.is_active %}
+                                                Aktif
+                                            {% else %}
+                                                Pasif
+                                            {% endif %}
+                                        </span>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <div class="finance-panel__empty">
+                    Henüz tedarikçi bulunmuyor. Sağdaki formdan ilk
+                    tedarikçiyi oluşturabilirsiniz.
+                </div>
+            {% endif %}
+        </section>
+
+        <section class="finance-panel">
+            <div class="finance-panel__heading">
+                <div>
+                    <span class="finance-panel__eyebrow">
+                        YENİ TEDARİKÇİ
+                    </span>
+
+                    <h3 class="finance-panel__title">
+                        Tedarikçi Oluştur
+                    </h3>
+                </div>
+            </div>
+
+            <form
+                method="post"
+                class="finance-form finance-budget-account-form"
+            >
+                {% csrf_token %}
+
+                {% if form.non_field_errors %}
+                    <div class="finance-form__errors">
+                        {{ form.non_field_errors }}
+                    </div>
+                {% endif %}
+
+                {% for field in form %}
+                    <div class="finance-form__field">
+                        <label for="{{ field.id_for_label }}">
+                            {{ field.label }}
+                        </label>
+
+                        {{ field }}
+                        {{ field.errors }}
+
+                        {% if field.help_text %}
+                            <span class="finance-form__help">
+                                {{ field.help_text }}
+                            </span>
+                        {% endif %}
+                    </div>
+                {% endfor %}
+
+                <button
+                    type="submit"
+                    class="finance-form__submit"
+                >
+                    Tedarikçi Oluştur
+                </button>
+            </form>
+        </section>
+    </div>
+</section>
+{% endblock %}

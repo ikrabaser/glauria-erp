@@ -2,7 +2,11 @@ from django import forms
 
 from apps.finance.models import FinanceBudgetAccount
 
-from .models import PurchaseRequest, PurchaseRequestLine
+from .models import (
+    PurchaseRequest,
+    PurchaseRequestLine,
+    Supplier,
+)
 
 
 class PurchaseRequestForm(forms.ModelForm):
@@ -41,6 +45,80 @@ class PurchaseRequestForm(forms.ModelForm):
 
     def clean_currency(self):
         return self.cleaned_data["currency"].upper().strip()
+
+class SupplierForm(forms.ModelForm):
+    class Meta:
+        model = Supplier
+        fields = [
+            "code",
+            "name",
+            "legal_name",
+            "tax_number",
+            "tax_office",
+            "contact_name",
+            "email",
+            "phone",
+            "address",
+            "payment_term_days",
+            "is_active",
+        ]
+        widgets = {
+            "code": forms.TextInput(
+                attrs={
+                    "placeholder": "Örn. TED-DIJITAL-01",
+                }
+            ),
+            "name": forms.TextInput(
+                attrs={
+                    "placeholder": "Örn. Glauria Dijital Medya Ltd.",
+                }
+            ),
+            "legal_name": forms.TextInput(
+                attrs={
+                    "placeholder": "Resmî unvan",
+                }
+            ),
+            "tax_number": forms.TextInput(
+                attrs={
+                    "placeholder": "Vergi numarası",
+                }
+            ),
+            "tax_office": forms.TextInput(
+                attrs={
+                    "placeholder": "Vergi dairesi",
+                }
+            ),
+            "contact_name": forms.TextInput(
+                attrs={
+                    "placeholder": "Yetkili kişi adı",
+                }
+            ),
+            "email": forms.EmailInput(
+                attrs={
+                    "placeholder": "tedarikci@firma.com",
+                }
+            ),
+            "phone": forms.TextInput(
+                attrs={
+                    "placeholder": "Telefon numarası",
+                }
+            ),
+            "address": forms.Textarea(
+                attrs={
+                    "rows": 3,
+                    "placeholder": "Fatura ve teslimat adresi",
+                }
+            ),
+            "payment_term_days": forms.NumberInput(
+                attrs={
+                    "min": "0",
+                    "step": "1",
+                }
+            ),
+        }
+
+    def clean_code(self):
+        return self.cleaned_data["code"].upper().strip()
 
 
 class PurchaseRequestLineForm(forms.ModelForm):

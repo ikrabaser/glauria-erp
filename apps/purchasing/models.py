@@ -18,6 +18,97 @@ def generate_purchase_request_number():
 
     return f"PR-{year}-{token}"
 
+class Supplier(BaseModel):
+    """
+    Satın alma siparişleri ve tedarikçi performansı için ana veri.
+    """
+
+    company = models.ForeignKey(
+        Company,
+        on_delete=models.PROTECT,
+        related_name="suppliers",
+        verbose_name="Şirket",
+    )
+
+    code = models.CharField(
+        max_length=30,
+        verbose_name="Tedarikçi kodu",
+    )
+
+    name = models.CharField(
+        max_length=180,
+        verbose_name="Tedarikçi adı",
+    )
+
+    legal_name = models.CharField(
+        max_length=220,
+        blank=True,
+        verbose_name="Resmî unvan",
+    )
+
+    tax_number = models.CharField(
+        max_length=20,
+        blank=True,
+        verbose_name="Vergi numarası",
+    )
+
+    tax_office = models.CharField(
+        max_length=120,
+        blank=True,
+        verbose_name="Vergi dairesi",
+    )
+
+    contact_name = models.CharField(
+        max_length=120,
+        blank=True,
+        verbose_name="Yetkili kişi",
+    )
+
+    email = models.EmailField(
+        blank=True,
+        verbose_name="E-posta",
+    )
+
+    phone = models.CharField(
+        max_length=30,
+        blank=True,
+        verbose_name="Telefon",
+    )
+
+    address = models.TextField(
+        blank=True,
+        verbose_name="Adres",
+    )
+
+    payment_term_days = models.PositiveSmallIntegerField(
+        default=30,
+        verbose_name="Standart ödeme vadesi (gün)",
+    )
+
+    is_active = models.BooleanField(
+        default=True,
+        verbose_name="Aktif mi?",
+    )
+
+    class Meta:
+        ordering = ["name"]
+        verbose_name = "Tedarikçi"
+        verbose_name_plural = "Tedarikçiler"
+        indexes = [
+            models.Index(
+                fields=["company", "is_active"],
+            ),
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["company", "code"],
+                name="unique_supplier_code_per_company",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.code} · {self.name}"
+
 
 class PurchaseRequest(BaseModel):
     """

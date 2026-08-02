@@ -5,17 +5,21 @@ from django.shortcuts import get_object_or_404, redirect, render
 from apps.accounts.data_access import has_full_company_data_access
 from django.utils import timezone
 from django.views.decorators.http import require_POST
+from decimal import Decimal
+from django.db import transaction
+from django.db.models import Sum
 
-from .forms import PurchaseRequestForm, PurchaseRequestLineForm
+from .forms import (
+    PurchaseRequestForm,
+    PurchaseRequestLineForm,
+    SupplierForm,
+)
 from .models import (
     PurchaseBudgetCommitment,
     PurchaseRequest,
     PurchaseRequestLine,
+    Supplier,
 )
-from decimal import Decimal
-
-from django.db import transaction
-from django.db.models import Sum
 
 from apps.finance.models import (
     FinanceBudget,
@@ -83,6 +87,53 @@ def home(request):
             "form": form,
         },
     )
+
+@login_required
+def suppliers(request):
+    membership = get_active_membership(request.user)
+
+    if not membership or not has_full_company_data_access(
+        membership
+    ):
+        return redirect("finance:home")
+
+    supplier_list = Supplier.objects.filter(
+        company=membership.company,
+    ).order_by(
+        "-is_active",
+        "name",
+    )
+
+    if request.method == "POST":
+        form = SupplierForm(request.POST)
+
+        if form.is_valid():
+            supplier = form.save(commit=False)
+            supplier.company = membership.company
+            supplier.save()
+
+            messages.success(
+                request,
+                (
+                    f"{supplier.code} kodlu tedarikçi "
+                    "oluşturuldu."
+                ),
+            )
+
+            return redirect("purchasing:suppliers")
+    else:
+        form = SupplierForm()
+
+    return render(
+        request,
+        "purchasing/suppliers.html",
+        {
+            "current_membership": membership,
+            "suppliers": supplier_list,
+            "form": form,
+        },
+    )
+
 
 @login_required
 def purchase_request_detail(request, request_id):

@@ -59,13 +59,32 @@
             </a>
         {% endif %}
 
-        {% if module_access.purchasing %}
-            <a
-                href="{% url 'purchasing:home' %}"
-                class="sidebar-link{% if request.resolver_match.namespace == 'purchasing' %} active{% endif %}"
+         {% if module_access.purchasing %}
+            <details
+                class="sidebar-group"
+                {% if request.resolver_match.namespace == "purchasing" %}open{% endif %}
             >
-                Satın Alma
-            </a>
+                <summary class="sidebar-link sidebar-group__trigger">
+                    Satın Alma
+                    <span class="sidebar-group__chevron">⌄</span>
+                </summary>
+
+                <div class="sidebar-group__items">
+                    <a
+                        href="{% url 'purchasing:home' %}"
+                        class="sidebar-group__link{% if request.resolver_match.url_name == 'home' %} active{% endif %}"
+                    >
+                        Satın Alma Talepleri
+                    </a>
+
+                    <a
+                        href="{% url 'purchasing:suppliers' %}"
+                        class="sidebar-group__link{% if request.resolver_match.url_name == 'suppliers' %} active{% endif %}"
+                    >
+                        Tedarikçiler
+                    </a>
+                </div>
+            </details>
         {% endif %}
 
         {% if module_access.inventory %}

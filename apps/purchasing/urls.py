@@ -5,6 +5,7 @@ from .views import (
     purchase_request_detail,
     purchase_request_status_update,
     purchase_request_line_delete,
+    suppliers,
 )
 
 
@@ -12,6 +13,11 @@ app_name = "purchasing"
 
 urlpatterns = [
     path("", home, name="home"),
+    path(
+        "tedarikciler/",
+        suppliers,
+        name="suppliers",
+    ),
     path(
         "talepler/<uuid:request_id>/",
         purchase_request_detail,
