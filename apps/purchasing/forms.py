@@ -3,6 +3,7 @@ from django import forms
 from apps.finance.models import FinanceBudgetAccount
 
 from .models import (
+    PurchaseOrder,
     PurchaseRequest,
     PurchaseRequestLine,
     Supplier,
@@ -119,6 +120,46 @@ class SupplierForm(forms.ModelForm):
 
     def clean_code(self):
         return self.cleaned_data["code"].upper().strip()
+
+
+class PurchaseOrderForm(forms.ModelForm):
+    class Meta:
+        model = PurchaseOrder
+        fields = [
+            "supplier",
+            "expected_delivery_date",
+            "notes",
+        ]
+        widgets = {
+            "expected_delivery_date": forms.DateInput(
+                attrs={
+                    "type": "date",
+                }
+            ),
+            "notes": forms.Textarea(
+                attrs={
+                    "rows": 4,
+                    "placeholder": (
+                        "Teslimat, ödeme veya sipariş koşulları"
+                    ),
+                }
+            ),
+        }
+
+    def __init__(self, *args, company=None, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        if company:
+            self.fields["supplier"].queryset = (
+                Supplier.objects.filter(
+                    company=company,
+                    is_active=True,
+                ).order_by("name")
+            )
+
+        self.fields["supplier"].empty_label = (
+            "Aktif tedarikçi seçin"
+        )
 
 
 class PurchaseRequestLineForm(forms.ModelForm):

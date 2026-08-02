@@ -10,12 +10,15 @@ from django.db import transaction
 from django.db.models import Sum
 
 from .forms import (
+    PurchaseOrderForm,
     PurchaseRequestForm,
     PurchaseRequestLineForm,
     SupplierForm,
 )
 from .models import (
     PurchaseBudgetCommitment,
+    PurchaseOrder,
+    PurchaseOrderLine,
     PurchaseRequest,
     PurchaseRequestLine,
     Supplier,
@@ -198,6 +201,28 @@ def purchase_request_detail(request, request_id):
             },
         )
 
+    existing_purchase_order = (
+        PurchaseOrder.objects.filter(
+            purchase_request=purchase_request,
+        ).first()
+    )
+
+    purchase_order_form = None
+
+    if (
+        purchase_request.status
+        == PurchaseRequest.Status.APPROVED
+        and not existing_purchase_order
+    ):
+        purchase_order_form = PurchaseOrderForm(
+            company=membership.company,
+            initial={
+                "expected_delivery_date": (
+                    purchase_request.needed_by_date
+                ),
+            },
+        )
+
     return render(
         request,
         "purchasing/purchase_request_detail.html",
@@ -206,11 +231,238 @@ def purchase_request_detail(request, request_id):
             "purchase_request": purchase_request,
             "lines": lines,
             "form": form,
+            "existing_purchase_order": existing_purchase_order,
+            "purchase_order_form": purchase_order_form,
             "total_estimated_amount": (
                 purchase_request.total_estimated_amount
             ),
         },
     )
+
+@login_required
+@require_POST
+def purchase_order_create(request, request_id):
+    membership = get_active_membership(request.user)
+
+    if not membership or not has_full_company_data_access(
+        membership
+    ):
+        return redirect("finance:home")
+
+    purchase_request = get_object_or_404(
+        PurchaseRequest.objects.prefetch_related(
+            "lines__budget_account",
+        ),
+        id=request_id,
+        company=membership.company,
+    )
+
+    if purchase_request.status != PurchaseRequest.Status.APPROVED:
+        messages.error(
+            request,
+            "Yalnızca onaylanmış satın alma talepleri siparişe dönüştürülebilir.",
+        )
+        return redirect(
+            "purchasing:purchase_request_detail",
+            request_id=purchase_request.id,
+        )
+
+    if PurchaseOrder.objects.filter(
+        purchase_request=purchase_request,
+    ).exists():
+        messages.error(
+            request,
+            "Bu satın alma talebi için zaten bir sipariş oluşturulmuş.",
+        )
+        return redirect(
+            "purchasing:purchase_request_detail",
+            request_id=purchase_request.id,
+        )
+
+    form = PurchaseOrderForm(
+        request.POST,
+        company=membership.company,
+    )
+
+    if not form.is_valid():
+        messages.error(
+            request,
+            "Sipariş oluşturmak için form alanlarını kontrol edin.",
+        )
+        return redirect(
+            "purchasing:purchase_request_detail",
+            request_id=purchase_request.id,
+        )
+
+    with transaction.atomic():
+        purchase_order = form.save(commit=False)
+        purchase_order.company = membership.company
+        purchase_order.purchase_request = purchase_request
+        purchase_order.currency = purchase_request.currency
+        purchase_order.created_by = request.user
+        purchase_order.save()
+
+        PurchaseOrderLine.objects.bulk_create(
+            [
+                PurchaseOrderLine(
+                    purchase_order=purchase_order,
+                    purchase_request_line=line,
+                    budget_account=line.budget_account,
+                    description=line.description,
+                    quantity=line.quantity,
+                    unit_price=line.unit_price,
+                    expected_delivery_date=line.needed_by_date,
+                )
+                for line in purchase_request.lines.all()
+            ]
+        )
+
+    messages.success(
+        request,
+        (
+            f"{purchase_order.order_number} numaralı satın alma siparişi "
+            "taslak olarak oluşturuldu."
+        ),
+    )
+
+    return redirect(
+        "purchasing:purchase_order_detail",
+        order_id=purchase_order.id,
+    )
+
+@login_required
+def purchase_order_detail(request, order_id):
+    membership = get_active_membership(request.user)
+
+    if not membership or not has_full_company_data_access(
+        membership
+    ):
+        return redirect("finance:home")
+
+    purchase_order = get_object_or_404(
+        PurchaseOrder.objects.select_related(
+            "supplier",
+            "purchase_request",
+            "created_by",
+            "sent_by",
+            "confirmed_by",
+        ),
+        id=order_id,
+        company=membership.company,
+    )
+
+    lines = purchase_order.lines.select_related(
+        "budget_account",
+        "purchase_request_line",
+    ).order_by("created_at")
+
+    return render(
+        request,
+        "purchasing/purchase_order_detail.html",
+        {
+            "current_membership": membership,
+            "purchase_order": purchase_order,
+            "lines": lines,
+            "total_amount": purchase_order.total_amount,
+        },
+    )
+
+@login_required
+@require_POST
+def purchase_order_status_update(request, order_id):
+    membership = get_active_membership(request.user)
+
+    if not membership or not has_full_company_data_access(
+        membership
+    ):
+        return redirect("finance:home")
+
+    purchase_order = get_object_or_404(
+        PurchaseOrder,
+        id=order_id,
+        company=membership.company,
+    )
+
+    action = request.POST.get("action")
+
+    if (
+        action == "send"
+        and purchase_order.status == PurchaseOrder.Status.DRAFT
+    ):
+        purchase_order.status = PurchaseOrder.Status.SENT
+        purchase_order.sent_by = request.user
+        purchase_order.sent_at = timezone.now()
+        purchase_order.save(
+            update_fields=[
+                "status",
+                "sent_by",
+                "sent_at",
+                "updated_at",
+            ],
+        )
+
+        messages.success(
+            request,
+            "Satın alma siparişi tedarikçiye gönderildi.",
+        )
+
+    elif (
+        action == "confirm"
+        and purchase_order.status == PurchaseOrder.Status.SENT
+    ):
+        purchase_order.status = PurchaseOrder.Status.CONFIRMED
+        purchase_order.confirmed_by = request.user
+        purchase_order.confirmed_at = timezone.now()
+        purchase_order.save(
+            update_fields=[
+                "status",
+                "confirmed_by",
+                "confirmed_at",
+                "updated_at",
+            ],
+        )
+
+        messages.success(
+            request,
+            "Tedarikçi siparişi onayladı.",
+        )
+
+    elif (
+        action == "cancel"
+        and purchase_order.status in [
+            PurchaseOrder.Status.DRAFT,
+            PurchaseOrder.Status.SENT,
+        ]
+    ):
+        purchase_order.status = PurchaseOrder.Status.CANCELLED
+        purchase_order.save(
+            update_fields=[
+                "status",
+                "updated_at",
+            ],
+        )
+
+        messages.success(
+            request,
+            (
+                "Satın alma siparişi iptal edildi. "
+                "Kaynak talebin bütçe taahhüdü korunuyor."
+            ),
+        )
+
+    else:
+        messages.error(
+            request,
+            "Bu sipariş için seçilen aksiyon uygulanamadı.",
+        )
+
+    return redirect(
+        "purchasing:purchase_order_detail",
+        order_id=purchase_order.id,
+    )
+
+
+
 @login_required
 @require_POST
 def purchase_request_status_update(request, request_id):

@@ -411,3 +411,238 @@ class PurchaseBudgetCommitment(BaseModel):
             f"{self.purchase_request.request_number} · "
             f"{self.budget_account.code} · {self.amount}"
         )
+
+def generate_purchase_order_number():
+    year = timezone.localdate().year
+    token = uuid.uuid4().hex[:8].upper()
+
+    return f"PO-{year}-{token}"
+
+
+class PurchaseOrder(BaseModel):
+    """
+    Onaylanmış satın alma talebinden tedarikçiye oluşturulan sipariş.
+
+    İlk sürümde bir satın alma talebi yalnızca bir siparişe dönüşür.
+    """
+
+    class Status(models.TextChoices):
+        DRAFT = "draft", "Taslak"
+        SENT = "sent", "Tedarikçiye gönderildi"
+        CONFIRMED = "confirmed", "Tedarikçi onayladı"
+        CANCELLED = "cancelled", "İptal edildi"
+
+    company = models.ForeignKey(
+        Company,
+        on_delete=models.PROTECT,
+        related_name="purchase_orders",
+        verbose_name="Şirket",
+    )
+
+    purchase_request = models.OneToOneField(
+        PurchaseRequest,
+        on_delete=models.PROTECT,
+        related_name="purchase_order",
+        verbose_name="Kaynak satın alma talebi",
+    )
+
+    supplier = models.ForeignKey(
+        Supplier,
+        on_delete=models.PROTECT,
+        related_name="purchase_orders",
+        verbose_name="Tedarikçi",
+    )
+
+    order_number = models.CharField(
+        max_length=30,
+        unique=True,
+        default=generate_purchase_order_number,
+        editable=False,
+        verbose_name="Sipariş numarası",
+    )
+
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.DRAFT,
+        verbose_name="Durum",
+    )
+
+    currency = models.CharField(
+        max_length=3,
+        default="TRY",
+        verbose_name="Para birimi",
+    )
+
+    order_date = models.DateField(
+        default=timezone.localdate,
+        verbose_name="Sipariş tarihi",
+    )
+
+    expected_delivery_date = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name="Beklenen teslim tarihi",
+    )
+
+    notes = models.TextField(
+        blank=True,
+        verbose_name="Sipariş notu",
+    )
+
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="created_purchase_orders",
+        verbose_name="Oluşturan kullanıcı",
+    )
+
+    sent_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="sent_purchase_orders",
+        verbose_name="Tedarikçiye gönderen kullanıcı",
+    )
+
+    sent_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="Gönderim zamanı",
+    )
+
+    confirmed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="confirmed_purchase_orders",
+        verbose_name="Onaylayan kullanıcı",
+    )
+
+    confirmed_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="Onay zamanı",
+    )
+
+    class Meta:
+        ordering = ["-created_at"]
+        verbose_name = "Satın alma siparişi"
+        verbose_name_plural = "Satın alma siparişleri"
+        indexes = [
+            models.Index(
+                fields=["company", "status", "created_at"],
+            ),
+            models.Index(
+                fields=["supplier", "status"],
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.order_number} · {self.supplier.name}"
+
+    @property
+    def total_amount(self):
+        return (
+            self.lines.aggregate(
+                total=Sum(
+                    models.F("quantity")
+                    * models.F("unit_price"),
+                ),
+            )["total"]
+            or Decimal("0.00")
+        )
+
+
+class PurchaseOrderLine(BaseModel):
+    """
+    Satın alma siparişine aktarılan talep kalemi.
+    """
+
+    purchase_order = models.ForeignKey(
+        PurchaseOrder,
+        on_delete=models.CASCADE,
+        related_name="lines",
+        verbose_name="Satın alma siparişi",
+    )
+
+    purchase_request_line = models.OneToOneField(
+        PurchaseRequestLine,
+        on_delete=models.PROTECT,
+        related_name="purchase_order_line",
+        verbose_name="Kaynak talep kalemi",
+    )
+
+    budget_account = models.ForeignKey(
+        FinanceBudgetAccount,
+        on_delete=models.PROTECT,
+        related_name="purchase_order_lines",
+        verbose_name="Bütçe kontrol hesabı",
+    )
+
+    description = models.CharField(
+        max_length=255,
+        verbose_name="Kalem açıklaması",
+    )
+
+    quantity = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        verbose_name="Sipariş miktarı",
+    )
+
+    unit_price = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        verbose_name="Birim fiyat",
+    )
+
+    received_quantity = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=Decimal("0.00"),
+        verbose_name="Teslim alınan miktar",
+    )
+
+    expected_delivery_date = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name="Beklenen teslim tarihi",
+    )
+
+    class Meta:
+        ordering = ["created_at"]
+        verbose_name = "Satın alma sipariş kalemi"
+        verbose_name_plural = "Satın alma sipariş kalemleri"
+        constraints = [
+            models.CheckConstraint(
+                condition=Q(quantity__gt=0),
+                name="purchase_order_line_quantity_positive",
+            ),
+            models.CheckConstraint(
+                condition=Q(unit_price__gte=0),
+                name="purchase_order_line_unit_price_nonnegative",
+            ),
+            models.CheckConstraint(
+                condition=Q(received_quantity__gte=0),
+                name="purchase_order_line_received_quantity_nonnegative",
+            ),
+            models.CheckConstraint(
+                condition=Q(received_quantity__lte=models.F("quantity")),
+                name="purchase_order_line_received_quantity_within_order",
+            ),
+        ]
+
+    def __str__(self):
+        return (
+            f"{self.purchase_order.order_number} · "
+            f"{self.description}"
+        )
+
+    @property
+    def line_total(self):
+        return self.quantity * self.unit_price

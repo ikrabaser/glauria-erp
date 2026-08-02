@@ -282,17 +282,20 @@
         <section class="finance-panel">
             <div class="finance-panel__heading">
                 <div>
-                    <span class="finance-panel__eyebrow">
-                        YENİ TALEP KALEMİ
-                    </span>
-
-                    <h3 class="finance-panel__title">
-                        Bütçe Hesabına Bağla
-                    </h3>
-                </div>
-            </div>
-
+        <section class="finance-panel">
             {% if purchase_request.status == "draft" %}
+                <div class="finance-panel__heading">
+                    <div>
+                        <span class="finance-panel__eyebrow">
+                            YENİ TALEP KALEMİ
+                        </span>
+
+                        <h3 class="finance-panel__title">
+                            Bütçe Hesabına Bağla
+                        </h3>
+                    </div>
+                </div>
+
                 <form method="post" class="finance-form">
                     {% csrf_token %}
 
@@ -317,7 +320,78 @@
                         Talep Kalemi Ekle
                     </button>
                 </form>
+
+            {% elif purchase_request.status == "approved" %}
+                <div class="finance-panel__heading">
+                    <div>
+                        <span class="finance-panel__eyebrow">
+                            SİPARİŞE DÖNÜŞTÜR
+                        </span>
+
+                        <h3 class="finance-panel__title">
+                            Tedarikçi ve Teslimat Bilgisi
+                        </h3>
+                    </div>
+                </div>
+
+                {% if existing_purchase_order %}
+                    <div class="finance-panel__empty">
+                        <p>
+                            Bu talep zaten
+                            <strong>
+                                {{ existing_purchase_order.order_number }}
+                            </strong>
+                            numaralı satın alma siparişine dönüştürüldü.
+                        </p>
+
+                        <a
+                            href="{% url 'purchasing:purchase_order_detail' existing_purchase_order.id %}"
+                            class="finance-budget-status-action"
+                        >
+                            Siparişi Görüntüle
+                        </a>
+                    </div>
+                {% else %}
+                    <form
+                        method="post"
+                        action="{% url 'purchasing:purchase_order_create' purchase_request.id %}"
+                        class="finance-form"
+                    >
+                        {% csrf_token %}
+
+                        {% for field in purchase_order_form %}
+                            <div class="finance-form__field">
+                                <label for="{{ field.id_for_label }}">
+                                    {{ field.label }}
+                                </label>
+
+                                {{ field }}
+                                {{ field.errors }}
+                            </div>
+                        {% endfor %}
+
+                        <button
+                            type="submit"
+                            class="finance-form__submit"
+                        >
+                            Sipariş Taslağı Oluştur
+                        </button>
+                    </form>
+                {% endif %}
+
             {% else %}
+                <div class="finance-panel__heading">
+                    <div>
+                        <span class="finance-panel__eyebrow">
+                            YENİ TALEP KALEMİ
+                        </span>
+
+                        <h3 class="finance-panel__title">
+                            Bütçe Hesabına Bağla
+                        </h3>
+                    </div>
+                </div>
+
                 <div class="finance-panel__empty">
                     Onay sürecindeki veya sonuçlanmış taleplere
                     kalem eklenemez.
