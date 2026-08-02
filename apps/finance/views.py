@@ -30,6 +30,7 @@ from .forms import (
     FinanceBudgetLine,
     FinanceBudgetLineForm,
     FinanceBudgetAccountForm,
+    FinancialAccountExpenseForm,
 )
 from .tasks import (
     analyze_finance_snapshot,
@@ -1975,10 +1976,167 @@ def cash_bank_account_detail(request, account_id):
         {
             "current_membership": membership,
             "account": account,
+            "expense_form": FinancialAccountExpenseForm(
+            company=membership.company,
+            ),
             "transactions": transactions,
             "incoming_total": incoming_total,
             "outgoing_total": outgoing_total,
         },
+    )
+
+@login_required
+@require_POST
+def cash_bank_expense_create(request, account_id):
+    membership = get_active_membership(request.user)
+
+    if not membership or not has_full_company_data_access(
+        membership
+    ):
+        return redirect("finance:home")
+
+    account = get_object_or_404(
+        FinancialAccount,
+        id=account_id,
+        company=membership.company,
+        is_active=True,
+    )
+
+    form = FinancialAccountExpenseForm(
+        request.POST,
+        company=membership.company,
+    )
+
+    if not form.is_valid():
+        messages.error(
+            request,
+            "Gider kaydı için form alanlarını kontrol edin.",
+        )
+        return redirect(
+            "finance:cash_bank_account_detail",
+            account_id=account.id,
+        )
+
+    budget_account = form.cleaned_data["budget_account"]
+    transaction_date = form.cleaned_data["transaction_date"]
+    amount = form.cleaned_data["amount"]
+    period_month = transaction_date.replace(day=1)
+
+    with transaction.atomic():
+        locked_account = get_object_or_404(
+            FinancialAccount.objects.select_for_update(),
+            id=account.id,
+            company=membership.company,
+            is_active=True,
+        )
+
+        locked_budget_account = get_object_or_404(
+            FinanceBudgetAccount.objects.select_for_update(),
+            id=budget_account.id,
+            company=membership.company,
+            account_type=FinanceBudgetAccount.AccountType.EXPENSE,
+            is_active=True,
+        )
+
+        budget_line = (
+            FinanceBudgetLine.objects.select_related("budget")
+            .filter(
+                budget__company=membership.company,
+                budget__status=FinanceBudget.Status.ACTIVE,
+                budget__fiscal_year=transaction_date.year,
+                budget__currency=locked_account.currency,
+                budget_account=locked_budget_account,
+                period_month=period_month,
+            )
+            .order_by(
+                "-budget__revision_number",
+                "-budget__approved_at",
+                "-budget__created_at",
+            )
+            .first()
+        )
+
+        if not budget_line:
+            messages.error(
+                request,
+                (
+                    "Seçilen kontrol hesabı ve işlem ayı için "
+                    "aktif bir bütçe planı bulunamadı."
+                ),
+            )
+            return redirect(
+                "finance:cash_bank_account_detail",
+                account_id=locked_account.id,
+            )
+
+        used_amount = (
+            FinancialAccountTransaction.objects.filter(
+                company=membership.company,
+                budget_account=locked_budget_account,
+                direction=FinancialAccountTransaction.Direction.OUT,
+                status=FinancialAccountTransaction.Status.ACTIVE,
+                transaction_date__year=transaction_date.year,
+                transaction_date__month=transaction_date.month,
+            ).aggregate(
+                total=Sum("amount"),
+            )["total"]
+            or Decimal("0.00")
+        )
+
+        available_amount = (
+            budget_line.planned_outflow - used_amount
+        )
+
+        if amount > available_amount:
+            messages.error(
+                request,
+                (
+                    "Gider kaydedilmedi. Kullanılabilir bütçe "
+                    f"₺{available_amount:.2f}, işlem tutarı "
+                    f"₺{amount:.2f}."
+                ),
+            )
+            return redirect(
+                "finance:cash_bank_account_detail",
+                account_id=locked_account.id,
+            )
+
+        if amount > locked_account.balance:
+            messages.error(
+                request,
+                (
+                    "Gider kaydedilmedi. Kasa/banka hesabının "
+                    "mevcut bakiyesi işlem tutarı için yetersiz."
+                ),
+            )
+            return redirect(
+                "finance:cash_bank_account_detail",
+                account_id=locked_account.id,
+            )
+
+        expense = form.save(commit=False)
+        expense.account = locked_account
+        expense.company = membership.company
+        expense.budget_account = locked_budget_account
+        expense.direction = FinancialAccountTransaction.Direction.OUT
+        expense.transaction_type = (
+            FinancialAccountTransaction.TransactionType.PAYMENT
+        )
+        expense.status = FinancialAccountTransaction.Status.ACTIVE
+        expense.created_by = request.user
+        expense.save()
+
+    messages.success(
+        request,
+        (
+            "Gider hareketi kaydedildi ve kullanılabilir bütçe "
+            "güncellendi."
+        ),
+    )
+
+    return redirect(
+        "finance:cash_bank_account_detail",
+        account_id=account.id,
     )
 @login_required
 def payment_plans(request):

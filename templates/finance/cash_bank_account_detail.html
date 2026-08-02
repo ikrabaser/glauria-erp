@@ -6,7 +6,7 @@
 {% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/finance.css' %}?v=4">
+<link rel="stylesheet" href="{% static 'css/finance.css' %}?v=expense-control-v1">
 {% endblock %}
 
 {% block content %}
@@ -69,6 +69,7 @@
                                 <th>Tarih</th>
                                 <th>Yön</th>
                                 <th>İşlem</th>
+                                <th>Bütçe hesabı</th>
                                 <th>Cari</th>
                                 <th>Referans</th>
                                 <th>Tutar</th>
@@ -101,6 +102,20 @@
                                             </span>
                                         </div>
                                     </td>
+                                    <td>
+    {% if transaction.budget_account %}
+        <div class="customer-cell">
+            <strong>
+                {{ transaction.budget_account.code }}
+            </strong>
+            <span>
+                {{ transaction.budget_account.name }}
+            </span>
+        </div>
+    {% else %}
+        —
+    {% endif %}
+</td>
                                     <td>
                                         {% if transaction.customer_account_transaction %}
                                             {{ transaction.customer_account_transaction.account.customer.name }}
@@ -168,6 +183,53 @@
                     </div>
                 {% endif %}
             </dl>
+            <div class="finance-account-expense">
+    <div class="finance-panel__heading">
+        <div>
+            <span class="finance-panel__eyebrow">
+                BÜTÇE KONTROLÜ
+            </span>
+
+            <h3 class="finance-panel__title">
+                Kontrollü Gider Kaydı
+            </h3>
+        </div>
+    </div>
+
+    <p class="finance-account-expense__description">
+        Gideri aktif bütçe kontrol hesabına bağlayın. Kullanılabilir
+        aylık bütçeyi aşan kayıtlar sistem tarafından engellenir.
+    </p>
+
+    <form
+        method="post"
+        action="{% url 'finance:cash_bank_expense_create' account.id %}"
+        class="finance-form"
+    >
+        {% csrf_token %}
+
+        {% if expense_form.non_field_errors %}
+            <div class="finance-form__errors">
+                {{ expense_form.non_field_errors }}
+            </div>
+        {% endif %}
+
+        {% for field in expense_form %}
+            <div class="finance-form__field">
+                <label for="{{ field.id_for_label }}">
+                    {{ field.label }}
+                </label>
+
+                {{ field }}
+                {{ field.errors }}
+            </div>
+        {% endfor %}
+
+        <button type="submit" class="finance-form__submit">
+            Kontrollü Gider Kaydet
+        </button>
+    </form>
+</div>
         </aside>
     </div>
 </section>
