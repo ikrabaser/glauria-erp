@@ -6,6 +6,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from apps.accounts.models import OrganizationMembership, User
+from apps.hr.models import Employee, EmploymentAssignment, Position
 from apps.finance.models import (
     FinanceBudget,
     FinanceBudgetAccount,
@@ -242,10 +243,138 @@ DEMO_FINANCIAL_TRANSACTIONS = [
     ),
 ]
 
+DEMO_HR_USERS = [
+    {
+        "username": "demo.ceo",
+        "first_name": "Deniz",
+        "last_name": "Arslan",
+        "email": "deniz.arslan@demo.glauria.local",
+        "employee_number": "GLA-0001",
+        "department_code": "EXEC",
+        "position_code": "EXEC-GM",
+        "position_title": "Genel Müdür",
+        "job_title": "Genel Müdür",
+        "role": OrganizationMembership.Role.ADMIN,
+        "permissions": [],
+        "manager_username": None,
+        "is_department_manager": True,
+        "hire_date": date(2023, 1, 2),
+    },
+    {
+        "username": "demo.hr.manager",
+        "first_name": "Selin",
+        "last_name": "Aydın",
+        "email": "selin.aydin@demo.glauria.local",
+        "employee_number": "GLA-0002",
+        "department_code": "HR",
+        "position_code": "HR-MGR",
+        "position_title": "İnsan Kaynakları Müdürü",
+        "job_title": "İnsan Kaynakları Müdürü",
+        "role": OrganizationMembership.Role.MANAGER,
+        "permissions": [
+            OrganizationMembership.Permission.ACCESS_HR,
+            OrganizationMembership.Permission.MANAGE_MEMBERS,
+        ],
+        "manager_username": "demo.ceo",
+        "is_department_manager": True,
+        "hire_date": date(2023, 3, 6),
+    },
+    {
+        "username": "demo.hr.specialist",
+        "first_name": "Ece",
+        "last_name": "Demir",
+        "email": "ece.demir@demo.glauria.local",
+        "employee_number": "GLA-0003",
+        "department_code": "HR",
+        "position_code": "HR-SPC",
+        "position_title": "İnsan Kaynakları Uzmanı",
+        "job_title": "İnsan Kaynakları Uzmanı",
+        "role": OrganizationMembership.Role.MEMBER,
+        "permissions": [
+            OrganizationMembership.Permission.ACCESS_HR,
+        ],
+        "manager_username": "demo.hr.manager",
+        "is_department_manager": False,
+        "hire_date": date(2024, 2, 12),
+    },
+    {
+        "username": "demo.finance.manager",
+        "first_name": "Burak",
+        "last_name": "Kaya",
+        "email": "burak.kaya@demo.glauria.local",
+        "employee_number": "GLA-0004",
+        "department_code": "FIN",
+        "position_code": "FIN-MGR",
+        "position_title": "Finans Müdürü",
+        "job_title": "Finans Müdürü",
+        "role": OrganizationMembership.Role.MANAGER,
+        "permissions": [
+            OrganizationMembership.Permission.ACCESS_FINANCE,
+        ],
+        "manager_username": "demo.ceo",
+        "is_department_manager": True,
+        "hire_date": date(2023, 5, 8),
+    },
+    {
+        "username": "demo.purchasing.manager",
+        "first_name": "Mert",
+        "last_name": "Yılmaz",
+        "email": "mert.yilmaz@demo.glauria.local",
+        "employee_number": "GLA-0005",
+        "department_code": "PUR",
+        "position_code": "PUR-MGR",
+        "position_title": "Satın Alma Müdürü",
+        "job_title": "Satın Alma Müdürü",
+        "role": OrganizationMembership.Role.MANAGER,
+        "permissions": [
+            OrganizationMembership.Permission.ACCESS_PURCHASING,
+        ],
+        "manager_username": "demo.ceo",
+        "is_department_manager": True,
+        "hire_date": date(2023, 7, 10),
+    },
+    {
+        "username": "demo.sales.manager",
+        "first_name": "Elif",
+        "last_name": "Şahin",
+        "email": "elif.sahin@demo.glauria.local",
+        "employee_number": "GLA-0006",
+        "department_code": "SAL",
+        "position_code": "SAL-MGR",
+        "position_title": "Satış Müdürü",
+        "job_title": "Satış Müdürü",
+        "role": OrganizationMembership.Role.MANAGER,
+        "permissions": [
+            OrganizationMembership.Permission.ACCESS_SALES,
+        ],
+        "manager_username": "demo.ceo",
+        "is_department_manager": True,
+        "hire_date": date(2023, 9, 4),
+    },
+    {
+        "username": "demo.operations.manager",
+        "first_name": "Can",
+        "last_name": "Öztürk",
+        "email": "can.ozturk@demo.glauria.local",
+        "employee_number": "GLA-0007",
+        "department_code": "OPS",
+        "position_code": "OPS-MGR",
+        "position_title": "Operasyon Müdürü",
+        "job_title": "Operasyon Müdürü",
+        "role": OrganizationMembership.Role.MANAGER,
+        "permissions": [
+            OrganizationMembership.Permission.ACCESS_INVENTORY,
+            OrganizationMembership.Permission.ACCESS_MANUFACTURING,
+        ],
+        "manager_username": "demo.ceo",
+        "is_department_manager": True,
+        "hire_date": date(2023, 11, 6),
+    },
+]
 
 class Command(BaseCommand):
     help = (
-        "Glauria Demo A.Ş. için organizasyon, finans ve satın alma "
+        "Glauria Demo A.Ş. için organizasyon, İK, finans ve satın alma "
         "örnek kayıtlarını güvenle oluşturur."
     )
 
@@ -258,10 +387,19 @@ class Command(BaseCommand):
                 "Örnek: --owner ikra"
             ),
         )
+        parser.add_argument(
+            "--demo-password",
+            default=None,
+            help=(
+                "Demo kullanıcılarına atanacak ortak geliştirme parolası. "
+                "Verilmezse yeni hesaplar kullanılamaz parola ile oluşturulur."
+            ),
+        )
 
     @transaction.atomic
     def handle(self, *args, **options):
         owner_username = options["owner"].strip()
+        demo_password = options["demo_password"]
 
         try:
             owner = User.objects.get(username=owner_username)
@@ -338,6 +476,144 @@ class Command(BaseCommand):
                 },
             )
         )
+        created_hr_user_count = 0
+        created_hr_membership_count = 0
+        created_position_count = 0
+        created_employee_count = 0
+        created_assignment_count = 0
+
+        hr_users = {}
+        hr_employees = {}
+        hr_positions = {}
+
+        for person_data in DEMO_HR_USERS:
+            department = departments[
+                person_data["department_code"]
+            ]
+
+            position, position_created = Position.objects.update_or_create(
+                company=company,
+                code=person_data["position_code"],
+                defaults={
+                    "department": department,
+                    "title": person_data["position_title"],
+                    "description": (
+                        "Glauria Demo A.Ş. için oluşturulan "
+                        "örnek İK pozisyonu."
+                    ),
+                    "is_active": True,
+                },
+            )
+
+            hr_positions[person_data["position_code"]] = position
+
+            if position_created:
+                created_position_count += 1
+
+            user, user_created = User.objects.update_or_create(
+                username=person_data["username"],
+                defaults={
+                    "first_name": person_data["first_name"],
+                    "last_name": person_data["last_name"],
+                    "email": person_data["email"],
+                    "user_type": User.UserType.INTERNAL,
+                    "is_active": True,
+                },
+            )
+
+            if demo_password:
+                user.set_password(demo_password)
+                user.save(update_fields=["password"])
+            elif user_created:
+                user.set_unusable_password()
+                user.save(update_fields=["password"])
+
+            hr_users[person_data["username"]] = user
+
+            if user_created:
+                created_hr_user_count += 1
+
+            _, hr_membership_created = (
+                OrganizationMembership.objects.update_or_create(
+                    user=user,
+                    company=company,
+                    branch=branch,
+                    department=department,
+                    defaults={
+                        "job_title": person_data["job_title"],
+                        "role": person_data["role"],
+                        "permissions": person_data["permissions"],
+                        "is_primary": False,
+                        "is_active": True,
+                    },
+                )
+            )
+
+            if hr_membership_created:
+                created_hr_membership_count += 1
+
+            employee, employee_created = Employee.objects.update_or_create(
+                company=company,
+                employee_number=person_data["employee_number"],
+                defaults={
+                    "user": user,
+                    "first_name": person_data["first_name"],
+                    "last_name": person_data["last_name"],
+                    "work_email": person_data["email"],
+                    "hire_date": person_data["hire_date"],
+                    "employment_status": (
+                        Employee.EmploymentStatus.ACTIVE
+                    ),
+                    "is_active": True,
+                },
+            )
+
+            hr_employees[person_data["username"]] = employee
+
+            if employee_created:
+                created_employee_count += 1
+
+        for person_data in DEMO_HR_USERS:
+            employee = hr_employees[person_data["username"]]
+            department = departments[
+                person_data["department_code"]
+            ]
+            position = hr_positions[
+                person_data["position_code"]
+            ]
+
+            manager_username = person_data["manager_username"]
+            manager = (
+                hr_employees[manager_username]
+                if manager_username
+                else None
+            )
+
+            _, assignment_created = (
+                EmploymentAssignment.objects.update_or_create(
+                    employee=employee,
+                    is_primary=True,
+                    end_date=None,
+                    defaults={
+                        "branch": branch,
+                        "department": department,
+                        "position": position,
+                        "manager": manager,
+                        "employment_type": (
+                            EmploymentAssignment
+                            .EmploymentType
+                            .FULL_TIME
+                        ),
+                        "start_date": person_data["hire_date"],
+                        "is_department_manager": (
+                            person_data["is_department_manager"]
+                        ),
+                    },
+                )
+            )
+
+            if assignment_created:
+                created_assignment_count += 1
 
         financial_account, financial_account_created = (
             FinancialAccount.objects.get_or_create(
@@ -553,6 +829,22 @@ class Command(BaseCommand):
             "Demo sahibi: "
             f"{owner.username} "
             f"({'oluşturuldu' if membership_created else 'zaten vardı'})"
+        )
+        self.stdout.write(
+            f"Yeni demo kullanıcı sayısı: {created_hr_user_count}"
+        )
+        self.stdout.write(
+            "Yeni demo üyelik sayısı: "
+            f"{created_hr_membership_count}"
+        )
+        self.stdout.write(
+            f"Yeni pozisyon sayısı: {created_position_count}"
+        )
+        self.stdout.write(
+            f"Yeni personel kartı sayısı: {created_employee_count}"
+        )
+        self.stdout.write(
+            f"Yeni personel ataması sayısı: {created_assignment_count}"
         )
         self.stdout.write(
             "Kasa / banka hesabı: "
