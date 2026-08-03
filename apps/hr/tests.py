@@ -1,4 +1,6 @@
 from datetime import date
+from decimal import Decimal
+
 from django.urls import reverse
 
 from django.core.exceptions import ValidationError
@@ -8,13 +10,22 @@ from apps.accounts.models import OrganizationMembership, User
 from apps.organizations.models import Branch, Company, Department
 
 from .models import (
+    AbsenceBalance,
+    AbsenceRequest,
+    AbsenceRequestEvent,
+    AbsenceType,
     Employee,
     EmploymentAssignment,
     EmploymentAssignmentEvent,
     Position,
 )
-from .services import change_employee_assignment
-
+from .services import (
+    approve_absence_request,
+    cancel_absence_request,
+    change_employee_assignment,
+    reject_absence_request,
+    submit_absence_request,
+)
 class HRModelTestCase(TestCase):
     def setUp(self):
         self.company = Company.objects.create(
@@ -935,3 +946,249 @@ class HRViewTestCase(TestCase):
 
         self.department.refresh_from_db()
         self.assertIsNone(self.department.parent)
+class AbsenceWorkflowTestCase(TestCase):
+    def setUp(self):
+        self.company = Company.objects.create(
+            name="İzin Test Şirketi",
+        )
+
+        self.employee = Employee.objects.create(
+            company=self.company,
+            employee_number="ABS-0001",
+            first_name="Ece",
+            last_name="Demir",
+            work_email="ece.demir@example.com",
+            hire_date=date(2025, 1, 1),
+        )
+
+        self.hr_user = User.objects.create_user(
+            username="absence_hr_admin",
+            email="absence.hr@example.com",
+            password="test-password",
+            user_type=User.UserType.INTERNAL,
+        )
+
+        self.absence_type = AbsenceType.objects.create(
+            company=self.company,
+            code="annual",
+            name="Yıllık İzin",
+            is_paid=True,
+            requires_approval=True,
+            deducts_balance=True,
+            default_entitlement_days=Decimal("14.00"),
+        )
+
+        self.balance = AbsenceBalance.objects.create(
+            company=self.company,
+            employee=self.employee,
+            absence_type=self.absence_type,
+            year=2026,
+            entitled_days=Decimal("14.00"),
+            carried_days=Decimal("2.00"),
+            adjustment_days=Decimal("0.00"),
+            used_days=Decimal("1.00"),
+        )
+
+    def create_request(
+        self,
+        *,
+        start_date=date(2026, 8, 10),
+        end_date=date(2026, 8, 12),
+        reason="Yıllık izin talebi.",
+    ):
+        return AbsenceRequest.objects.create(
+            company=self.company,
+            employee=self.employee,
+            absence_type=self.absence_type,
+            start_date=start_date,
+            end_date=end_date,
+            reason=reason,
+        )
+
+    def test_absence_request_calculates_requested_days(self):
+        absence_request = self.create_request()
+
+        self.assertEqual(
+            absence_request.requested_days,
+            3,
+        )
+        self.assertEqual(
+            absence_request.status,
+            AbsenceRequest.Status.DRAFT,
+        )
+
+    def test_submit_absence_request_creates_workflow_event(self):
+        absence_request = self.create_request()
+
+        submitted_request = submit_absence_request(
+            absence_request=absence_request,
+            changed_by=self.hr_user,
+            note="Talep yönetici onayına gönderildi.",
+        )
+
+        self.assertEqual(
+            submitted_request.status,
+            AbsenceRequest.Status.SUBMITTED,
+        )
+        self.assertIsNotNone(
+            submitted_request.submitted_at,
+        )
+
+        event = AbsenceRequestEvent.objects.get(
+            request=submitted_request,
+        )
+
+        self.assertEqual(
+            event.previous_status,
+            AbsenceRequest.Status.DRAFT,
+        )
+        self.assertEqual(
+            event.new_status,
+            AbsenceRequest.Status.SUBMITTED,
+        )
+        self.assertEqual(
+            event.changed_by,
+            self.hr_user,
+        )
+
+    def test_approve_absence_request_deducts_balance(self):
+        absence_request = self.create_request()
+
+        absence_request = submit_absence_request(
+            absence_request=absence_request,
+            changed_by=self.hr_user,
+        )
+
+        approved_request = approve_absence_request(
+            absence_request=absence_request,
+            changed_by=self.hr_user,
+            decision_note="İzin talebi uygundur.",
+        )
+
+        self.balance.refresh_from_db()
+
+        self.assertEqual(
+            approved_request.status,
+            AbsenceRequest.Status.APPROVED,
+        )
+        self.assertEqual(
+            approved_request.decided_by,
+            self.hr_user,
+        )
+        self.assertEqual(
+            self.balance.used_days,
+            Decimal("4.00"),
+        )
+        self.assertEqual(
+            approved_request.events.count(),
+            2,
+        )
+
+    def test_reject_absence_request_does_not_change_balance(self):
+        absence_request = self.create_request()
+
+        absence_request = submit_absence_request(
+            absence_request=absence_request,
+            changed_by=self.hr_user,
+        )
+
+        rejected_request = reject_absence_request(
+            absence_request=absence_request,
+            changed_by=self.hr_user,
+            decision_note="Ekip planlamasıyla çakışıyor.",
+        )
+
+        self.balance.refresh_from_db()
+
+        self.assertEqual(
+            rejected_request.status,
+            AbsenceRequest.Status.REJECTED,
+        )
+        self.assertEqual(
+            self.balance.used_days,
+            Decimal("1.00"),
+        )
+
+    def test_cancelling_approved_request_restores_balance(self):
+        absence_request = self.create_request()
+
+        absence_request = submit_absence_request(
+            absence_request=absence_request,
+            changed_by=self.hr_user,
+        )
+        absence_request = approve_absence_request(
+            absence_request=absence_request,
+            changed_by=self.hr_user,
+        )
+
+        cancelled_request = cancel_absence_request(
+            absence_request=absence_request,
+            changed_by=self.hr_user,
+            note="Personel izin talebini geri çekti.",
+        )
+
+        self.balance.refresh_from_db()
+
+        self.assertEqual(
+            cancelled_request.status,
+            AbsenceRequest.Status.CANCELLED,
+        )
+        self.assertEqual(
+            self.balance.used_days,
+            Decimal("1.00"),
+        )
+        self.assertEqual(
+            cancelled_request.events.count(),
+            3,
+        )
+
+    def test_overlapping_submitted_request_is_rejected(self):
+        first_request = self.create_request(
+            start_date=date(2026, 8, 10),
+            end_date=date(2026, 8, 12),
+        )
+
+        submit_absence_request(
+            absence_request=first_request,
+            changed_by=self.hr_user,
+        )
+
+        overlapping_request = self.create_request(
+            start_date=date(2026, 8, 12),
+            end_date=date(2026, 8, 14),
+        )
+
+        with self.assertRaises(ValidationError):
+            submit_absence_request(
+                absence_request=overlapping_request,
+                changed_by=self.hr_user,
+            )
+
+        overlapping_request.refresh_from_db()
+
+        self.assertEqual(
+            overlapping_request.status,
+            AbsenceRequest.Status.DRAFT,
+        )
+
+    def test_request_exceeding_balance_cannot_be_submitted(self):
+        absence_request = self.create_request(
+            start_date=date(2026, 8, 1),
+            end_date=date(2026, 8, 20),
+        )
+
+        with self.assertRaises(ValidationError):
+            submit_absence_request(
+                absence_request=absence_request,
+                changed_by=self.hr_user,
+            )
+
+        absence_request.refresh_from_db()
+
+        self.assertEqual(
+            absence_request.status,
+            AbsenceRequest.Status.DRAFT,
+        )
+        self.assertFalse(
+            absence_request.events.exists(),
+        )

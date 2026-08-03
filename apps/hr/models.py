@@ -533,3 +533,565 @@ class EmploymentAssignmentEvent(BaseModel):
             f"{self.get_event_type_display()} · "
             f"{self.effective_date:%d.%m.%Y}"
         )
+class AbsenceType(MasterDataModel):
+    """
+    Şirket bazında tanımlanan izin ve devamsızlık türüdür.
+    """
+
+    company = models.ForeignKey(
+        Company,
+        on_delete=models.PROTECT,
+        related_name="absence_types",
+        verbose_name="Şirket",
+    )
+
+    code = models.CharField(
+        max_length=30,
+        verbose_name="İzin türü kodu",
+    )
+
+    name = models.CharField(
+        max_length=150,
+        verbose_name="İzin türü adı",
+    )
+
+    description = models.TextField(
+        blank=True,
+        verbose_name="Açıklama",
+    )
+
+    is_paid = models.BooleanField(
+        default=True,
+        verbose_name="Ücretli izin",
+    )
+
+    requires_approval = models.BooleanField(
+        default=True,
+        verbose_name="Onay gerektirir",
+    )
+
+    deducts_balance = models.BooleanField(
+        default=True,
+        verbose_name="Bakiyeden düşer",
+    )
+
+    default_entitlement_days = models.DecimalField(
+        max_digits=7,
+        decimal_places=2,
+        default=0,
+        verbose_name="Varsayılan hak edilen gün",
+    )
+
+    class Meta:
+        verbose_name = "İzin türü"
+        verbose_name_plural = "İzin türleri"
+        ordering = [
+            "company__name",
+            "name",
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=[
+                    "company",
+                    "code",
+                ],
+                name="unique_absence_type_code_per_company",
+            ),
+            models.CheckConstraint(
+                condition=Q(default_entitlement_days__gte=0),
+                name="absence_type_entitlement_nonnegative",
+            ),
+        ]
+        indexes = [
+            models.Index(
+                fields=[
+                    "company",
+                    "is_active",
+                ],
+            ),
+        ]
+
+    def clean(self):
+        errors = {}
+
+        if (
+            self.default_entitlement_days is not None
+            and self.default_entitlement_days < 0
+        ):
+            errors["default_entitlement_days"] = (
+                "Varsayılan izin hakkı negatif olamaz."
+            )
+
+        if errors:
+            raise ValidationError(errors)
+
+    def save(self, *args, **kwargs):
+        self.code = self.code.strip().upper()
+        self.full_clean()
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.code} · {self.name}"
+
+
+class AbsenceBalance(BaseModel):
+    """
+    Personelin izin türü ve yıl bazındaki izin bakiyesidir.
+    """
+
+    company = models.ForeignKey(
+        Company,
+        on_delete=models.PROTECT,
+        related_name="absence_balances",
+        verbose_name="Şirket",
+    )
+
+    employee = models.ForeignKey(
+        Employee,
+        on_delete=models.CASCADE,
+        related_name="absence_balances",
+        verbose_name="Personel",
+    )
+
+    absence_type = models.ForeignKey(
+        AbsenceType,
+        on_delete=models.PROTECT,
+        related_name="employee_balances",
+        verbose_name="İzin türü",
+    )
+
+    year = models.PositiveSmallIntegerField(
+        verbose_name="Yıl",
+    )
+
+    entitled_days = models.DecimalField(
+        max_digits=7,
+        decimal_places=2,
+        default=0,
+        verbose_name="Hak edilen gün",
+    )
+
+    carried_days = models.DecimalField(
+        max_digits=7,
+        decimal_places=2,
+        default=0,
+        verbose_name="Devreden gün",
+    )
+
+    adjustment_days = models.DecimalField(
+        max_digits=7,
+        decimal_places=2,
+        default=0,
+        verbose_name="Düzeltme günü",
+    )
+
+    used_days = models.DecimalField(
+        max_digits=7,
+        decimal_places=2,
+        default=0,
+        verbose_name="Kullanılan gün",
+    )
+
+    class Meta:
+        verbose_name = "İzin bakiyesi"
+        verbose_name_plural = "İzin bakiyeleri"
+        ordering = [
+            "-year",
+            "employee__last_name",
+            "employee__first_name",
+            "absence_type__name",
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=[
+                    "employee",
+                    "absence_type",
+                    "year",
+                ],
+                name="unique_employee_absence_balance_per_year",
+            ),
+            models.CheckConstraint(
+                condition=Q(entitled_days__gte=0),
+                name="absence_balance_entitled_nonnegative",
+            ),
+            models.CheckConstraint(
+                condition=Q(carried_days__gte=0),
+                name="absence_balance_carried_nonnegative",
+            ),
+            models.CheckConstraint(
+                condition=Q(used_days__gte=0),
+                name="absence_balance_used_nonnegative",
+            ),
+        ]
+        indexes = [
+            models.Index(
+                fields=[
+                    "company",
+                    "year",
+                ],
+            ),
+            models.Index(
+                fields=[
+                    "employee",
+                    "year",
+                ],
+            ),
+        ]
+
+    @property
+    def total_days(self):
+        return (
+            self.entitled_days
+            + self.carried_days
+            + self.adjustment_days
+        )
+
+    @property
+    def available_days(self):
+        return self.total_days - self.used_days
+
+    def clean(self):
+        errors = {}
+
+        if self.employee_id and self.company_id:
+            if self.employee.company_id != self.company_id:
+                errors["employee"] = (
+                    "Personel izin bakiyesindeki şirkete ait olmalıdır."
+                )
+
+        if self.absence_type_id and self.company_id:
+            if self.absence_type.company_id != self.company_id:
+                errors["absence_type"] = (
+                    "İzin türü izin bakiyesindeki şirkete ait olmalıdır."
+                )
+
+        if self.entitled_days is not None and self.entitled_days < 0:
+            errors["entitled_days"] = (
+                "Hak edilen izin günü negatif olamaz."
+            )
+
+        if self.carried_days is not None and self.carried_days < 0:
+            errors["carried_days"] = (
+                "Devreden izin günü negatif olamaz."
+            )
+
+        if self.used_days is not None and self.used_days < 0:
+            errors["used_days"] = (
+                "Kullanılan izin günü negatif olamaz."
+            )
+
+        if errors:
+            raise ValidationError(errors)
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return (
+            f"{self.employee.full_name} · "
+            f"{self.absence_type.name} · "
+            f"{self.year}"
+        )
+
+
+class AbsenceRequest(BaseModel):
+    """
+    Personelin tarih aralıklı izin veya devamsızlık talebidir.
+    """
+
+    class Status(models.TextChoices):
+        DRAFT = "draft", "Taslak"
+        SUBMITTED = "submitted", "Onay bekliyor"
+        APPROVED = "approved", "Onaylandı"
+        REJECTED = "rejected", "Reddedildi"
+        CANCELLED = "cancelled", "İptal edildi"
+
+    company = models.ForeignKey(
+        Company,
+        on_delete=models.PROTECT,
+        related_name="absence_requests",
+        verbose_name="Şirket",
+    )
+
+    employee = models.ForeignKey(
+        Employee,
+        on_delete=models.PROTECT,
+        related_name="absence_requests",
+        verbose_name="Personel",
+    )
+
+    absence_type = models.ForeignKey(
+        AbsenceType,
+        on_delete=models.PROTECT,
+        related_name="requests",
+        verbose_name="İzin türü",
+    )
+
+    start_date = models.DateField(
+        verbose_name="Başlangıç tarihi",
+    )
+
+    end_date = models.DateField(
+        verbose_name="Bitiş tarihi",
+    )
+
+    requested_days = models.DecimalField(
+        max_digits=7,
+        decimal_places=2,
+        default=0,
+        editable=False,
+        verbose_name="Talep edilen gün",
+    )
+
+    reason = models.TextField(
+        verbose_name="Talep gerekçesi",
+    )
+
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.DRAFT,
+        verbose_name="Talep durumu",
+    )
+
+    submitted_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="Gönderilme zamanı",
+    )
+
+    decided_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="Karar zamanı",
+    )
+
+    decided_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="decided_absence_requests",
+        verbose_name="Karar veren kullanıcı",
+    )
+
+    decision_note = models.TextField(
+        blank=True,
+        verbose_name="Karar notu",
+    )
+
+    class Meta:
+        verbose_name = "İzin talebi"
+        verbose_name_plural = "İzin talepleri"
+        ordering = [
+            "-start_date",
+            "-created_at",
+        ]
+        constraints = [
+            models.CheckConstraint(
+                condition=Q(end_date__gte=models.F("start_date")),
+                name="absence_request_end_not_before_start",
+            ),
+            models.CheckConstraint(
+                condition=Q(requested_days__gt=0),
+                name="absence_request_days_positive",
+            ),
+        ]
+        indexes = [
+            models.Index(
+                fields=[
+                    "company",
+                    "status",
+                    "start_date",
+                ],
+            ),
+            models.Index(
+                fields=[
+                    "employee",
+                    "status",
+                    "start_date",
+                ],
+            ),
+            models.Index(
+                fields=[
+                    "absence_type",
+                    "start_date",
+                ],
+            ),
+        ]
+
+    @property
+    def is_open(self):
+        return self.status in {
+            self.Status.DRAFT,
+            self.Status.SUBMITTED,
+        }
+
+    def clean(self):
+        errors = {}
+
+        if self.employee_id and self.company_id:
+            if self.employee.company_id != self.company_id:
+                errors["employee"] = (
+                    "Personel izin talebindeki şirkete ait olmalıdır."
+                )
+
+        if self.absence_type_id and self.company_id:
+            if self.absence_type.company_id != self.company_id:
+                errors["absence_type"] = (
+                    "İzin türü izin talebindeki şirkete ait olmalıdır."
+                )
+
+        if (
+            self.start_date
+            and self.end_date
+            and self.end_date < self.start_date
+        ):
+            errors["end_date"] = (
+                "İzin bitiş tarihi başlangıç tarihinden önce olamaz."
+            )
+
+        if (
+            self.employee_id
+            and self.start_date
+            and self.end_date
+            and self.status
+            in {
+                self.Status.SUBMITTED,
+                self.Status.APPROVED,
+            }
+        ):
+            overlapping_requests = (
+                AbsenceRequest.objects.filter(
+                    employee=self.employee,
+                    status__in=[
+                        self.Status.SUBMITTED,
+                        self.Status.APPROVED,
+                    ],
+                    start_date__lte=self.end_date,
+                    end_date__gte=self.start_date,
+                )
+                .exclude(pk=self.pk)
+            )
+
+            if overlapping_requests.exists():
+                errors["start_date"] = (
+                    "Personelin bu tarihlerle çakışan aktif "
+                    "bir izin talebi bulunuyor."
+                )
+
+        if errors:
+            raise ValidationError(errors)
+
+    def save(self, *args, **kwargs):
+        if self.start_date and self.end_date:
+            self.requested_days = (
+                self.end_date - self.start_date
+            ).days + 1
+
+        self.full_clean()
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return (
+            f"{self.employee.full_name} · "
+            f"{self.absence_type.name} · "
+            f"{self.start_date:%d.%m.%Y}"
+        )
+
+
+class AbsenceRequestEvent(BaseModel):
+    """
+    İzin talebi durum değişikliklerinin denetim kaydıdır.
+    """
+
+    request = models.ForeignKey(
+        AbsenceRequest,
+        on_delete=models.CASCADE,
+        related_name="events",
+        verbose_name="İzin talebi",
+    )
+
+    company = models.ForeignKey(
+        Company,
+        on_delete=models.PROTECT,
+        related_name="absence_request_events",
+        verbose_name="Şirket",
+    )
+
+    previous_status = models.CharField(
+        max_length=20,
+        choices=AbsenceRequest.Status.choices,
+        blank=True,
+        verbose_name="Önceki durum",
+    )
+
+    new_status = models.CharField(
+        max_length=20,
+        choices=AbsenceRequest.Status.choices,
+        verbose_name="Yeni durum",
+    )
+
+    changed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="absence_request_events",
+        verbose_name="İşlemi yapan kullanıcı",
+    )
+
+    note = models.TextField(
+        blank=True,
+        verbose_name="İşlem notu",
+    )
+
+    class Meta:
+        verbose_name = "İzin talebi işlem kaydı"
+        verbose_name_plural = "İzin talebi işlem kayıtları"
+        ordering = [
+            "-created_at",
+        ]
+        indexes = [
+            models.Index(
+                fields=[
+                    "company",
+                    "created_at",
+                ],
+            ),
+            models.Index(
+                fields=[
+                    "request",
+                    "created_at",
+                ],
+            ),
+        ]
+
+    def clean(self):
+        errors = {}
+
+        if self.request_id and self.company_id:
+            if self.request.company_id != self.company_id:
+                errors["request"] = (
+                    "İzin talebi işlem kaydındaki şirkete "
+                    "ait olmalıdır."
+                )
+
+        if self.previous_status == self.new_status:
+            errors["new_status"] = (
+                "Yeni durum önceki durumdan farklı olmalıdır."
+            )
+
+        if errors:
+            raise ValidationError(errors)
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return (
+            f"{self.request.employee.full_name} · "
+            f"{self.get_new_status_display()}"
+        )
