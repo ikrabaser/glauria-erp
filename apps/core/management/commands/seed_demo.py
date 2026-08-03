@@ -6,7 +6,15 @@ from django.db import transaction
 from django.utils import timezone
 
 from apps.accounts.models import OrganizationMembership, User
-from apps.hr.models import Employee, EmploymentAssignment, Position
+from apps.hr.models import (
+    AbsenceBalance,
+    AbsenceRequest,
+    AbsenceRequestEvent,
+    AbsenceType,
+    Employee,
+    EmploymentAssignment,
+    Position,
+)
 from apps.finance.models import (
     FinanceBudget,
     FinanceBudgetAccount,
@@ -371,6 +379,80 @@ DEMO_HR_USERS = [
         "hire_date": date(2023, 11, 6),
     },
 ]
+DEMO_ABSENCE_TYPES = [
+    {
+        "code": "ANNUAL",
+        "name": "Yıllık İzin",
+        "description": (
+            "Personelin yıllık ücretli izin hakkı."
+        ),
+        "is_paid": True,
+        "requires_approval": True,
+        "deducts_balance": True,
+        "default_entitlement_days": Decimal("14.00"),
+    },
+    {
+        "code": "SICK",
+        "name": "Hastalık İzni",
+        "description": (
+            "Sağlık durumuna bağlı ücretli izin kaydı."
+        ),
+        "is_paid": True,
+        "requires_approval": True,
+        "deducts_balance": False,
+        "default_entitlement_days": Decimal("10.00"),
+    },
+    {
+        "code": "EXCUSE",
+        "name": "Mazeret İzni",
+        "description": (
+            "Kısa süreli kişisel mazeret izinleri."
+        ),
+        "is_paid": True,
+        "requires_approval": True,
+        "deducts_balance": True,
+        "default_entitlement_days": Decimal("5.00"),
+    },
+]
+
+
+DEMO_ABSENCE_REQUESTS = [
+    {
+        "employee_username": "demo.hr.specialist",
+        "absence_type_code": "ANNUAL",
+        "start_date": date(2026, 8, 10),
+        "end_date": date(2026, 8, 12),
+        "reason": (
+            "Aile ziyareti için yıllık izin talebi."
+        ),
+        "status": AbsenceRequest.Status.SUBMITTED,
+        "decision_note": "",
+    },
+    {
+        "employee_username": "demo.finance.manager",
+        "absence_type_code": "ANNUAL",
+        "start_date": date(2026, 7, 20),
+        "end_date": date(2026, 7, 22),
+        "reason": (
+            "Planlanan yaz dönemi yıllık izni."
+        ),
+        "status": AbsenceRequest.Status.APPROVED,
+        "decision_note": (
+            "Departman iş planı doğrultusunda onaylandı."
+        ),
+    },
+    {
+        "employee_username": "demo.purchasing.manager",
+        "absence_type_code": "EXCUSE",
+        "start_date": date(2026, 8, 18),
+        "end_date": date(2026, 8, 18),
+        "reason": (
+            "Kişisel resmi işlemler için mazeret izni."
+        ),
+        "status": AbsenceRequest.Status.DRAFT,
+        "decision_note": "",
+    },
+]
 
 class Command(BaseCommand):
     help = (
@@ -614,6 +696,194 @@ class Command(BaseCommand):
 
             if assignment_created:
                 created_assignment_count += 1
+        absence_types = {}
+        created_absence_type_count = 0
+        created_absence_balance_count = 0
+        created_absence_request_count = 0
+        created_absence_event_count = 0
+
+        for absence_type_data in DEMO_ABSENCE_TYPES:
+            absence_type, absence_type_created = (
+                AbsenceType.objects.update_or_create(
+                    company=company,
+                    code=absence_type_data["code"],
+                    defaults={
+                        "name": absence_type_data["name"],
+                        "description": (
+                            absence_type_data["description"]
+                        ),
+                        "is_paid": absence_type_data["is_paid"],
+                        "requires_approval": (
+                            absence_type_data[
+                                "requires_approval"
+                            ]
+                        ),
+                        "deducts_balance": (
+                            absence_type_data[
+                                "deducts_balance"
+                            ]
+                        ),
+                        "default_entitlement_days": (
+                            absence_type_data[
+                                "default_entitlement_days"
+                            ]
+                        ),
+                        "is_active": True,
+                    },
+                )
+            )
+
+            absence_types[
+                absence_type_data["code"]
+            ] = absence_type
+
+            if absence_type_created:
+                created_absence_type_count += 1
+
+        for employee_username, employee in hr_employees.items():
+            for absence_type_code, absence_type in (
+                absence_types.items()
+            ):
+                used_days = Decimal("0.00")
+
+                if (
+                    employee_username
+                    == "demo.finance.manager"
+                    and absence_type_code == "ANNUAL"
+                ):
+                    used_days = Decimal("3.00")
+
+                _, balance_created = (
+                    AbsenceBalance.objects.update_or_create(
+                        company=company,
+                        employee=employee,
+                        absence_type=absence_type,
+                        year=2026,
+                        defaults={
+                            "entitled_days": (
+                                absence_type
+                                .default_entitlement_days
+                            ),
+                            "carried_days": Decimal("0.00"),
+                            "adjustment_days": Decimal("0.00"),
+                            "used_days": used_days,
+                        },
+                    )
+                )
+
+                if balance_created:
+                    created_absence_balance_count += 1
+
+        absence_requests = {}
+
+        for request_data in DEMO_ABSENCE_REQUESTS:
+            employee = hr_employees[
+                request_data["employee_username"]
+            ]
+            absence_type = absence_types[
+                request_data["absence_type_code"]
+            ]
+            status = request_data["status"]
+
+            is_submitted = status in {
+                AbsenceRequest.Status.SUBMITTED,
+                AbsenceRequest.Status.APPROVED,
+            }
+            is_decided = (
+                status == AbsenceRequest.Status.APPROVED
+            )
+
+            absence_request, request_created = (
+                AbsenceRequest.objects.update_or_create(
+                    company=company,
+                    employee=employee,
+                    absence_type=absence_type,
+                    start_date=request_data["start_date"],
+                    end_date=request_data["end_date"],
+                    defaults={
+                        "reason": request_data["reason"],
+                        "status": status,
+                        "submitted_at": (
+                            timezone.now()
+                            if is_submitted
+                            else None
+                        ),
+                        "decided_at": (
+                            timezone.now()
+                            if is_decided
+                            else None
+                        ),
+                        "decided_by": (
+                            hr_users["demo.hr.manager"]
+                            if is_decided
+                            else None
+                        ),
+                        "decision_note": (
+                            request_data["decision_note"]
+                        ),
+                    },
+                )
+            )
+
+            absence_requests[
+                (
+                    request_data["employee_username"],
+                    request_data["absence_type_code"],
+                    request_data["start_date"],
+                )
+            ] = absence_request
+
+            if request_created:
+                created_absence_request_count += 1
+
+            if is_submitted:
+                _, submitted_event_created = (
+                    AbsenceRequestEvent.objects.get_or_create(
+                        request=absence_request,
+                        previous_status=(
+                            AbsenceRequest.Status.DRAFT
+                        ),
+                        new_status=(
+                            AbsenceRequest.Status.SUBMITTED
+                        ),
+                        defaults={
+                            "company": company,
+                            "changed_by": employee.user,
+                            "note": (
+                                "Demo izin talebi onaya "
+                                "gönderildi."
+                            ),
+                        },
+                    )
+                )
+
+                if submitted_event_created:
+                    created_absence_event_count += 1
+
+            if is_decided:
+                _, approved_event_created = (
+                    AbsenceRequestEvent.objects.get_or_create(
+                        request=absence_request,
+                        previous_status=(
+                            AbsenceRequest.Status.SUBMITTED
+                        ),
+                        new_status=(
+                            AbsenceRequest.Status.APPROVED
+                        ),
+                        defaults={
+                            "company": company,
+                            "changed_by": (
+                                hr_users["demo.hr.manager"]
+                            ),
+                            "note": (
+                                request_data["decision_note"]
+                            ),
+                        },
+                    )
+                )
+
+                if approved_event_created:
+                    created_absence_event_count += 1
 
         financial_account, financial_account_created = (
             FinancialAccount.objects.get_or_create(
@@ -845,6 +1115,22 @@ class Command(BaseCommand):
         )
         self.stdout.write(
             f"Yeni personel ataması sayısı: {created_assignment_count}"
+        )
+        self.stdout.write(
+            "Yeni izin türü sayısı: "
+            f"{created_absence_type_count}"
+        )
+        self.stdout.write(
+            "Yeni izin bakiyesi sayısı: "
+            f"{created_absence_balance_count}"
+        )
+        self.stdout.write(
+            "Yeni izin talebi sayısı: "
+            f"{created_absence_request_count}"
+        )
+        self.stdout.write(
+            "Yeni izin işlem kaydı sayısı: "
+            f"{created_absence_event_count}"
         )
         self.stdout.write(
             "Kasa / banka hesabı: "

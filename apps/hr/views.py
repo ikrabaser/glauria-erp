@@ -12,16 +12,31 @@ from django.core.exceptions import ValidationError
 from apps.accounts.models import OrganizationMembership
 from apps.organizations.models import Department
 
-from .models import Employee, EmploymentAssignment, Position
+from .models import (
+    AbsenceBalance,
+    AbsenceRequest,
+    AbsenceType,
+    Employee,
+    EmploymentAssignment,
+    Position,
+)
 from .forms import (
+    AbsenceCancellationForm,
+    AbsenceDecisionForm,
+    AbsenceRequestForm,
     AssignmentChangeForm,
     DepartmentForm,
     EmployeeForm,
     InitialAssignmentForm,
     PositionForm,
 )
-from .services import change_employee_assignment
-
+from .services import (
+    approve_absence_request,
+    cancel_absence_request,
+    change_employee_assignment,
+    reject_absence_request,
+    submit_absence_request,
+)
 
 def get_active_membership(user):
     return (
@@ -54,6 +69,81 @@ def can_manage_hr(membership):
 def hr_management_forbidden():
     return HttpResponseForbidden(
         "İK kayıtlarını yönetme yetkiniz bulunmuyor."
+    )
+def get_current_employee(user, company):
+    return (
+        Employee.objects
+        .filter(
+            company=company,
+            user=user,
+            is_active=True,
+        )
+        .select_related(
+            "company",
+            "user",
+        )
+        .first()
+    )
+
+
+def can_access_absence_management(
+    membership,
+    employee,
+):
+    return bool(
+        membership
+        and (
+            employee
+            or can_manage_hr(membership)
+        )
+    )
+
+
+def absence_access_forbidden():
+    return HttpResponseForbidden(
+        "İzin ve devamsızlık kayıtlarına erişim yetkiniz bulunmuyor."
+    )
+
+
+def visible_absence_requests(
+    *,
+    membership,
+    employee,
+):
+    requests = (
+        AbsenceRequest.objects
+        .filter(company=membership.company)
+        .select_related(
+            "employee",
+            "employee__user",
+            "absence_type",
+            "decided_by",
+        )
+        .prefetch_related("events")
+    )
+
+    if can_manage_hr(membership):
+        return requests
+
+    if not employee:
+        return requests.none()
+
+    direct_report_ids = (
+        EmploymentAssignment.objects.filter(
+            manager=employee,
+            is_primary=True,
+            end_date__isnull=True,
+            employee__is_active=True,
+        )
+        .values_list(
+            "employee_id",
+            flat=True,
+        )
+    )
+
+    return requests.filter(
+        Q(employee=employee)
+        | Q(employee_id__in=direct_report_ids)
     )
 
 
@@ -1098,4 +1188,483 @@ def department_update(request, department_id):
             ),
             "submit_label": "Değişiklikleri Kaydet",
         },
+    )
+@login_required
+def absence_request_list(request):
+    membership = get_active_membership(request.user)
+
+    if not membership:
+        return absence_access_forbidden()
+
+    employee = get_current_employee(
+        request.user,
+        membership.company,
+    )
+
+    if not can_access_absence_management(
+        membership,
+        employee,
+    ):
+        return absence_access_forbidden()
+
+    requests = visible_absence_requests(
+        membership=membership,
+        employee=employee,
+    )
+
+    search_query = request.GET.get("q", "").strip()
+    selected_status = request.GET.get("status", "").strip()
+    selected_type = request.GET.get("type", "").strip()
+    selected_scope = request.GET.get("scope", "").strip()
+
+    if search_query:
+        requests = requests.filter(
+            Q(employee__employee_number__icontains=search_query)
+            | Q(employee__first_name__icontains=search_query)
+            | Q(employee__last_name__icontains=search_query)
+            | Q(absence_type__name__icontains=search_query)
+            | Q(reason__icontains=search_query)
+        )
+
+    valid_statuses = {
+        value
+        for value, _ in AbsenceRequest.Status.choices
+    }
+
+    if selected_status in valid_statuses:
+        requests = requests.filter(
+            status=selected_status,
+        )
+
+    if selected_type:
+        requests = requests.filter(
+            absence_type_id=selected_type,
+        )
+
+    if selected_scope == "mine" and employee:
+        requests = requests.filter(employee=employee)
+    elif selected_scope == "team" and employee:
+        direct_report_ids = (
+            EmploymentAssignment.objects.filter(
+                manager=employee,
+                is_primary=True,
+                end_date__isnull=True,
+                employee__is_active=True,
+            )
+            .values_list(
+                "employee_id",
+                flat=True,
+            )
+        )
+        requests = requests.filter(
+            employee_id__in=direct_report_ids,
+        )
+
+    requests = requests.order_by(
+        "-created_at",
+    )
+
+    current_year = timezone.localdate().year
+
+    balances = (
+        AbsenceBalance.objects.none()
+    )
+
+    if employee:
+        balances = (
+            AbsenceBalance.objects.filter(
+                company=membership.company,
+                employee=employee,
+                year=current_year,
+            )
+            .select_related("absence_type")
+            .order_by("absence_type__name")
+        )
+
+    absence_types = (
+        AbsenceType.objects.filter(
+            company=membership.company,
+            is_active=True,
+        )
+        .order_by("name")
+    )
+
+    return render(
+        request,
+        "hr/absence_request_list.html",
+        {
+            "current_membership": membership,
+            "current_employee": employee,
+            "can_access_hr": has_hr_access(membership),
+            "can_manage_hr": can_manage_hr(membership),
+            "can_create_absence_request": bool(
+                employee
+                or can_manage_hr(membership)
+            ),
+            "absence_requests": requests,
+            "absence_types": absence_types,
+            "balances": balances,
+            "status_choices": AbsenceRequest.Status.choices,
+            "search_query": search_query,
+            "selected_status": selected_status,
+            "selected_type": selected_type,
+            "selected_scope": selected_scope,
+            "current_year": current_year,
+        },
+    )
+
+
+@login_required
+def absence_request_create(request):
+    membership = get_active_membership(request.user)
+
+    if not membership:
+        return absence_access_forbidden()
+
+    employee = get_current_employee(
+        request.user,
+        membership.company,
+    )
+    manage_all = can_manage_hr(membership)
+
+    if not employee and not manage_all:
+        return absence_access_forbidden()
+
+    if request.method == "POST":
+        form = AbsenceRequestForm(
+            request.POST,
+            company=membership.company,
+            employee=employee,
+            can_manage_all=manage_all,
+        )
+
+        if form.is_valid():
+            try:
+                with transaction.atomic():
+                    absence_request = form.save(
+                        commit=False,
+                    )
+                    absence_request.company = (
+                        membership.company
+                    )
+                    absence_request.save()
+
+                    if (
+                        request.POST.get("submit_action")
+                        == "submit"
+                    ):
+                        absence_request = (
+                            submit_absence_request(
+                                absence_request=absence_request,
+                                changed_by=request.user,
+                                note=(
+                                    "Talep oluşturularak "
+                                    "onaya gönderildi."
+                                ),
+                            )
+                        )
+            except ValidationError as error:
+                form.add_error(
+                    None,
+                    error.messages,
+                )
+            else:
+                if (
+                    absence_request.status
+                    == AbsenceRequest.Status.SUBMITTED
+                ):
+                    messages.success(
+                        request,
+                        "İzin talebi onaya gönderildi.",
+                    )
+                else:
+                    messages.success(
+                        request,
+                        "İzin talebi taslak olarak kaydedildi.",
+                    )
+
+                return redirect(
+                    "hr:absence_request_detail",
+                    request_id=absence_request.id,
+                )
+    else:
+        form = AbsenceRequestForm(
+            company=membership.company,
+            employee=employee,
+            can_manage_all=manage_all,
+        )
+
+    return render(
+        request,
+        "hr/absence_request_form.html",
+        {
+            "current_membership": membership,
+            "current_employee": employee,
+            "can_access_hr": has_hr_access(membership),
+            "can_manage_hr": manage_all,
+            "form": form,
+        },
+    )
+
+
+@login_required
+def absence_request_detail(request, request_id):
+    membership = get_active_membership(request.user)
+
+    if not membership:
+        return absence_access_forbidden()
+
+    employee = get_current_employee(
+        request.user,
+        membership.company,
+    )
+
+    if not can_access_absence_management(
+        membership,
+        employee,
+    ):
+        return absence_access_forbidden()
+
+    absence_request = get_object_or_404(
+        visible_absence_requests(
+            membership=membership,
+            employee=employee,
+        ),
+        pk=request_id,
+    )
+
+    balance = (
+        AbsenceBalance.objects.filter(
+            company=membership.company,
+            employee=absence_request.employee,
+            absence_type=absence_request.absence_type,
+            year=absence_request.start_date.year,
+        )
+        .first()
+    )
+
+    can_manage = can_manage_hr(membership)
+    is_owner = bool(
+        employee
+        and absence_request.employee_id == employee.id
+    )
+
+    return render(
+        request,
+        "hr/absence_request_detail.html",
+        {
+            "current_membership": membership,
+            "current_employee": employee,
+            "can_access_hr": has_hr_access(membership),
+            "can_manage_hr": can_manage,
+            "absence_request": absence_request,
+            "balance": balance,
+            "events": absence_request.events.select_related(
+                "changed_by",
+            ),
+            "can_submit": (
+                absence_request.status
+                == AbsenceRequest.Status.DRAFT
+                and (
+                    is_owner
+                    or can_manage
+                )
+            ),
+            "can_decide": (
+                can_manage
+                and absence_request.status
+                == AbsenceRequest.Status.SUBMITTED
+            ),
+            "can_cancel": (
+                (
+                    is_owner
+                    or can_manage
+                )
+                and absence_request.status
+                in {
+                    AbsenceRequest.Status.DRAFT,
+                    AbsenceRequest.Status.SUBMITTED,
+                    AbsenceRequest.Status.APPROVED,
+                }
+            ),
+            "decision_form": AbsenceDecisionForm(),
+            "cancellation_form": AbsenceCancellationForm(),
+        },
+    )
+
+
+@login_required
+def absence_request_submit(request, request_id):
+    membership = get_active_membership(request.user)
+
+    if not membership or request.method != "POST":
+        return absence_access_forbidden()
+
+    employee = get_current_employee(
+        request.user,
+        membership.company,
+    )
+
+    absence_request = get_object_or_404(
+        AbsenceRequest,
+        pk=request_id,
+        company=membership.company,
+    )
+
+    is_owner = bool(
+        employee
+        and absence_request.employee_id == employee.id
+    )
+
+    if not is_owner and not can_manage_hr(membership):
+        return absence_access_forbidden()
+
+    try:
+        submit_absence_request(
+            absence_request=absence_request,
+            changed_by=request.user,
+            note="Taslak talep onaya gönderildi.",
+        )
+    except ValidationError as error:
+        messages.error(
+            request,
+            " ".join(error.messages),
+        )
+    else:
+        messages.success(
+            request,
+            "İzin talebi onaya gönderildi.",
+        )
+
+    return redirect(
+        "hr:absence_request_detail",
+        request_id=absence_request.id,
+    )
+
+
+@login_required
+def absence_request_decide(request, request_id):
+    membership = get_active_membership(request.user)
+
+    if (
+        not membership
+        or not can_manage_hr(membership)
+        or request.method != "POST"
+    ):
+        return absence_access_forbidden()
+
+    absence_request = get_object_or_404(
+        AbsenceRequest,
+        pk=request_id,
+        company=membership.company,
+    )
+
+    form = AbsenceDecisionForm(request.POST)
+
+    if form.is_valid():
+        action = form.cleaned_data["action"]
+        decision_note = form.cleaned_data[
+            "decision_note"
+        ]
+
+        try:
+            if (
+                action
+                == AbsenceDecisionForm.Action.APPROVE
+            ):
+                approve_absence_request(
+                    absence_request=absence_request,
+                    changed_by=request.user,
+                    decision_note=decision_note,
+                )
+                success_message = (
+                    "İzin talebi onaylandı."
+                )
+            else:
+                reject_absence_request(
+                    absence_request=absence_request,
+                    changed_by=request.user,
+                    decision_note=decision_note,
+                )
+                success_message = (
+                    "İzin talebi reddedildi."
+                )
+        except ValidationError as error:
+            messages.error(
+                request,
+                " ".join(error.messages),
+            )
+        else:
+            messages.success(
+                request,
+                success_message,
+            )
+    else:
+        error_messages = []
+
+        for errors in form.errors.values():
+            error_messages.extend(errors)
+
+        messages.error(
+            request,
+            " ".join(error_messages),
+        )
+
+    return redirect(
+        "hr:absence_request_detail",
+        request_id=absence_request.id,
+    )
+
+
+@login_required
+def absence_request_cancel(request, request_id):
+    membership = get_active_membership(request.user)
+
+    if not membership or request.method != "POST":
+        return absence_access_forbidden()
+
+    employee = get_current_employee(
+        request.user,
+        membership.company,
+    )
+
+    absence_request = get_object_or_404(
+        AbsenceRequest,
+        pk=request_id,
+        company=membership.company,
+    )
+
+    is_owner = bool(
+        employee
+        and absence_request.employee_id == employee.id
+    )
+
+    if not is_owner and not can_manage_hr(membership):
+        return absence_access_forbidden()
+
+    form = AbsenceCancellationForm(request.POST)
+
+    if form.is_valid():
+        try:
+            cancel_absence_request(
+                absence_request=absence_request,
+                changed_by=request.user,
+                note=form.cleaned_data[
+                    "cancellation_note"
+                ],
+            )
+        except ValidationError as error:
+            messages.error(
+                request,
+                " ".join(error.messages),
+            )
+        else:
+            messages.success(
+                request,
+                "İzin talebi iptal edildi.",
+            )
+
+    return redirect(
+        "hr:absence_request_detail",
+        request_id=absence_request.id,
     )

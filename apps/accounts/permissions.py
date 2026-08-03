@@ -48,10 +48,26 @@ def get_module_access_context(user):
         return {
             "current_membership": None,
             "module_access": {},
+            "absence_access": False,
         }
+
+    hr_access = membership.has_module_access(
+        OrganizationMembership.Module.HR
+    )
+
+    from apps.hr.models import Employee
+
+    has_employee_profile = Employee.objects.filter(
+        company=membership.company,
+        user=user,
+        is_active=True,
+    ).exists()
 
     return {
         "current_membership": membership,
+        "absence_access": (
+            hr_access or has_employee_profile
+        ),
         "module_access": {
             "crm": membership.has_module_access(
                 OrganizationMembership.Module.CRM
@@ -71,8 +87,6 @@ def get_module_access_context(user):
             "finance": membership.has_module_access(
                 OrganizationMembership.Module.FINANCE
             ),
-            "hr": membership.has_module_access(
-                OrganizationMembership.Module.HR
-            ),
+            "hr": hr_access,
         },
     }

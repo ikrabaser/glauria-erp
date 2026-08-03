@@ -4,7 +4,13 @@ from django.utils import timezone
 from apps.accounts.models import User
 from apps.organizations.models import Branch, Department
 
-from .models import Employee, EmploymentAssignment, Position
+from .models import (
+    AbsenceRequest,
+    AbsenceType,
+    Employee,
+    EmploymentAssignment,
+    Position,
+)
 
 class HRBaseModelForm(forms.ModelForm):
     """
@@ -708,3 +714,205 @@ class DepartmentForm(HRBaseModelForm):
                 ancestor = ancestor.parent
 
         return cleaned_data
+class AbsenceRequestForm(HRBaseModelForm):
+    class Meta:
+        model = AbsenceRequest
+        fields = [
+            "employee",
+            "absence_type",
+            "start_date",
+            "end_date",
+            "reason",
+        ]
+        widgets = {
+            "start_date": forms.DateInput(
+                format="%Y-%m-%d",
+                attrs={
+                    "type": "date",
+                },
+            ),
+            "end_date": forms.DateInput(
+                format="%Y-%m-%d",
+                attrs={
+                    "type": "date",
+                },
+            ),
+            "reason": forms.Textarea(
+                attrs={
+                    "rows": 5,
+                    "placeholder": (
+                        "İzin talebinin gerekçesini açıklayın."
+                    ),
+                }
+            ),
+        }
+
+    def __init__(
+        self,
+        *args,
+        company=None,
+        employee=None,
+        can_manage_all=False,
+        **kwargs,
+    ):
+        super().__init__(*args, **kwargs)
+
+        self.company = company
+        self.current_employee = employee
+        self.can_manage_all = can_manage_all
+
+        employee_queryset = (
+            Employee.objects.filter(
+                company=company,
+                is_active=True,
+            )
+            .order_by(
+                "last_name",
+                "first_name",
+            )
+        )
+
+        absence_type_queryset = (
+            AbsenceType.objects.filter(
+                company=company,
+                is_active=True,
+            )
+            .order_by("name")
+        )
+
+        self.fields["employee"].queryset = employee_queryset
+        self.fields["absence_type"].queryset = (
+            absence_type_queryset
+        )
+        self.fields["employee"].empty_label = "Personel seçin"
+        self.fields["absence_type"].empty_label = (
+            "İzin türü seçin"
+        )
+
+        if employee and not can_manage_all:
+            self.fields["employee"].queryset = (
+                employee_queryset.filter(pk=employee.pk)
+            )
+            self.fields["employee"].initial = employee
+            self.fields["employee"].widget = forms.HiddenInput()
+
+        self.apply_control_classes()
+
+    def clean(self):
+        cleaned_data = super().clean()
+
+        employee = cleaned_data.get("employee")
+        absence_type = cleaned_data.get("absence_type")
+        start_date = cleaned_data.get("start_date")
+        end_date = cleaned_data.get("end_date")
+
+        if employee and self.company:
+            if employee.company_id != self.company.id:
+                self.add_error(
+                    "employee",
+                    "Personel aktif şirkete ait olmalıdır.",
+                )
+
+        if (
+            not self.can_manage_all
+            and self.current_employee
+            and employee
+            and employee.id != self.current_employee.id
+        ):
+            self.add_error(
+                "employee",
+                "Yalnızca kendi adınıza izin talebi oluşturabilirsiniz.",
+            )
+
+        if absence_type and self.company:
+            if absence_type.company_id != self.company.id:
+                self.add_error(
+                    "absence_type",
+                    "İzin türü aktif şirkete ait olmalıdır.",
+                )
+
+        if start_date and end_date:
+            if end_date < start_date:
+                self.add_error(
+                    "end_date",
+                    (
+                        "İzin bitiş tarihi başlangıç "
+                        "tarihinden önce olamaz."
+                    ),
+                )
+            elif start_date.year != end_date.year:
+                self.add_error(
+                    "end_date",
+                    (
+                        "İzin talebi tek bir takvim yılı "
+                        "içinde olmalıdır."
+                    ),
+                )
+
+        return cleaned_data
+
+
+class AbsenceDecisionForm(forms.Form):
+    class Action:
+        APPROVE = "approve"
+        REJECT = "reject"
+
+        CHOICES = (
+            (APPROVE, "Onayla"),
+            (REJECT, "Reddet"),
+        )
+
+    action = forms.ChoiceField(
+        choices=Action.CHOICES,
+        widget=forms.HiddenInput(),
+    )
+
+    decision_note = forms.CharField(
+        required=False,
+        label="Karar notu",
+        widget=forms.Textarea(
+            attrs={
+                "rows": 4,
+                "placeholder": (
+                    "Onay veya ret kararına ilişkin not ekleyin."
+                ),
+                "class": "hr-form__control",
+            }
+        ),
+    )
+
+    def clean(self):
+        cleaned_data = super().clean()
+
+        action = cleaned_data.get("action")
+        decision_note = (
+            cleaned_data.get("decision_note") or ""
+        ).strip()
+
+        if (
+            action == self.Action.REJECT
+            and not decision_note
+        ):
+            self.add_error(
+                "decision_note",
+                "Ret işlemi için karar notu zorunludur.",
+            )
+
+        cleaned_data["decision_note"] = decision_note
+        return cleaned_data
+
+
+class AbsenceCancellationForm(forms.Form):
+    cancellation_note = forms.CharField(
+        required=False,
+        label="İptal notu",
+        widget=forms.Textarea(
+            attrs={
+                "rows": 3,
+                "placeholder": (
+                    "İptal nedenini isteğe bağlı olarak belirtin."
+                ),
+                "class": "hr-form__control",
+            }
+        ),
+    )

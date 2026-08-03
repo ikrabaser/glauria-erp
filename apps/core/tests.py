@@ -4,7 +4,15 @@ from django.core.management import call_command
 from django.test import TestCase
 
 from apps.accounts.models import OrganizationMembership, User
-from apps.hr.models import Employee, EmploymentAssignment, Position
+from apps.hr.models import (
+    AbsenceBalance,
+    AbsenceRequest,
+    AbsenceRequestEvent,
+    AbsenceType,
+    Employee,
+    EmploymentAssignment,
+    Position,
+)
 from apps.organizations.models import Company
 
 
@@ -195,4 +203,115 @@ class SeedDemoCommandTests(TestCase):
         self.assertIn(
             "Yeni personel ataması sayısı: 0",
             output_text,
+        )
+    def test_seed_demo_is_idempotent_for_absence_data(self):
+        second_output = StringIO()
+
+        call_command(
+            "seed_demo",
+            owner=self.owner.username,
+            stdout=second_output,
+        )
+
+        self.assertEqual(
+            AbsenceType.objects.filter(
+                company=self.company,
+            ).count(),
+            3,
+        )
+
+        self.assertEqual(
+            AbsenceBalance.objects.filter(
+                company=self.company,
+            ).count(),
+            21,
+        )
+
+        self.assertEqual(
+            AbsenceRequest.objects.filter(
+                company=self.company,
+            ).count(),
+            3,
+        )
+
+        self.assertEqual(
+            AbsenceRequestEvent.objects.filter(
+                request__company=self.company,
+            ).count(),
+            3,
+        )
+
+        output_text = second_output.getvalue()
+
+        self.assertIn(
+            "Yeni izin türü sayısı: 0",
+            output_text,
+        )
+        self.assertIn(
+            "Yeni izin bakiyesi sayısı: 0",
+            output_text,
+        )
+        self.assertIn(
+            "Yeni izin talebi sayısı: 0",
+            output_text,
+        )
+        self.assertIn(
+            "Yeni izin işlem kaydı sayısı: 0",
+            output_text,
+        )
+    def test_seed_demo_creates_absence_management_data(self):
+        self.assertEqual(
+            AbsenceType.objects.filter(
+                company=self.company,
+            ).count(),
+            3,
+        )
+
+        self.assertEqual(
+            AbsenceBalance.objects.filter(
+                company=self.company,
+            ).count(),
+            21,
+        )
+
+        self.assertEqual(
+            AbsenceRequest.objects.filter(
+                company=self.company,
+            ).count(),
+            3,
+        )
+
+        self.assertEqual(
+            AbsenceRequestEvent.objects.filter(
+                request__company=self.company,
+            ).count(),
+            3,
+        )
+
+        submitted_request = AbsenceRequest.objects.get(
+            company=self.company,
+            employee__user__username="demo.hr.specialist",
+        )
+
+        self.assertEqual(
+            submitted_request.status,
+            AbsenceRequest.Status.SUBMITTED,
+        )
+        self.assertEqual(
+            submitted_request.requested_days,
+            3,
+        )
+
+        approved_request = AbsenceRequest.objects.get(
+            company=self.company,
+            employee__user__username="demo.finance.manager",
+        )
+
+        self.assertEqual(
+            approved_request.status,
+            AbsenceRequest.Status.APPROVED,
+        )
+        self.assertEqual(
+            approved_request.requested_days,
+            3,
         )

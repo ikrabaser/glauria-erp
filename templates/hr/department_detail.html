@@ -34,9 +34,15 @@
             Departmanlar
         </a>
 
-        <a href="{% url 'hr:position_list' %}">
+
+            <a href="{% url 'hr:position_list' %}">
             Pozisyonlar
         </a>
+
+        <a href="{% url 'hr:absence_request_list' %}">
+            İzinler
+        </a>
+
 
         {% if can_manage_hr %}
             <a

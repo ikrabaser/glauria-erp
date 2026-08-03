@@ -174,12 +174,59 @@
 {% endif %}
 
         {% if module_access.hr %}
+    <details
+        class="sidebar-group"
+        {% if request.resolver_match.namespace == "hr" %}open{% endif %}
+    >
+        <summary class="sidebar-link sidebar-group__trigger">
+            İnsan Kaynakları
+            <span class="sidebar-group__chevron">⌄</span>
+        </summary>
+
+        <div class="sidebar-group__items">
             <a
                 href="{% url 'hr:home' %}"
-                class="sidebar-link{% if request.resolver_match.namespace == 'hr' %} active{% endif %}"
+                class="sidebar-group__link{% if request.resolver_match.url_name == 'home' %} active{% endif %}"
             >
-                İnsan Kaynakları
+                İK Ana Paneli
             </a>
-        {% endif %}
+
+            <a
+                href="{% url 'hr:employee_list' %}"
+                class="sidebar-group__link{% if request.resolver_match.url_name == 'employee_list' or request.resolver_match.url_name == 'employee_detail' or request.resolver_match.url_name == 'employee_create' or request.resolver_match.url_name == 'employee_update' or request.resolver_match.url_name == 'employee_assignment_change' %} active{% endif %}"
+            >
+                Personel Dizini
+            </a>
+
+            <a
+                href="{% url 'hr:department_list' %}"
+                class="sidebar-group__link{% if request.resolver_match.url_name == 'department_list' or request.resolver_match.url_name == 'department_detail' or request.resolver_match.url_name == 'department_create' or request.resolver_match.url_name == 'department_update' %} active{% endif %}"
+            >
+                Departmanlar
+            </a>
+
+            <a
+                href="{% url 'hr:position_list' %}"
+                class="sidebar-group__link{% if request.resolver_match.url_name == 'position_list' or request.resolver_match.url_name == 'position_create' or request.resolver_match.url_name == 'position_update' %} active{% endif %}"
+            >
+                Pozisyonlar
+            </a>
+
+            <a
+                href="{% url 'hr:absence_request_list' %}"
+                class="sidebar-group__link{% if request.resolver_match.url_name == 'absence_request_list' or request.resolver_match.url_name == 'absence_request_create' or request.resolver_match.url_name == 'absence_request_detail' or request.resolver_match.url_name == 'absence_request_submit' or request.resolver_match.url_name == 'absence_request_decide' or request.resolver_match.url_name == 'absence_request_cancel' %} active{% endif %}"
+            >
+                İzin ve Devamsızlık
+            </a>
+        </div>
+    </details>
+{% elif absence_access %}
+    <a
+        href="{% url 'hr:absence_request_list' %}"
+        class="sidebar-link{% if request.resolver_match.namespace == 'hr' %} active{% endif %}"
+    >
+        İzinlerim
+    </a>
+{% endif %}
     </nav>
 </aside>

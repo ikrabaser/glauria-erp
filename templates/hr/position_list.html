@@ -32,12 +32,18 @@ Pozisyon Yönetimi | Glauria ERP
             Departmanlar
         </a>
 
-        <a
+
+            <a
             href="{% url 'hr:position_list' %}"
             class="is-active"
         >
             Pozisyonlar
         </a>
+
+        <a href="{% url 'hr:absence_request_list' %}">
+            İzinler
+        </a>
+
     </nav>
 
     <section class="hr-panel">

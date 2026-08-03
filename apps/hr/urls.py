@@ -14,6 +14,12 @@ from .views import (
     position_list,
     position_update,
     employee_assignment_change,
+    absence_request_cancel,
+    absence_request_create,
+    absence_request_decide,
+    absence_request_detail,
+    absence_request_list,
+    absence_request_submit,
 )
 
 app_name = "hr"
@@ -83,5 +89,35 @@ urlpatterns = [
         "departmanlar/<uuid:department_id>/duzenle/",
         department_update,
         name="department_update",
+    ),
+        path(
+        "izinler/",
+        absence_request_list,
+        name="absence_request_list",
+    ),
+    path(
+        "izinler/yeni/",
+        absence_request_create,
+        name="absence_request_create",
+    ),
+    path(
+        "izinler/<uuid:request_id>/",
+        absence_request_detail,
+        name="absence_request_detail",
+    ),
+    path(
+        "izinler/<uuid:request_id>/onaya-gonder/",
+        absence_request_submit,
+        name="absence_request_submit",
+    ),
+    path(
+        "izinler/<uuid:request_id>/karar/",
+        absence_request_decide,
+        name="absence_request_decide",
+    ),
+    path(
+        "izinler/<uuid:request_id>/iptal/",
+        absence_request_cancel,
+        name="absence_request_cancel",
     ),
 ]

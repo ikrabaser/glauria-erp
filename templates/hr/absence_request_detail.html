@@ -1,0 +1,428 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}
+İzin Talebi | {{ absence_request.employee.full_name }}
+{% endblock %}
+
+{% block extra_css %}
+<link
+    rel="stylesheet"
+    href="{% static 'css/hr.css' %}?v=hr-absence-v1"
+>
+{% endblock %}
+
+{% block content %}
+<section class="module-page hr-absence-detail">
+    {% url "hr:absence_request_list" as absence_list_url %}
+
+    {% include "components/page_header.html" with eyebrow="İNSAN KAYNAKLARI · İZİN TALEBİ" title=absence_request.employee.full_name description="İzin talebini, bakiye etkisini ve onay geçmişini görüntüleyin." action_text="İzinler" action_url=absence_list_url %}
+
+    <nav class="hr-subnav">
+        {% if can_access_hr %}
+            <a href="{% url 'hr:home' %}">
+                İK Ana Paneli
+            </a>
+
+            <a href="{% url 'hr:employee_list' %}">
+                Personel Dizini
+            </a>
+
+            <a href="{% url 'hr:department_list' %}">
+                Departmanlar
+            </a>
+
+            <a href="{% url 'hr:position_list' %}">
+                Pozisyonlar
+            </a>
+        {% endif %}
+
+        <a
+            href="{% url 'hr:absence_request_list' %}"
+            class="is-active"
+        >
+            İzinler
+        </a>
+    </nav>
+
+    <section class="hr-absence-hero">
+        <div class="hr-absence-hero__identity">
+            <span class="hr-absence-hero__avatar">
+                {{ absence_request.employee.first_name|first }}{{ absence_request.employee.last_name|first }}
+            </span>
+
+            <div>
+                <span class="hr-panel__eyebrow">
+                    {{ absence_request.absence_type.code }}
+                </span>
+
+                <h2>
+                    {{ absence_request.absence_type.name }}
+                </h2>
+
+                <p>
+                    {{ absence_request.start_date|date:"d.m.Y" }}
+                    –
+                    {{ absence_request.end_date|date:"d.m.Y" }}
+                    ·
+                    {{ absence_request.requested_days|floatformat:1 }}
+                    gün
+                </p>
+            </div>
+        </div>
+
+        <span
+            class="
+                hr-absence-status
+                hr-absence-status--{{ absence_request.status }}
+            "
+        >
+            {{ absence_request.get_status_display }}
+        </span>
+    </section>
+
+    <section class="hr-absence-detail-grid">
+        <article class="hr-panel">
+            <div class="hr-panel__heading">
+                <div>
+                    <span class="hr-panel__eyebrow">
+                        TALEP BİLGİLERİ
+                    </span>
+
+                    <h3 class="hr-panel__title">
+                        İzin Kaydı
+                    </h3>
+                </div>
+            </div>
+
+            <dl class="hr-detail-grid">
+                <div>
+                    <dt>Personel</dt>
+                    <dd>
+                        {{ absence_request.employee.full_name }}
+                    </dd>
+                </div>
+
+                <div>
+                    <dt>Personel numarası</dt>
+                    <dd>
+                        {{ absence_request.employee.employee_number }}
+                    </dd>
+                </div>
+
+                <div>
+                    <dt>İzin türü</dt>
+                    <dd>
+                        {{ absence_request.absence_type.name }}
+                    </dd>
+                </div>
+
+                <div>
+                    <dt>Talep edilen gün</dt>
+                    <dd>
+                        {{ absence_request.requested_days|floatformat:1 }}
+                        gün
+                    </dd>
+                </div>
+
+                <div>
+                    <dt>Başlangıç</dt>
+                    <dd>
+                        {{ absence_request.start_date|date:"d.m.Y" }}
+                    </dd>
+                </div>
+
+                <div>
+                    <dt>Bitiş</dt>
+                    <dd>
+                        {{ absence_request.end_date|date:"d.m.Y" }}
+                    </dd>
+                </div>
+
+                <div>
+                    <dt>Onaya gönderilme</dt>
+                    <dd>
+                        {% if absence_request.submitted_at %}
+                            {{ absence_request.submitted_at|date:"d.m.Y H:i" }}
+                        {% else %}
+                            —
+                        {% endif %}
+                    </dd>
+                </div>
+
+                <div>
+                    <dt>Karar zamanı</dt>
+                    <dd>
+                        {% if absence_request.decided_at %}
+                            {{ absence_request.decided_at|date:"d.m.Y H:i" }}
+                        {% else %}
+                            —
+                        {% endif %}
+                    </dd>
+                </div>
+            </dl>
+
+            <div class="hr-absence-reason">
+                <span>TALEP GEREKÇESİ</span>
+
+                <p>
+                    {{ absence_request.reason }}
+                </p>
+            </div>
+
+            {% if absence_request.decision_note %}
+                <div class="hr-absence-reason hr-absence-reason--decision">
+                    <span>KARAR NOTU</span>
+
+                    <p>
+                        {{ absence_request.decision_note }}
+                    </p>
+
+                    {% if absence_request.decided_by %}
+                        <small>
+                            {{ absence_request.decided_by.get_full_name|default:absence_request.decided_by.username }}
+                        </small>
+                    {% endif %}
+                </div>
+            {% endif %}
+        </article>
+
+        <aside class="hr-absence-side">
+            <article class="hr-panel">
+                <div class="hr-panel__heading">
+                    <div>
+                        <span class="hr-panel__eyebrow">
+                            İZİN BAKİYESİ
+                        </span>
+
+                        <h3 class="hr-panel__title">
+                            {{ absence_request.start_date.year }}
+                            Bakiyesi
+                        </h3>
+                    </div>
+                </div>
+
+                {% if balance %}
+                    <div class="hr-absence-balance-summary">
+                        <div>
+                            <span>Kullanılabilir</span>
+                            <strong>
+                                {{ balance.available_days|floatformat:1 }}
+                            </strong>
+                            <small>gün</small>
+                        </div>
+
+                        <dl>
+                            <div>
+                                <dt>Hak edilen</dt>
+                                <dd>
+                                    {{ balance.entitled_days|floatformat:1 }}
+                                </dd>
+                            </div>
+
+                            <div>
+                                <dt>Devreden</dt>
+                                <dd>
+                                    {{ balance.carried_days|floatformat:1 }}
+                                </dd>
+                            </div>
+
+                            <div>
+                                <dt>Düzeltme</dt>
+                                <dd>
+                                    {{ balance.adjustment_days|floatformat:1 }}
+                                </dd>
+                            </div>
+
+                            <div>
+                                <dt>Kullanılan</dt>
+                                <dd>
+                                    {{ balance.used_days|floatformat:1 }}
+                                </dd>
+                            </div>
+                        </dl>
+                    </div>
+                {% else %}
+                    <div class="hr-panel__empty">
+                        Bu izin türü için bakiye kaydı bulunmuyor.
+                    </div>
+                {% endif %}
+            </article>
+
+            {% if can_submit %}
+                <article class="hr-panel hr-absence-action-card">
+                    <span class="hr-panel__eyebrow">
+                        SELF-SERVICE
+                    </span>
+
+                    <h3>
+                        Talebi Onaya Gönder
+                    </h3>
+
+                    <p>
+                        Taslak talep onay kuyruğuna alınacaktır.
+                    </p>
+
+                    <form
+                        method="post"
+                        action="{% url 'hr:absence_request_submit' absence_request.id %}"
+                    >
+                        {% csrf_token %}
+
+                        <button
+                            type="submit"
+                            class="hr-form-actions__submit"
+                        >
+                            Onaya Gönder
+                        </button>
+                    </form>
+                </article>
+            {% endif %}
+
+            {% if can_decide %}
+                <article class="hr-panel hr-absence-action-card">
+                    <span class="hr-panel__eyebrow">
+                        ONAY İŞLEMİ
+                    </span>
+
+                    <h3>
+                        Talebi Değerlendir
+                    </h3>
+
+                    <form
+                        method="post"
+                        action="{% url 'hr:absence_request_decide' absence_request.id %}"
+                        class="hr-absence-decision-form"
+                    >
+                        {% csrf_token %}
+
+                        <label for="{{ decision_form.decision_note.id_for_label }}">
+                            {{ decision_form.decision_note.label }}
+                        </label>
+
+                        {{ decision_form.decision_note }}
+
+                        <div class="hr-absence-decision-actions">
+                            <button
+                                type="submit"
+                                name="action"
+                                value="reject"
+                                class="hr-absence-action--reject"
+                            >
+                                Reddet
+                            </button>
+
+                            <button
+                                type="submit"
+                                name="action"
+                                value="approve"
+                                class="hr-form-actions__submit"
+                            >
+                                Onayla
+                            </button>
+                        </div>
+                    </form>
+                </article>
+            {% endif %}
+
+            {% if can_cancel %}
+                <article class="hr-panel hr-absence-action-card">
+                    <span class="hr-panel__eyebrow">
+                        TALEP İŞLEMİ
+                    </span>
+
+                    <h3>
+                        Talebi İptal Et
+                    </h3>
+
+                    <form
+                        method="post"
+                        action="{% url 'hr:absence_request_cancel' absence_request.id %}"
+                        class="hr-absence-cancel-form"
+                    >
+                        {% csrf_token %}
+
+                        <label for="{{ cancellation_form.cancellation_note.id_for_label }}">
+                            {{ cancellation_form.cancellation_note.label }}
+                        </label>
+
+                        {{ cancellation_form.cancellation_note }}
+
+                        <button
+                            type="submit"
+                            class="hr-absence-action--cancel"
+                        >
+                            Talebi İptal Et
+                        </button>
+                    </form>
+                </article>
+            {% endif %}
+        </aside>
+    </section>
+
+    <section class="hr-panel">
+        <div class="hr-panel__heading">
+            <div>
+                <span class="hr-panel__eyebrow">
+                    İŞLEM GEÇMİŞİ
+                </span>
+
+                <h3 class="hr-panel__title">
+                    Talep Yaşam Döngüsü
+                </h3>
+            </div>
+
+            <span class="hr-panel__count">
+                {{ events|length }} işlem
+            </span>
+        </div>
+
+        {% if events %}
+            <div class="hr-absence-timeline">
+                {% for event in events %}
+                    <article class="hr-absence-timeline__item">
+                        <span class="hr-absence-timeline__marker"></span>
+
+                        <div class="hr-absence-timeline__content">
+                            <div>
+                                <strong>
+                                    {{ event.get_new_status_display }}
+                                </strong>
+
+                                <small>
+                                    {{ event.created_at|date:"d.m.Y H:i" }}
+                                </small>
+                            </div>
+
+                            <p>
+                                {% if event.previous_status %}
+                                    {{ event.get_previous_status_display }}
+                                    →
+                                {% endif %}
+                                {{ event.get_new_status_display }}
+                            </p>
+
+                            {% if event.note %}
+                                <span>
+                                    {{ event.note }}
+                                </span>
+                            {% endif %}
+
+                            {% if event.changed_by %}
+                                <small>
+                                    İşlemi yapan:
+                                    {{ event.changed_by.get_full_name|default:event.changed_by.username }}
+                                </small>
+                            {% endif %}
+                        </div>
+                    </article>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="hr-panel__empty">
+                Talep için henüz işlem geçmişi oluşmadı.
+            </div>
+        {% endif %}
+    </section>
+</section>
+{% endblock %}

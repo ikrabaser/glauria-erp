@@ -1,8 +1,9 @@
+from io import StringIO
 from datetime import date
 from decimal import Decimal
 
 from django.urls import reverse
-
+from django.core.management import call_command
 from django.core.exceptions import ValidationError
 from django.test import TestCase
 
@@ -1192,3 +1193,237 @@ class AbsenceWorkflowTestCase(TestCase):
         self.assertFalse(
             absence_request.events.exists(),
         )
+class AbsenceViewAccessTestCase(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.owner = User.objects.create_user(
+            username="absence_view_owner",
+            email="absence.view.owner@example.com",
+            password="test-password",
+            user_type=User.UserType.INTERNAL,
+        )
+
+        call_command(
+            "seed_demo",
+            owner=cls.owner.username,
+            stdout=StringIO(),
+        )
+
+        cls.company = Company.objects.get(
+            name="Glauria Demo A.Ş.",
+        )
+
+        cls.hr_manager_user = User.objects.get(
+            username="demo.hr.manager",
+        )
+        cls.hr_specialist_user = User.objects.get(
+            username="demo.hr.specialist",
+        )
+        cls.finance_manager_user = User.objects.get(
+            username="demo.finance.manager",
+        )
+
+        cls.hr_manager_employee = Employee.objects.get(
+            company=cls.company,
+            user=cls.hr_manager_user,
+        )
+        cls.hr_specialist_employee = Employee.objects.get(
+            company=cls.company,
+            user=cls.hr_specialist_user,
+        )
+        cls.finance_manager_employee = Employee.objects.get(
+            company=cls.company,
+            user=cls.finance_manager_user,
+        )
+
+        cls.submitted_request = AbsenceRequest.objects.get(
+            company=cls.company,
+            employee=cls.hr_specialist_employee,
+            status=AbsenceRequest.Status.SUBMITTED,
+        )
+
+        cls.approved_request = AbsenceRequest.objects.get(
+            company=cls.company,
+            employee=cls.finance_manager_employee,
+            status=AbsenceRequest.Status.APPROVED,
+        )
+
+    def test_hr_manager_can_view_all_absence_requests(self):
+        self.client.force_login(self.hr_manager_user)
+
+        response = self.client.get(
+            reverse("hr:absence_request_list"),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Ece Demir")
+        self.assertContains(response, "Burak Kaya")
+        self.assertContains(response, "Mert Yılmaz")
+        self.assertContains(response, "İK Ana Paneli")
+        self.assertContains(response, "İzin ve Devamsızlık")
+
+    def test_employee_can_access_absence_self_service(self):
+        self.client.force_login(self.finance_manager_user)
+
+        response = self.client.get(
+            reverse("hr:absence_request_list"),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Burak Kaya")
+        self.assertNotContains(response, "Ece Demir")
+        self.assertNotContains(response, "Mert Yılmaz")
+        self.assertContains(response, "İzinlerim")
+        self.assertNotContains(response, "İK Ana Paneli")
+        self.assertNotContains(response, "Personel Dizini")
+
+    def test_employee_cannot_access_hr_dashboard(self):
+        self.client.force_login(self.finance_manager_user)
+
+        response = self.client.get(
+            reverse("hr:home"),
+        )
+
+        self.assertEqual(response.status_code, 403)
+
+    def test_employee_cannot_view_unrelated_absence_request(self):
+        self.client.force_login(self.finance_manager_user)
+
+        response = self.client.get(
+            reverse(
+                "hr:absence_request_detail",
+                kwargs={
+                    "request_id": self.submitted_request.id,
+                },
+            ),
+        )
+
+        self.assertEqual(response.status_code, 404)
+
+    def test_direct_manager_can_view_report_absence_request(self):
+        assignment = EmploymentAssignment.objects.get(
+            employee=self.hr_specialist_employee,
+            is_primary=True,
+            end_date__isnull=True,
+        )
+        assignment.manager = self.finance_manager_employee
+        assignment.save()
+
+        self.client.force_login(self.finance_manager_user)
+
+        response = self.client.get(
+            reverse("hr:absence_request_list"),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Burak Kaya")
+        self.assertContains(response, "Ece Demir")
+
+    def test_non_hr_manager_cannot_decide_absence_request(self):
+        self.client.force_login(self.finance_manager_user)
+
+        response = self.client.post(
+            reverse(
+                "hr:absence_request_decide",
+                kwargs={
+                    "request_id": self.submitted_request.id,
+                },
+            ),
+            {
+                "action": "approve",
+                "decision_note": "Yetkisiz karar denemesi.",
+            },
+        )
+
+        self.assertEqual(response.status_code, 403)
+
+        self.submitted_request.refresh_from_db()
+
+        self.assertEqual(
+            self.submitted_request.status,
+            AbsenceRequest.Status.SUBMITTED,
+        )
+
+    def test_hr_manager_can_approve_request_from_view(self):
+        self.client.force_login(self.hr_manager_user)
+
+        response = self.client.post(
+            reverse(
+                "hr:absence_request_decide",
+                kwargs={
+                    "request_id": self.submitted_request.id,
+                },
+            ),
+            {
+                "action": "approve",
+                "decision_note": "İzin planlaması uygundur.",
+            },
+        )
+
+        self.assertRedirects(
+            response,
+            reverse(
+                "hr:absence_request_detail",
+                kwargs={
+                    "request_id": self.submitted_request.id,
+                },
+            ),
+        )
+
+        self.submitted_request.refresh_from_db()
+
+        self.assertEqual(
+            self.submitted_request.status,
+            AbsenceRequest.Status.APPROVED,
+        )
+        self.assertEqual(
+            self.submitted_request.decided_by,
+            self.hr_manager_user,
+        )
+
+        balance = AbsenceBalance.objects.get(
+            company=self.company,
+            employee=self.hr_specialist_employee,
+            absence_type=self.submitted_request.absence_type,
+            year=self.submitted_request.start_date.year,
+        )
+
+        self.assertEqual(
+            balance.used_days,
+            Decimal("3.00"),
+        )
+
+    def test_user_without_employee_profile_cannot_access_absences(self):
+        user = User.objects.create_user(
+            username="absence_unlinked_user",
+            email="absence.unlinked@example.com",
+            password="test-password",
+            user_type=User.UserType.INTERNAL,
+        )
+
+        branch = Branch.objects.filter(
+            company=self.company,
+        ).first()
+
+        department = Department.objects.filter(
+            branch__company=self.company,
+        ).first()
+
+        OrganizationMembership.objects.create(
+            user=user,
+            company=self.company,
+            branch=branch,
+            department=department,
+            role=OrganizationMembership.Role.MEMBER,
+            permissions=[],
+            is_primary=True,
+            is_active=True,
+        )
+
+        self.client.force_login(user)
+
+        response = self.client.get(
+            reverse("hr:absence_request_list"),
+        )
+
+        self.assertEqual(response.status_code, 403)
