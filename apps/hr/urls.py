@@ -1,6 +1,10 @@
 from django.urls import path
 
 from .views import (
+    department_create,
+    department_detail,
+    department_list,
+    department_update,
     employee_create,
     employee_detail,
     employee_list,
@@ -59,5 +63,25 @@ urlpatterns = [
         "pozisyonlar/<uuid:position_id>/duzenle/",
         position_update,
         name="position_update",
+    ),
+        path(
+        "departmanlar/",
+        department_list,
+        name="department_list",
+    ),
+    path(
+        "departmanlar/yeni/",
+        department_create,
+        name="department_create",
+    ),
+    path(
+        "departmanlar/<uuid:department_id>/",
+        department_detail,
+        name="department_detail",
+    ),
+    path(
+        "departmanlar/<uuid:department_id>/duzenle/",
+        department_update,
+        name="department_update",
     ),
 ]

@@ -15,6 +15,7 @@ from apps.organizations.models import Department
 from .models import Employee, EmploymentAssignment, Position
 from .forms import (
     AssignmentChangeForm,
+    DepartmentForm,
     EmployeeForm,
     InitialAssignmentForm,
     PositionForm,
@@ -785,5 +786,316 @@ def employee_assignment_change(request, employee_id):
             "employee": employee,
             "current_assignment": current_assignment,
             "form": form,
+        },
+    )
+@login_required
+def department_list(request):
+    membership = get_active_membership(request.user)
+
+    if not membership or not has_hr_access(membership):
+        return hr_management_forbidden()
+
+    company = membership.company
+    search_query = request.GET.get("q", "").strip()
+    branch_id = request.GET.get("branch", "").strip()
+    status = request.GET.get("status", "").strip()
+
+    manager_assignments = (
+        current_assignment_queryset()
+        .filter(
+            employee__company=company,
+            employee__is_active=True,
+            is_department_manager=True,
+        )
+    )
+
+    departments = (
+        Department.objects.filter(
+            branch__company=company,
+        )
+        .select_related(
+            "branch",
+            "parent",
+        )
+        .annotate(
+            active_employee_count=Count(
+                "employee_assignments",
+                filter=Q(
+                    employee_assignments__employee__company=company,
+                    employee_assignments__employee__is_active=True,
+                    employee_assignments__is_primary=True,
+                    employee_assignments__end_date__isnull=True,
+                ),
+                distinct=True,
+            ),
+            active_position_count=Count(
+                "hr_positions",
+                filter=Q(
+                    hr_positions__company=company,
+                    hr_positions__is_active=True,
+                ),
+                distinct=True,
+            ),
+        )
+        .prefetch_related(
+            Prefetch(
+                "employee_assignments",
+                queryset=manager_assignments,
+                to_attr="active_manager_assignments",
+            ),
+        )
+    )
+
+    if search_query:
+        departments = departments.filter(
+            Q(name__icontains=search_query)
+            | Q(code__icontains=search_query)
+            | Q(branch__name__icontains=search_query)
+        )
+
+    if branch_id:
+        departments = departments.filter(
+            branch_id=branch_id,
+        )
+
+    if status == "active":
+        departments = departments.filter(is_active=True)
+    elif status == "inactive":
+        departments = departments.filter(is_active=False)
+
+    departments = departments.order_by(
+        "branch__name",
+        "name",
+    )
+
+    branches = (
+        membership.company.branches
+        .filter(is_active=True)
+        .order_by("name")
+    )
+
+    return render(
+        request,
+        "hr/department_list.html",
+        {
+            "current_membership": membership,
+            "can_access_hr": True,
+            "can_manage_hr": can_manage_hr(membership),
+            "departments": departments,
+            "branches": branches,
+            "search_query": search_query,
+            "selected_branch": branch_id,
+            "selected_status": status,
+        },
+    )
+
+
+@login_required
+def department_detail(request, department_id):
+    membership = get_active_membership(request.user)
+
+    if not membership or not has_hr_access(membership):
+        return hr_management_forbidden()
+
+    company = membership.company
+
+    manager_assignments = (
+        current_assignment_queryset()
+        .filter(
+            employee__company=company,
+            employee__is_active=True,
+            is_department_manager=True,
+        )
+    )
+
+    department = get_object_or_404(
+        Department.objects
+        .select_related(
+            "branch",
+            "parent",
+        )
+        .prefetch_related(
+            Prefetch(
+                "employee_assignments",
+                queryset=manager_assignments,
+                to_attr="active_manager_assignments",
+            ),
+        ),
+        pk=department_id,
+        branch__company=company,
+    )
+
+    active_assignments = (
+        current_assignment_queryset()
+        .filter(
+            employee__company=company,
+            employee__is_active=True,
+            department=department,
+        )
+        .order_by(
+            "-is_department_manager",
+            "employee__last_name",
+            "employee__first_name",
+        )
+    )
+
+    positions = (
+        Position.objects.filter(
+            company=company,
+            department=department,
+        )
+        .annotate(
+            active_assignment_count=Count(
+                "employee_assignments",
+                filter=Q(
+                    employee_assignments__is_primary=True,
+                    employee_assignments__end_date__isnull=True,
+                    employee_assignments__employee__is_active=True,
+                ),
+                distinct=True,
+            ),
+        )
+        .order_by(
+            "-is_active",
+            "title",
+        )
+    )
+
+    sub_departments = (
+        Department.objects.filter(
+            branch__company=company,
+            parent=department,
+        )
+        .select_related("branch")
+        .order_by(
+            "-is_active",
+            "name",
+        )
+    )
+
+    manager_assignment = None
+
+    if department.active_manager_assignments:
+        manager_assignment = (
+            department.active_manager_assignments[0]
+        )
+
+    return render(
+        request,
+        "hr/department_detail.html",
+        {
+            "current_membership": membership,
+            "can_access_hr": True,
+            "can_manage_hr": can_manage_hr(membership),
+            "department": department,
+            "manager_assignment": manager_assignment,
+            "active_assignments": active_assignments,
+            "positions": positions,
+            "sub_departments": sub_departments,
+        },
+    )
+
+
+@login_required
+def department_create(request):
+    membership = get_active_membership(request.user)
+
+    if not membership or not can_manage_hr(membership):
+        return hr_management_forbidden()
+
+    if request.method == "POST":
+        form = DepartmentForm(
+            request.POST,
+            company=membership.company,
+        )
+
+        if form.is_valid():
+            department = form.save()
+
+            messages.success(
+                request,
+                "Departman başarıyla oluşturuldu.",
+            )
+
+            return redirect(
+                "hr:department_detail",
+                department_id=department.id,
+            )
+    else:
+        form = DepartmentForm(
+            company=membership.company,
+        )
+
+    return render(
+        request,
+        "hr/department_form.html",
+        {
+            "current_membership": membership,
+            "can_access_hr": True,
+            "can_manage_hr": True,
+            "form": form,
+            "page_title": "Yeni Departman",
+            "page_description": (
+                "Şube ve üst departman bağlantısıyla yeni "
+                "organizasyon birimi oluşturun."
+            ),
+            "submit_label": "Departman Oluştur",
+        },
+    )
+
+
+@login_required
+def department_update(request, department_id):
+    membership = get_active_membership(request.user)
+
+    if not membership or not can_manage_hr(membership):
+        return hr_management_forbidden()
+
+    department = get_object_or_404(
+        Department,
+        pk=department_id,
+        branch__company=membership.company,
+    )
+
+    if request.method == "POST":
+        form = DepartmentForm(
+            request.POST,
+            instance=department,
+            company=membership.company,
+        )
+
+        if form.is_valid():
+            department = form.save()
+
+            messages.success(
+                request,
+                "Departman bilgileri güncellendi.",
+            )
+
+            return redirect(
+                "hr:department_detail",
+                department_id=department.id,
+            )
+    else:
+        form = DepartmentForm(
+            instance=department,
+            company=membership.company,
+        )
+
+    return render(
+        request,
+        "hr/department_form.html",
+        {
+            "current_membership": membership,
+            "can_access_hr": True,
+            "can_manage_hr": True,
+            "form": form,
+            "department": department,
+            "page_title": "Departmanı Düzenle",
+            "page_description": (
+                "Departman kodunu, şubesini ve organizasyon "
+                "hiyerarşisini güncelleyin."
+            ),
+            "submit_label": "Değişiklikleri Kaydet",
         },
     )

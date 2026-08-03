@@ -1,0 +1,288 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}
+Departmanlar | Glauria ERP
+{% endblock %}
+
+{% block extra_css %}
+<link
+    rel="stylesheet"
+    href="{% static 'css/hr.css' %}?v=hr-departments-v1"
+>
+{% endblock %}
+
+{% block content %}
+<section class="module-page hr-departments">
+    {% if can_manage_hr %}
+        {% url "hr:department_create" as action_url %}
+        {% include "components/page_header.html" with eyebrow="İNSAN KAYNAKLARI · ORGANİZASYON YÖNETİMİ" title="Departmanlar" description="Şirket organizasyon birimlerini, departman yöneticilerini, pozisyonları ve çalışan dağılımını yönetin." action_text="+ Yeni Departman" action_url=action_url %}
+    {% else %}
+        {% include "components/page_header.html" with eyebrow="İNSAN KAYNAKLARI · ORGANİZASYON YÖNETİMİ" title="Departmanlar" description="Şirket organizasyon birimlerini, departman yöneticilerini, pozisyonları ve çalışan dağılımını görüntüleyin." %}
+    {% endif %}
+
+    <nav class="hr-subnav">
+        <a href="{% url 'hr:home' %}">
+            İK Ana Paneli
+        </a>
+
+        <a href="{% url 'hr:employee_list' %}">
+            Personel Dizini
+        </a>
+
+        <a
+            href="{% url 'hr:department_list' %}"
+            class="is-active"
+        >
+            Departmanlar
+        </a>
+
+        <a href="{% url 'hr:position_list' %}">
+            Pozisyonlar
+        </a>
+    </nav>
+
+    <form
+        method="get"
+        class="hr-toolbar hr-department-toolbar"
+    >
+        <div class="hr-toolbar__search">
+            <label
+                for="department-search"
+                class="sr-only"
+            >
+                Departman ara
+            </label>
+
+            <input
+                id="department-search"
+                type="search"
+                name="q"
+                value="{{ search_query }}"
+                placeholder="Departman adı, kodu veya şube ara..."
+            >
+        </div>
+
+        <div class="hr-toolbar__field">
+            <label for="department-branch">
+                Şube
+            </label>
+
+            <select
+                id="department-branch"
+                name="branch"
+            >
+                <option value="">Tüm şubeler</option>
+
+                {% for branch in branches %}
+                    <option
+                        value="{{ branch.id }}"
+                        {% if selected_branch == branch.id|stringformat:"s" %}
+                            selected
+                        {% endif %}
+                    >
+                        {{ branch.name }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="hr-toolbar__field">
+            <label for="department-status">
+                Durum
+            </label>
+
+            <select
+                id="department-status"
+                name="status"
+            >
+                <option value="">Tüm durumlar</option>
+
+                <option
+                    value="active"
+                    {% if selected_status == "active" %}
+                        selected
+                    {% endif %}
+                >
+                    Aktif
+                </option>
+
+                <option
+                    value="inactive"
+                    {% if selected_status == "inactive" %}
+                        selected
+                    {% endif %}
+                >
+                    Pasif
+                </option>
+            </select>
+        </div>
+
+        <button
+            type="submit"
+            class="hr-toolbar__submit"
+        >
+            Uygula
+        </button>
+
+        {% if search_query or selected_branch or selected_status %}
+            <a
+                href="{% url 'hr:department_list' %}"
+                class="hr-toolbar__clear"
+            >
+                Temizle
+            </a>
+        {% endif %}
+    </form>
+
+    <section class="hr-panel">
+        <div class="hr-panel__heading">
+            <div>
+                <span class="hr-panel__eyebrow">
+                    ORGANİZASYON BİRİMLERİ
+                </span>
+
+                <h3 class="hr-panel__title">
+                    Departman Dizini
+                </h3>
+            </div>
+
+            <span class="hr-panel__count">
+                {{ departments|length }} departman
+            </span>
+        </div>
+
+        {% if departments %}
+            <div class="data-table-wrapper">
+                <table class="data-table hr-department-table">
+                    <thead>
+                        <tr>
+                            <th>Kod</th>
+                            <th>Departman</th>
+                            <th>Şube</th>
+                            <th>Üst Departman</th>
+                            <th>Departman Yöneticisi</th>
+                            <th>Personel</th>
+                            <th>Pozisyon</th>
+                            <th>Durum</th>
+                            {% if can_manage_hr %}
+                                <th>İşlem</th>
+                            {% endif %}
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        {% for department in departments %}
+                            {% with manager_assignment=department.active_manager_assignments.0 %}
+                                <tr>
+                                    <td class="hr-directory-table__number">
+                                        {{ department.code }}
+                                    </td>
+
+                                    <td>
+                                        <a
+                                            href="{% url 'hr:department_detail' department.id %}"
+                                            class="hr-department-cell"
+                                        >
+                                            <span class="hr-department-cell__code">
+                                                {{ department.code|slice:":4" }}
+                                            </span>
+
+                                            <span>
+                                                <strong>
+                                                    {{ department.name }}
+                                                </strong>
+
+                                                <small>
+                                                    Organizasyon birimi
+                                                </small>
+                                            </span>
+                                        </a>
+                                    </td>
+
+                                    <td>
+                                        {{ department.branch.name }}
+                                    </td>
+
+                                    <td>
+                                        {% if department.parent %}
+                                            <a
+                                                href="{% url 'hr:department_detail' department.parent.id %}"
+                                                class="hr-inline-link"
+                                            >
+                                                {{ department.parent.name }}
+                                            </a>
+                                        {% else %}
+                                            <span class="hr-muted">
+                                                Ana departman
+                                            </span>
+                                        {% endif %}
+                                    </td>
+
+                                    <td>
+                                        {% if manager_assignment %}
+                                            <a
+                                                href="{% url 'hr:employee_detail' manager_assignment.employee.id %}"
+                                                class="hr-manager-cell"
+                                            >
+                                                <strong>
+                                                    {{ manager_assignment.employee.full_name }}
+                                                </strong>
+
+                                                <small>
+                                                    {{ manager_assignment.position.title }}
+                                                </small>
+                                            </a>
+                                        {% else %}
+                                            <span class="hr-muted">
+                                                Yönetici atanmamış
+                                            </span>
+                                        {% endif %}
+                                    </td>
+
+                                    <td>
+                                        {{ department.active_employee_count }}
+                                        personel
+                                    </td>
+
+                                    <td>
+                                        {{ department.active_position_count }}
+                                        pozisyon
+                                    </td>
+
+                                    <td>
+                                        {% if department.is_active %}
+                                            <span class="hr-status hr-status--active">
+                                                Aktif
+                                            </span>
+                                        {% else %}
+                                            <span class="hr-status hr-status--terminated">
+                                                Pasif
+                                            </span>
+                                        {% endif %}
+                                    </td>
+
+                                    {% if can_manage_hr %}
+                                        <td>
+                                            <a
+                                                href="{% url 'hr:department_update' department.id %}"
+                                                class="hr-table-action"
+                                            >
+                                                Düzenle
+                                            </a>
+                                        </td>
+                                    {% endif %}
+                                </tr>
+                            {% endwith %}
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="hr-panel__empty">
+                Arama ölçütlerine uygun departman bulunamadı.
+            </div>
+        {% endif %}
+    </section>
+</section>
+{% endblock %}

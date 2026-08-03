@@ -587,3 +587,124 @@ class AssignmentChangeForm(forms.Form):
                 )
 
         return cleaned_data
+class DepartmentForm(HRBaseModelForm):
+    class Meta:
+        model = Department
+        fields = [
+            "branch",
+            "parent",
+            "code",
+            "name",
+            "is_active",
+        ]
+        widgets = {
+            "code": forms.TextInput(
+                attrs={
+                    "placeholder": "Örn. HR",
+                }
+            ),
+            "name": forms.TextInput(
+                attrs={
+                    "placeholder": "Örn. İnsan Kaynakları",
+                }
+            ),
+        }
+
+    def __init__(self, *args, company=None, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.company = company
+
+        self.fields["branch"].queryset = (
+            Branch.objects.filter(
+                company=company,
+                is_active=True,
+            ).order_by("name")
+        )
+        self.fields["branch"].empty_label = "Şube seçin"
+
+        parent_queryset = (
+            Department.objects.filter(
+                branch__company=company,
+                is_active=True,
+            )
+            .select_related("branch")
+            .order_by(
+                "branch__name",
+                "name",
+            )
+        )
+
+        if self.instance.pk:
+            parent_queryset = parent_queryset.exclude(
+                pk=self.instance.pk,
+            )
+
+        self.fields["parent"].queryset = parent_queryset
+        self.fields["parent"].empty_label = (
+            "Üst departman bulunmuyor"
+        )
+
+        self.apply_control_classes()
+
+    def clean_code(self):
+        return self.cleaned_data["code"].strip().upper()
+
+    def clean(self):
+        cleaned_data = super().clean()
+
+        branch = cleaned_data.get("branch")
+        parent = cleaned_data.get("parent")
+        code = cleaned_data.get("code")
+
+        if branch and self.company:
+            if branch.company_id != self.company.id:
+                self.add_error(
+                    "branch",
+                    "Şube aktif şirkete ait olmalıdır.",
+                )
+
+        if branch and code:
+            duplicate_query = Department.objects.filter(
+                branch=branch,
+                code=code,
+            ).exclude(
+                pk=self.instance.pk,
+            )
+
+            if duplicate_query.exists():
+                self.add_error(
+                    "code",
+                    (
+                        "Bu departman kodu seçilen şubede "
+                        "zaten kullanılıyor."
+                    ),
+                )
+
+        if parent and branch:
+            if parent.branch_id != branch.id:
+                self.add_error(
+                    "parent",
+                    (
+                        "Üst departman seçilen şubeye "
+                        "ait olmalıdır."
+                    ),
+                )
+
+        if parent and self.instance.pk:
+            ancestor = parent
+
+            while ancestor:
+                if ancestor.pk == self.instance.pk:
+                    self.add_error(
+                        "parent",
+                        (
+                            "Bir departman kendi alt departmanının "
+                            "altına taşınamaz."
+                        ),
+                    )
+                    break
+
+                ancestor = ancestor.parent
+
+        return cleaned_data

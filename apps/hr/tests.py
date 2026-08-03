@@ -758,3 +758,180 @@ class HRViewTestCase(TestCase):
             response.status_code,
             403,
         )
+    def test_department_list_returns_company_organization_data(self):
+        self.client.force_login(self.admin_user)
+
+        response = self.client.get(
+            reverse("hr:department_list"),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(
+            response,
+            self.department.name,
+        )
+        self.assertContains(
+            response,
+            self.position.title,
+        )
+        self.assertNotContains(
+            response,
+            self.other_department.name,
+        )
+
+    def test_department_detail_is_isolated_by_company(self):
+        self.client.force_login(self.admin_user)
+
+        response = self.client.get(
+            reverse(
+                "hr:department_detail",
+                kwargs={
+                    "department_id": self.other_department.id,
+                },
+            ),
+        )
+
+        self.assertEqual(response.status_code, 404)
+
+    def test_hr_manager_can_create_department(self):
+        self.client.force_login(self.admin_user)
+
+        response = self.client.post(
+            reverse("hr:department_create"),
+            {
+                "branch": str(self.branch.id),
+                "parent": str(self.department.id),
+                "code": "HR-OPS",
+                "name": "İK Operasyonları",
+                "is_active": "on",
+            },
+        )
+
+        department = Department.objects.get(
+            branch=self.branch,
+            code="HR-OPS",
+        )
+
+        self.assertRedirects(
+            response,
+            reverse(
+                "hr:department_detail",
+                kwargs={
+                    "department_id": department.id,
+                },
+            ),
+        )
+        self.assertEqual(
+            department.parent,
+            self.department,
+        )
+        self.assertTrue(department.is_active)
+
+    def test_hr_manager_can_update_department(self):
+        self.client.force_login(self.admin_user)
+
+        response = self.client.post(
+            reverse(
+                "hr:department_update",
+                kwargs={
+                    "department_id": self.department.id,
+                },
+            ),
+            {
+                "branch": str(self.branch.id),
+                "parent": "",
+                "code": "HR-NEW",
+                "name": "İnsan ve Kültür",
+                "is_active": "on",
+            },
+        )
+
+        self.assertRedirects(
+            response,
+            reverse(
+                "hr:department_detail",
+                kwargs={
+                    "department_id": self.department.id,
+                },
+            ),
+        )
+
+        self.department.refresh_from_db()
+
+        self.assertEqual(
+            self.department.code,
+            "HR-NEW",
+        )
+        self.assertEqual(
+            self.department.name,
+            "İnsan ve Kültür",
+        )
+
+    def test_hr_specialist_can_view_but_cannot_manage_departments(self):
+        self.client.force_login(self.hr_user)
+
+        list_response = self.client.get(
+            reverse("hr:department_list"),
+        )
+        detail_response = self.client.get(
+            reverse(
+                "hr:department_detail",
+                kwargs={
+                    "department_id": self.department.id,
+                },
+            ),
+        )
+        create_response = self.client.get(
+            reverse("hr:department_create"),
+        )
+        update_response = self.client.get(
+            reverse(
+                "hr:department_update",
+                kwargs={
+                    "department_id": self.department.id,
+                },
+            ),
+        )
+
+        self.assertEqual(list_response.status_code, 200)
+        self.assertEqual(detail_response.status_code, 200)
+        self.assertEqual(create_response.status_code, 403)
+        self.assertEqual(update_response.status_code, 403)
+
+    def test_department_cannot_move_under_its_descendant(self):
+        child_department = Department.objects.create(
+            branch=self.branch,
+            parent=self.department,
+            name="İK Operasyonları",
+            code="HR-OPS",
+        )
+
+        self.client.force_login(self.admin_user)
+
+        response = self.client.post(
+            reverse(
+                "hr:department_update",
+                kwargs={
+                    "department_id": self.department.id,
+                },
+            ),
+            {
+                "branch": str(self.branch.id),
+                "parent": str(child_department.id),
+                "code": self.department.code,
+                "name": self.department.name,
+                "is_active": "on",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(
+            response,
+            (
+                "Bir departman kendi alt departmanının "
+                "altına taşınamaz."
+            ),
+        )
+
+        self.department.refresh_from_db()
+        self.assertIsNone(self.department.parent)
