@@ -6,6 +6,7 @@ from .models import (
     CustomerAccount,
     CustomerAccountTransaction,
     FinancialAccount,
+    FinancialAccountTransaction,
     FinanceBudget,
     FinanceBudgetLine,
     FinanceBudgetAccount,
@@ -56,6 +57,73 @@ class FinancialAccountForm(forms.ModelForm):
             )
 
         return cleaned_data
+
+class FinancialAccountExpenseForm(forms.ModelForm):
+    budget_account = forms.ModelChoiceField(
+        queryset=FinanceBudgetAccount.objects.none(),
+        label="Bütçe kontrol hesabı",
+        empty_label="Gider kontrol hesabı seçin",
+    )
+
+    class Meta:
+        model = FinancialAccountTransaction
+        fields = [
+            "budget_account",
+            "transaction_date",
+            "amount",
+            "description",
+            "reference_number",
+        ]
+        widgets = {
+            "transaction_date": forms.DateInput(
+                attrs={
+                    "type": "date",
+                }
+            ),
+            "amount": forms.NumberInput(
+                attrs={
+                    "min": "0.01",
+                    "step": "0.01",
+                    "placeholder": "0,00",
+                }
+            ),
+            "description": forms.TextInput(
+                attrs={
+                    "placeholder": "Örn. Dijital reklam ödemesi",
+                }
+            ),
+            "reference_number": forms.TextInput(
+                attrs={
+                    "placeholder": "Fatura / dekont / işlem numarası",
+                }
+            ),
+        }
+
+    def __init__(self, *args, company=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.company = company
+
+        if company:
+            self.fields["budget_account"].queryset = (
+                FinanceBudgetAccount.objects.filter(
+                    company=company,
+                    account_type=FinanceBudgetAccount.AccountType.EXPENSE,
+                    is_active=True,
+                ).order_by(
+                    "code",
+                    "name",
+                )
+            )
+
+    def clean_amount(self):
+        amount = self.cleaned_data["amount"]
+
+        if amount <= Decimal("0.00"):
+            raise forms.ValidationError(
+                "Gider tutarı sıfırdan büyük olmalıdır."
+            )
+
+        return amount
 
 
 class CollectionForm(forms.ModelForm):

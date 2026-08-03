@@ -2487,3 +2487,37 @@ html[data-theme="light"] .finance-budget-account-usage {
         width: 100%;
     }
 }
+.finance-account-expense {
+    margin-top: 26px;
+    padding-top: 24px;
+    border-top: 1px solid rgba(215, 164, 143, 0.18);
+}
+
+.finance-account-expense__description {
+    margin: 0 0 18px;
+    color: rgba(255, 255, 255, 0.58);
+    font-size: 0.84rem;
+    line-height: 1.65;
+}
+
+html[data-theme="light"] .finance-account-expense__description {
+    color: rgba(55, 35, 44, 0.62);
+}
+.finance-account-expense select {
+    color-scheme: dark;
+}
+
+.finance-account-expense select option {
+    color: #ffffff;
+    background: #1a171e;
+}
+/* Satın alma talep kalemi formunda koyu seçim menüsü */
+
+.finance-form select {
+    color-scheme: dark;
+}
+
+.finance-form select option {
+    color: #ffffff;
+    background: #1a171e;
+}

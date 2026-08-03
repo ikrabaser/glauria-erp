@@ -1,0 +1,442 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}
+{{ purchase_order.order_number }} | Satın Alma Siparişi
+{% endblock %}
+
+{% block extra_css %}
+<link
+    rel="stylesheet"
+    href="{% static 'css/finance.css' %}?v=purchase-order-v2"
+>
+{% endblock %}
+
+{% block content %}
+<section class="module-page finance-dashboard">
+    <a
+        href="{% url 'purchasing:purchase_request_detail' purchase_order.purchase_request.id %}"
+        class="finance-back-link"
+    >
+        ← {{ purchase_order.purchase_request.request_number }} talebine dön
+    </a>
+
+    <header class="page-header">
+        <div class="page-header__content">
+            <span class="page-header__eyebrow">
+                SATIN ALMA SİPARİŞİ
+            </span>
+
+            <h2 class="page-header__title">
+                {{ purchase_order.order_number }}
+            </h2>
+
+            <p class="page-header__description">
+                {{ purchase_order.supplier.name }}
+                · Kaynak talep:
+                {{ purchase_order.purchase_request.request_number }}
+            </p>
+        </div>
+
+        <div class="finance-budget-status-actions">
+            <span class="finance-panel__count">
+                {{ purchase_order.get_status_display }}
+            </span>
+
+            {% if purchase_order.status == "draft" %}
+                <form
+                    method="post"
+                    action="{% url 'purchasing:purchase_order_status_update' purchase_order.id %}"
+                >
+                    {% csrf_token %}
+
+                    <input
+                        type="hidden"
+                        name="action"
+                        value="send"
+                    >
+
+                    <button
+                        type="submit"
+                        class="finance-budget-status-action"
+                    >
+                        Tedarikçiye Gönder
+                    </button>
+                </form>
+
+            {% elif purchase_order.status == "sent" %}
+                <form
+                    method="post"
+                    action="{% url 'purchasing:purchase_order_status_update' purchase_order.id %}"
+                >
+                    {% csrf_token %}
+
+                    <input
+                        type="hidden"
+                        name="action"
+                        value="cancel"
+                    >
+
+                    <button
+                        type="submit"
+                        class="finance-budget-status-action finance-budget-status-action--close"
+                    >
+                        Siparişi İptal Et
+                    </button>
+                </form>
+
+                <form
+                    method="post"
+                    action="{% url 'purchasing:purchase_order_status_update' purchase_order.id %}"
+                >
+                    {% csrf_token %}
+
+                    <input
+                        type="hidden"
+                        name="action"
+                        value="confirm"
+                    >
+
+                    <button
+                        type="submit"
+                        class="finance-budget-status-action"
+                    >
+                        Tedarikçi Onayını Kaydet
+                    </button>
+                </form>
+            {% endif %}
+        </div>
+    </header>
+
+    <div class="finance-metrics">
+        <article class="finance-metric-card finance-metric-card--primary">
+            <span class="finance-metric-card__label">
+                SİPARİŞ TOPLAMI
+            </span>
+
+            <strong class="finance-metric-card__value">
+                ₺{{ total_amount|floatformat:2 }}
+            </strong>
+
+            <span class="finance-metric-card__meta">
+                Sipariş kalemleri toplamı
+            </span>
+        </article>
+
+        <article class="finance-metric-card">
+            <span class="finance-metric-card__label">
+                SİPARİŞ KALEMİ
+            </span>
+
+            <strong class="finance-metric-card__value">
+                {{ lines|length }}
+            </strong>
+
+            <span class="finance-metric-card__meta">
+                Talep kalemlerinden aktarılan satır
+            </span>
+        </article>
+
+        <article class="finance-metric-card">
+            <span class="finance-metric-card__label">
+                BEKLENEN TESLİM
+            </span>
+
+            <strong class="finance-metric-card__value">
+                {% if purchase_order.expected_delivery_date %}
+                    {{ purchase_order.expected_delivery_date|date:"d.m.Y" }}
+                {% else %}
+                    —
+                {% endif %}
+            </strong>
+
+            <span class="finance-metric-card__meta">
+                Planlanan teslim tarihi
+            </span>
+        </article>
+    </div>
+
+    <div class="finance-dashboard__grid">
+        <section class="finance-panel">
+            <div class="finance-panel__heading">
+                <div>
+                    <span class="finance-panel__eyebrow">
+                        SİPARİŞ KALEMLERİ
+                    </span>
+
+                    <h3 class="finance-panel__title">
+                        Tedarikçiye İletilecek Kalemler
+                    </h3>
+                </div>
+
+                <span class="finance-panel__count">
+                    {{ lines|length }} kalem
+                </span>
+            </div>
+
+            <div class="data-table-wrapper">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Bütçe hesabı</th>
+                            <th>Açıklama</th>
+                            <th>Teslim tarihi</th>
+                            <th>Miktar</th>
+                            <th>Birim fiyat</th>
+                            <th>Sipariş tutarı</th>
+                            <th>Teslim alınan</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        {% for line in lines %}
+                            <tr>
+                                <td>
+                                    <div class="customer-cell">
+                                        <strong>
+                                            {{ line.budget_account.code }}
+                                        </strong>
+                                        <span>
+                                            {{ line.budget_account.name }}
+                                        </span>
+                                    </div>
+                                </td>
+
+                                <td>
+                                    {{ line.description }}
+                                </td>
+
+                                <td>
+                                    {% if line.expected_delivery_date %}
+                                        {{ line.expected_delivery_date|date:"d.m.Y" }}
+                                    {% else %}
+                                        —
+                                    {% endif %}
+                                </td>
+
+                                <td>
+                                    {{ line.quantity|floatformat:2 }}
+                                </td>
+
+                                <td>
+                                    ₺{{ line.unit_price|floatformat:2 }}
+                                </td>
+
+                                <td class="finance-table__balance">
+                                    ₺{{ line.line_total|floatformat:2 }}
+                                </td>
+
+                                <td>
+                                    {{ line.received_quantity|floatformat:2 }}
+                                    / {{ line.quantity|floatformat:2 }}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section class="finance-panel">
+            <div class="finance-panel__heading">
+                <div>
+                    <span class="finance-panel__eyebrow">
+                        TEDARİKÇİ VE KAYNAK
+                    </span>
+
+                    <h3 class="finance-panel__title">
+                        Sipariş Bilgileri
+                    </h3>
+                </div>
+            </div>
+
+            <div class="finance-detail-list">
+                <div class="finance-detail-list__item">
+                    <span>Tedarikçi</span>
+                    <strong>{{ purchase_order.supplier.name }}</strong>
+                </div>
+
+                <div class="finance-detail-list__item">
+                    <span>Tedarikçi kodu</span>
+                    <strong>{{ purchase_order.supplier.code }}</strong>
+                </div>
+
+                <div class="finance-detail-list__item">
+                    <span>Ödeme vadesi</span>
+                    <strong>
+                        {{ purchase_order.supplier.payment_term_days }} gün
+                    </strong>
+                </div>
+
+                <div class="finance-detail-list__item">
+                    <span>Sipariş tarihi</span>
+                    <strong>
+                        {{ purchase_order.order_date|date:"d.m.Y" }}
+                    </strong>
+                </div>
+
+                <div class="finance-detail-list__item">
+                    <span>Kaynak talep</span>
+                    <strong>
+                        <a
+                            href="{% url 'purchasing:purchase_request_detail' purchase_order.purchase_request.id %}"
+                            class="finance-back-link"
+                        >
+                            {{ purchase_order.purchase_request.request_number }}
+                        </a>
+                    </strong>
+                </div>
+            </div>
+
+            {% if purchase_order.notes %}
+                <div class="finance-panel__empty">
+                    {{ purchase_order.notes }}
+                </div>
+            {% endif %}
+        </section>
+        {% if receipt_form %}
+    <section class="finance-panel">
+        <div class="finance-panel__heading">
+            <div>
+                <span class="finance-panel__eyebrow">
+                    TESLİM ALMA
+                </span>
+
+                <h3 class="finance-panel__title">
+                    Teslim Kaydı Oluştur
+                </h3>
+            </div>
+        </div>
+
+        <form
+            method="post"
+            action="{% url 'purchasing:purchase_order_receipt_create' purchase_order.id %}"
+            class="finance-form"
+        >
+            {% csrf_token %}
+
+            <div class="finance-form__field">
+                <label for="purchase_order_line">
+                    Sipariş kalemi
+                </label>
+
+                <select
+                    id="purchase_order_line"
+                    name="purchase_order_line"
+                    required
+                >
+                    <option value="">
+                        Teslim alınacak kalemi seçin
+                    </option>
+
+                    {% for line in lines %}
+                        {% if line.received_quantity < line.quantity %}
+                            <option value="{{ line.id }}">
+                                {{ line.budget_account.code }}
+                                · {{ line.description }}
+                                · Kalan:
+                                {{ line.remaining_quantity|floatformat:2 }}
+                            </option>
+                        {% endif %}
+                    {% endfor %}
+                </select>
+            </div>
+
+            {% for field in receipt_form %}
+                <div class="finance-form__field">
+                    <label for="{{ field.id_for_label }}">
+                        {{ field.label }}
+                    </label>
+
+                    {{ field }}
+                    {{ field.errors }}
+                </div>
+            {% endfor %}
+
+            <button
+                type="submit"
+                class="finance-form__submit"
+            >
+                Teslim Kaydını Oluştur
+            </button>
+        </form>
+    </section>
+{% endif %}
+    </div>
+        <section class="finance-panel">
+        <div class="finance-panel__heading">
+            <div>
+                <span class="finance-panel__eyebrow">
+                    TESLİM GEÇMİŞİ
+                </span>
+
+                <h3 class="finance-panel__title">
+                    İrsaliye ve Teslim Kayıtları
+                </h3>
+            </div>
+
+            <span class="finance-panel__count">
+                {{ receipts|length }} kayıt
+            </span>
+        </div>
+
+        {% if receipts %}
+            <div class="data-table-wrapper">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Teslim tarihi</th>
+                            <th>Bütçe hesabı</th>
+                            <th>Teslim miktarı</th>
+                            <th>İrsaliye / referans</th>
+                            <th>Not</th>
+                            <th>Teslim alan</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        {% for receipt in receipts %}
+                            <tr>
+                                <td>
+                                    {{ receipt.receipt_date|date:"d.m.Y" }}
+                                </td>
+
+                                <td>
+                                    <div class="customer-cell">
+                                        <strong>
+                                            {{ receipt.purchase_order_line.budget_account.code }}
+                                        </strong>
+                                        <span>
+                                            {{ receipt.purchase_order_line.description }}
+                                        </span>
+                                    </div>
+                                </td>
+
+                                <td class="finance-table__balance">
+                                    {{ receipt.quantity|floatformat:2 }}
+                                </td>
+
+                                <td>
+                                    {{ receipt.reference_number|default:"—" }}
+                                </td>
+
+                                <td>
+                                    {{ receipt.notes|default:"—" }}
+                                </td>
+
+                                <td>
+                                    {{ receipt.received_by|default:"—" }}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="finance-panel__empty">
+                Bu sipariş için henüz teslim kaydı bulunmuyor.
+            </div>
+        {% endif %}
+    </section>
+</section>
+{% endblock %}

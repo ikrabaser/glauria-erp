@@ -1,0 +1,159 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}
+Yeni İzin Talebi | Glauria ERP
+{% endblock %}
+
+{% block extra_css %}
+<link
+    rel="stylesheet"
+    href="{% static 'css/hr.css' %}?v=hr-absence-v1"
+>
+{% endblock %}
+
+{% block content %}
+<section class="module-page hr-form-page hr-absence-form-page">
+    {% url "hr:absence_request_list" as cancel_url %}
+
+    {% include "components/page_header.html" with eyebrow="İNSAN KAYNAKLARI · İZİN SELF-SERVICE" title="Yeni İzin Talebi" description="İzin türünü, tarih aralığını ve talep gerekçesini belirleyin." action_text="İzinler" action_url=cancel_url %}
+
+    <nav class="hr-subnav">
+        {% if can_access_hr %}
+            <a href="{% url 'hr:home' %}">
+                İK Ana Paneli
+            </a>
+
+            <a href="{% url 'hr:employee_list' %}">
+                Personel Dizini
+            </a>
+
+            <a href="{% url 'hr:department_list' %}">
+                Departmanlar
+            </a>
+
+            <a href="{% url 'hr:position_list' %}">
+                Pozisyonlar
+            </a>
+        {% endif %}
+
+        <a
+            href="{% url 'hr:absence_request_list' %}"
+            class="is-active"
+        >
+            İzinler
+        </a>
+    </nav>
+
+    <form
+        method="post"
+        class="hr-record-form hr-record-form--compact"
+        novalidate
+    >
+        {% csrf_token %}
+
+        {% if form.non_field_errors %}
+            <div class="hr-form-errors">
+                {{ form.non_field_errors }}
+            </div>
+        {% endif %}
+
+        <section class="hr-form-section">
+            <div class="hr-form-section__heading">
+                <span>İZİN TALEBİ</span>
+
+                <h3>
+                    Talep Bilgileri
+                </h3>
+
+                <p>
+                    Talebi taslak olarak kaydedebilir veya doğrudan
+                    onay sürecine gönderebilirsiniz.
+                </p>
+            </div>
+
+            <div class="hr-form-grid">
+                {% for field in form %}
+                    {% if field.is_hidden %}
+                        {{ field }}
+                    {% else %}
+                        <div
+                            class="
+                                hr-form-field
+                                {% if field.name == 'reason' %}
+                                    hr-form-field--full
+                                {% endif %}
+                            "
+                        >
+                            <label for="{{ field.id_for_label }}">
+                                {{ field.label }}
+                            </label>
+
+                            {{ field }}
+
+                            {% if field.help_text %}
+                                <small>
+                                    {{ field.help_text }}
+                                </small>
+                            {% endif %}
+
+                            {% for error in field.errors %}
+                                <span class="hr-form-field__error">
+                                    {{ error }}
+                                </span>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                {% endfor %}
+            </div>
+        </section>
+
+        <section class="hr-absence-form-info">
+            <div class="hr-absence-form-info__icon">
+                i
+            </div>
+
+            <div>
+                <strong>
+                    Talep süreci nasıl ilerler?
+                </strong>
+
+                <p>
+                    Onaya gönderilen talepler İK yöneticisinin karar
+                    kuyruğuna düşer. Onaylanan ve bakiyeden düşen izinler,
+                    personelin ilgili yıl bakiyesine otomatik işlenir.
+                </p>
+            </div>
+        </section>
+
+        <div class="hr-form-actions hr-form-actions--split">
+            <a
+                href="{{ cancel_url }}"
+                class="hr-form-actions__cancel"
+            >
+                İptal
+            </a>
+
+            <div class="hr-form-actions__group">
+                <button
+                    type="submit"
+                    name="submit_action"
+                    value="draft"
+                    class="hr-form-actions__secondary"
+                >
+                    Taslak Kaydet
+                </button>
+
+                <button
+                    type="submit"
+                    name="submit_action"
+                    value="submit"
+                    class="hr-form-actions__submit"
+                >
+                    Onaya Gönder
+                </button>
+            </div>
+        </div>
+    </form>
+</section>
+{% endblock %}

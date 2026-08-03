@@ -1,0 +1,331 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}
+İzin Yönetimi | Glauria ERP
+{% endblock %}
+
+{% block extra_css %}
+<link
+    rel="stylesheet"
+    href="{% static 'css/hr.css' %}?v=hr-absence-v1"
+>
+{% endblock %}
+
+{% block content %}
+<section class="module-page hr-absence-page">
+    {% if can_create_absence_request %}
+        {% url "hr:absence_request_create" as action_url %}
+        {% include "components/page_header.html" with eyebrow="İNSAN KAYNAKLARI · İZİN YÖNETİMİ" title="İzin ve Devamsızlık" description="İzin bakiyelerini, talepleri ve onay süreçlerini tek merkezden yönetin." action_text="+ Yeni İzin Talebi" action_url=action_url %}
+    {% else %}
+        {% include "components/page_header.html" with eyebrow="İNSAN KAYNAKLARI · İZİN YÖNETİMİ" title="İzin ve Devamsızlık" description="İzin taleplerini ve onay süreçlerini görüntüleyin." %}
+    {% endif %}
+
+    <nav class="hr-subnav">
+        {% if can_access_hr %}
+            <a href="{% url 'hr:home' %}">
+                İK Ana Paneli
+            </a>
+
+            <a href="{% url 'hr:employee_list' %}">
+                Personel Dizini
+            </a>
+
+            <a href="{% url 'hr:department_list' %}">
+                Departmanlar
+            </a>
+
+            <a href="{% url 'hr:position_list' %}">
+                Pozisyonlar
+            </a>
+        {% endif %}
+
+        <a
+            href="{% url 'hr:absence_request_list' %}"
+            class="is-active"
+        >
+            İzinler
+        </a>
+    </nav>
+
+    {% if balances %}
+        <section class="hr-absence-balances">
+            {% for balance in balances %}
+                <article class="hr-absence-balance">
+                    <div class="hr-absence-balance__heading">
+                        <span>
+                            {{ balance.absence_type.code }}
+                        </span>
+
+                        <small>
+                            {{ current_year }}
+                        </small>
+                    </div>
+
+                    <h3>
+                        {{ balance.absence_type.name }}
+                    </h3>
+
+                    <div class="hr-absence-balance__value">
+                        <strong>
+                            {{ balance.available_days|floatformat:1 }}
+                        </strong>
+
+                        <span>
+                            gün kullanılabilir
+                        </span>
+                    </div>
+
+                    <div class="hr-absence-balance__meta">
+                        <span>
+                            Toplam:
+                            {{ balance.total_days|floatformat:1 }}
+                        </span>
+
+                        <span>
+                            Kullanılan:
+                            {{ balance.used_days|floatformat:1 }}
+                        </span>
+                    </div>
+                </article>
+            {% endfor %}
+        </section>
+    {% elif current_employee %}
+        <section class="hr-absence-empty-balance">
+            {{ current_year }} yılı için tanımlanmış izin bakiyesi bulunmuyor.
+        </section>
+    {% endif %}
+
+    <form
+        method="get"
+        class="hr-toolbar hr-absence-toolbar"
+    >
+        <div class="hr-toolbar__search">
+            <label
+                for="absence-search"
+                class="sr-only"
+            >
+                İzin talebi ara
+            </label>
+
+            <input
+                id="absence-search"
+                type="search"
+                name="q"
+                value="{{ search_query }}"
+                placeholder="Personel, izin türü veya gerekçe ara..."
+            >
+        </div>
+
+        <div class="hr-toolbar__field">
+            <label for="absence-status">
+                Durum
+            </label>
+
+            <select
+                id="absence-status"
+                name="status"
+            >
+                <option value="">Tüm durumlar</option>
+
+                {% for value, label in status_choices %}
+                    <option
+                        value="{{ value }}"
+                        {% if selected_status == value %}
+                            selected
+                        {% endif %}
+                    >
+                        {{ label }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="hr-toolbar__field">
+            <label for="absence-type">
+                İzin türü
+            </label>
+
+            <select
+                id="absence-type"
+                name="type"
+            >
+                <option value="">Tüm izin türleri</option>
+
+                {% for absence_type in absence_types %}
+                    <option
+                        value="{{ absence_type.id }}"
+                        {% if selected_type == absence_type.id|stringformat:"s" %}
+                            selected
+                        {% endif %}
+                    >
+                        {{ absence_type.name }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        {% if current_employee %}
+            <div class="hr-toolbar__field">
+                <label for="absence-scope">
+                    Kapsam
+                </label>
+
+                <select
+                    id="absence-scope"
+                    name="scope"
+                >
+                    <option value="">Erişebildiğim talepler</option>
+
+                    <option
+                        value="mine"
+                        {% if selected_scope == "mine" %}
+                            selected
+                        {% endif %}
+                    >
+                        Kendi taleplerim
+                    </option>
+
+                    <option
+                        value="team"
+                        {% if selected_scope == "team" %}
+                            selected
+                        {% endif %}
+                    >
+                        Ekibimin talepleri
+                    </option>
+                </select>
+            </div>
+        {% endif %}
+
+        <button
+            type="submit"
+            class="hr-toolbar__submit"
+        >
+            Uygula
+        </button>
+
+        {% if search_query or selected_status or selected_type or selected_scope %}
+            <a
+                href="{% url 'hr:absence_request_list' %}"
+                class="hr-toolbar__clear"
+            >
+                Temizle
+            </a>
+        {% endif %}
+    </form>
+
+    <section class="hr-panel">
+        <div class="hr-panel__heading">
+            <div>
+                <span class="hr-panel__eyebrow">
+                    İZİN TALEPLERİ
+                </span>
+
+                <h3 class="hr-panel__title">
+                    Talep ve Onay Akışı
+                </h3>
+            </div>
+
+            <span class="hr-panel__count">
+                {{ absence_requests|length }} talep
+            </span>
+        </div>
+
+        {% if absence_requests %}
+            <div class="data-table-wrapper">
+                <table class="data-table hr-absence-table">
+                    <thead>
+                        <tr>
+                            <th>Personel</th>
+                            <th>İzin Türü</th>
+                            <th>Tarih Aralığı</th>
+                            <th>Gün</th>
+                            <th>Durum</th>
+                            <th>Karar Veren</th>
+                            <th>İşlem</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        {% for absence_request in absence_requests %}
+                            <tr>
+                                <td>
+                                    <a
+                                        href="{% url 'hr:absence_request_detail' absence_request.id %}"
+                                        class="hr-employee-cell"
+                                    >
+                                        <span class="hr-employee-cell__avatar">
+                                            {{ absence_request.employee.first_name|first }}{{ absence_request.employee.last_name|first }}
+                                        </span>
+
+                                        <span>
+                                            <strong>
+                                                {{ absence_request.employee.full_name }}
+                                            </strong>
+
+                                            <small>
+                                                {{ absence_request.employee.employee_number }}
+                                            </small>
+                                        </span>
+                                    </a>
+                                </td>
+
+                                <td>
+                                    <strong>
+                                        {{ absence_request.absence_type.name }}
+                                    </strong>
+                                </td>
+
+                                <td>
+                                    {{ absence_request.start_date|date:"d.m.Y" }}
+                                    –
+                                    {{ absence_request.end_date|date:"d.m.Y" }}
+                                </td>
+
+                                <td>
+                                    {{ absence_request.requested_days|floatformat:1 }}
+                                </td>
+
+                                <td>
+                                    <span
+                                        class="
+                                            hr-absence-status
+                                            hr-absence-status--{{ absence_request.status }}
+                                        "
+                                    >
+                                        {{ absence_request.get_status_display }}
+                                    </span>
+                                </td>
+
+                                <td>
+                                    {% if absence_request.decided_by %}
+                                        {{ absence_request.decided_by.get_full_name|default:absence_request.decided_by.username }}
+                                    {% else %}
+                                        <span class="hr-muted">
+                                            —
+                                        </span>
+                                    {% endif %}
+                                </td>
+
+                                <td>
+                                    <a
+                                        href="{% url 'hr:absence_request_detail' absence_request.id %}"
+                                        class="hr-table-action"
+                                    >
+                                        Görüntüle
+                                    </a>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="hr-panel__empty">
+                Seçilen ölçütlere uygun izin talebi bulunmuyor.
+            </div>
+        {% endif %}
+    </section>
+</section>
+{% endblock %}

@@ -2,103 +2,100 @@
 {% load static %}
 
 {% block title %}
-Satın Alma Talepleri | Glauria ERP
+Tedarikçi Faturaları | Glauria ERP
 {% endblock %}
 
 {% block extra_css %}
 <link
     rel="stylesheet"
-    href="{% static 'css/finance.css' %}?v=purchasing-requests-v1"
+    href="{% static 'css/finance.css' %}?v=supplier-invoices-v1"
 >
 {% endblock %}
 
 {% block content %}
 <section class="module-page finance-dashboard">
-    {% include "components/page_header.html" with eyebrow="SATIN ALMA YÖNETİMİ" title="Satın Alma Talepleri" description="Bütçe kontrolüne bağlı satın alma ihtiyaçlarını oluşturun, onaya gönderin ve taahhüt sürecini izleyin." %}
+    {% include "components/page_header.html" with eyebrow="BORÇ HESAPLARI" title="Tedarikçi Faturaları" description="Teslim alınmış satın alma siparişlerinden fatura taslakları oluşturun, onay ve ödeme sürecini yönetin." %}
 
     <div class="finance-budget-accounts-layout">
         <section class="finance-panel">
             <div class="finance-panel__heading">
                 <div>
                     <span class="finance-panel__eyebrow">
-                        TALEP HAVUZU
+                        FATURA HAVUZU
                     </span>
 
                     <h3 class="finance-panel__title">
-                        Açık Satın Alma Talepleri
+                        Tedarikçi Borçları
                     </h3>
                 </div>
 
                 <span class="finance-panel__count">
-                    {{ purchase_requests|length }} talep
+                    {{ invoices|length }} fatura
                 </span>
             </div>
 
-            {% if purchase_requests %}
+            {% if invoices %}
                 <div class="data-table-wrapper">
                     <table class="data-table">
                         <thead>
                             <tr>
-                                <th>Talep no</th>
-                                <th>Başlık</th>
-                                <th>İhtiyaç tarihi</th>
-                                <th>Kalem</th>
-                                <th>Talep eden</th>
+                                <th>Fatura no</th>
+                                <th>Tedarikçi</th>
+                                <th>Kaynak sipariş</th>
+                                <th>Fatura tarihi</th>
+                                <th>Vade tarihi</th>
+                                <th>Tutar</th>
                                 <th>Durum</th>
                             </tr>
                         </thead>
 
                         <tbody>
-                            {% for purchase_request in purchase_requests %}
+                            {% for invoice in invoices %}
                                 <tr>
                                     <td class="finance-table__balance">
     <a
-        href="{% url 'purchasing:purchase_request_detail' purchase_request.id %}"
+        href="{% url 'purchasing:supplier_invoice_detail' invoice.id %}"
         class="finance-back-link"
     >
-        {{ purchase_request.request_number }}
+        {{ invoice.invoice_number }}
     </a>
 </td>
 
                                     <td>
                                         <div class="customer-cell">
                                             <strong>
-                                                {{ purchase_request.title }}
+                                                {{ invoice.supplier.name }}
                                             </strong>
                                             <span>
-                                                {{ purchase_request.description|default:"—" }}
+                                                {{ invoice.supplier.code }}
                                             </span>
                                         </div>
                                     </td>
 
                                     <td>
-                                        {% if purchase_request.needed_by_date %}
-                                            {{ purchase_request.needed_by_date|date:"d.m.Y" }}
-                                        {% else %}
-                                            —
-                                        {% endif %}
-                                    </td>
-
-                                    <td>
-                                        {{ purchase_request.line_count }} kalem
-                                    </td>
-
-                                    <td>
-                                        {{ purchase_request.requested_by|default:"—" }}
-                                    </td>
-
-                                    <td>
-                                        <span
-                                            class="
-                                                finance-budget-account-status
-                                                {% if purchase_request.status == 'approved' %}
-                                                    finance-budget-account-status--active
-                                                {% elif purchase_request.status == 'rejected' or purchase_request.status == 'cancelled' %}
-                                                    finance-budget-account-status--passive
-                                                {% endif %}
-                                            "
+                                        <a
+                                            href="{% url 'purchasing:purchase_order_detail' invoice.purchase_order.id %}"
+                                            class="finance-back-link"
                                         >
-                                            {{ purchase_request.get_status_display }}
+                                            {{ invoice.purchase_order.order_number }}
+                                        </a>
+                                    </td>
+
+                                    <td>
+                                        {{ invoice.invoice_date|date:"d.m.Y" }}
+                                    </td>
+
+                                    <td>
+                                        {{ invoice.due_date|date:"d.m.Y" }}
+                                    </td>
+
+                                    <td class="finance-table__balance">
+                                        ₺{{ invoice.total_amount|floatformat:2 }}
+                                    </td>
+
+                                    <td>
+                                        <span class="finance-panel__count">
+                                            {{ invoice.get_status_display }}
                                         </span>
                                     </td>
                                 </tr>
@@ -108,8 +105,9 @@ Satın Alma Talepleri | Glauria ERP
                 </div>
             {% else %}
                 <div class="finance-panel__empty">
-                    Henüz satın alma talebi bulunmuyor.
-                    Sağdaki formdan ilk taslağı oluşturabilirsiniz.
+                    Henüz tedarikçi faturası bulunmuyor. Sağdaki
+                    formdan teslim alınmış bir sipariş için ilk
+                    fatura taslağını oluşturabilirsiniz.
                 </div>
             {% endif %}
         </section>
@@ -118,11 +116,11 @@ Satın Alma Talepleri | Glauria ERP
             <div class="finance-panel__heading">
                 <div>
                     <span class="finance-panel__eyebrow">
-                        YENİ SATIN ALMA TALEBİ
+                        YENİ TEDARİKÇİ FATURASI
                     </span>
 
                     <h3 class="finance-panel__title">
-                        Talep Taslağı Oluştur
+                        Fatura Taslağı Oluştur
                     </h3>
                 </div>
             </div>
@@ -153,8 +151,11 @@ Satın Alma Talepleri | Glauria ERP
                     </div>
                 {% endfor %}
 
-                <button type="submit" class="finance-form__submit">
-                    Talep Taslağı Oluştur
+                <button
+                    type="submit"
+                    class="finance-form__submit"
+                >
+                    Fatura Taslağı Oluştur
                 </button>
             </form>
         </section>

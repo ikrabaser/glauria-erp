@@ -8,6 +8,7 @@ from .views import (
     workspace_member_access_update,
     workspace_member_create,
     workspace_members,
+    workspace_switch,
 )
 
 
@@ -22,6 +23,11 @@ urlpatterns = [
     path("logout/", logout_view, name="logout"),
     path("redirect/", login_redirect, name="login_redirect"),
     path("profile/", profile_settings, name="profile"),
+    path(
+        "workspace/<int:membership_id>/switch/",
+        workspace_switch,
+        name="workspace_switch",
+    ),
     path(
         "workspace/members/",
         workspace_members,

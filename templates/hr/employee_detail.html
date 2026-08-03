@@ -1,0 +1,470 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}
+{{ employee.full_name }} | Glauria ERP
+{% endblock %}
+
+{% block extra_css %}
+<link
+    rel="stylesheet"
+    href="{% static 'css/hr.css' %}?v=hr-workforce-v1"
+>
+{% endblock %}
+
+{% block content %}
+<section class="module-page hr-profile">
+    {% url "hr:employee_list" as employee_list_url %}
+
+    {% include "components/page_header.html" with eyebrow="İNSAN KAYNAKLARI · PERSONEL KARTI" title=employee.full_name description="Personel kimliği, güncel çalışma ataması ve organizasyon ilişkileri." action_text="Personel Dizini" action_url=employee_list_url %}
+        <nav class="hr-subnav">
+        <a href="{% url 'hr:home' %}">
+            İK Ana Paneli
+        </a>
+
+        <a href="{% url 'hr:employee_list' %}">
+            Personel Dizini
+        </a>
+
+        <a href="{% url 'hr:department_list' %}">
+            Departmanlar
+        </a>
+
+
+            <a href="{% url 'hr:position_list' %}">
+            Pozisyonlar
+        </a>
+
+        <a href="{% url 'hr:absence_request_list' %}">
+            İzinler
+        </a>
+
+
+                {% if can_manage_hr %}
+            {% if current_assignment %}
+                <a
+                    href="{% url 'hr:employee_assignment_change' employee.id %}"
+                    class="hr-subnav__primary"
+                >
+                    Atamayı Değiştir
+                </a>
+            {% endif %}
+
+            <a
+                href="{% url 'hr:employee_update' employee.id %}"
+            >
+                Personel Kartını Düzenle
+            </a>
+        {% endif %}
+    </nav>
+
+    <section class="hr-profile-hero">
+        <div class="hr-profile-hero__identity">
+            <span class="hr-profile-hero__avatar">
+                {{ employee.first_name|first }}{{ employee.last_name|first }}
+            </span>
+
+            <div>
+                <span class="hr-profile-hero__number">
+                    {{ employee.employee_number }}
+                </span>
+
+                <h3>{{ employee.full_name }}</h3>
+
+                <p>
+                    {% if current_assignment %}
+                        {{ current_assignment.position.title }}
+                        ·
+                        {{ current_assignment.department.name }}
+                    {% else %}
+                        Aktif pozisyon ataması bulunmuyor
+                    {% endif %}
+                </p>
+            </div>
+        </div>
+
+        <div class="hr-profile-hero__status">
+            <span
+                class="
+                    hr-status
+                    hr-status--{{ employee.employment_status }}
+                "
+            >
+                {{ employee.get_employment_status_display }}
+            </span>
+
+            <small>
+                İşe giriş:
+                {{ employee.hire_date|date:"d.m.Y" }}
+            </small>
+        </div>
+    </section>
+
+    <div class="hr-profile__grid">
+        <section class="hr-panel">
+            <div class="hr-panel__heading">
+                <div>
+                    <span class="hr-panel__eyebrow">
+                        PERSONEL BİLGİLERİ
+                    </span>
+
+                    <h3 class="hr-panel__title">
+                        Personel Kartı
+                    </h3>
+                </div>
+            </div>
+
+            <dl class="hr-detail-list">
+                <div>
+                    <dt>Ad Soyad</dt>
+                    <dd>{{ employee.full_name }}</dd>
+                </div>
+
+                <div>
+                    <dt>Tercih Edilen Ad</dt>
+                    <dd>{{ employee.preferred_name|default:"—" }}</dd>
+                </div>
+
+                <div>
+                    <dt>Personel Numarası</dt>
+                    <dd>{{ employee.employee_number }}</dd>
+                </div>
+
+                <div>
+                    <dt>Kurumsal E-posta</dt>
+                    <dd>
+                        {% if employee.work_email %}
+                            <a href="mailto:{{ employee.work_email }}">
+                                {{ employee.work_email }}
+                            </a>
+                        {% else %}
+                            —
+                        {% endif %}
+                    </dd>
+                </div>
+
+                <div>
+                    <dt>Telefon</dt>
+                    <dd>{{ employee.phone|default:"—" }}</dd>
+                </div>
+
+                <div>
+                    <dt>Doğum Tarihi</dt>
+                    <dd>
+                        {% if employee.birth_date %}
+                            {{ employee.birth_date|date:"d.m.Y" }}
+                        {% else %}
+                            —
+                        {% endif %}
+                    </dd>
+                </div>
+
+                <div>
+                    <dt>Kullanıcı Hesabı</dt>
+                    <dd>
+                        {% if employee.user %}
+                            {{ employee.user.username }}
+                        {% else %}
+                            ERP hesabı bağlı değil
+                        {% endif %}
+                    </dd>
+                </div>
+
+                <div>
+                    <dt>Şirket</dt>
+                    <dd>{{ employee.company.name }}</dd>
+                </div>
+            </dl>
+        </section>
+
+        <section class="hr-panel">
+            <div class="hr-panel__heading">
+                <div>
+                    <span class="hr-panel__eyebrow">
+                        GÜNCEL ATAMA
+                    </span>
+
+                    <h3 class="hr-panel__title">
+                        Organizasyon Bilgileri
+                    </h3>
+                </div>
+            </div>
+
+            {% if current_assignment %}
+                <dl class="hr-detail-list">
+                    <div>
+                        <dt>Pozisyon</dt>
+                        <dd>{{ current_assignment.position.title }}</dd>
+                    </div>
+
+                    <div>
+                        <dt>Pozisyon Kodu</dt>
+                        <dd>{{ current_assignment.position.code }}</dd>
+                    </div>
+
+                    <div>
+                        <dt>Şube</dt>
+                        <dd>{{ current_assignment.branch.name }}</dd>
+                    </div>
+
+                    <div>
+                        <dt>Departman</dt>
+                        <dd>{{ current_assignment.department.name }}</dd>
+                    </div>
+
+                    <div>
+                        <dt>Bağlı Yönetici</dt>
+                        <dd>
+                            {% if current_assignment.manager %}
+                                <a
+                                    href="{% url 'hr:employee_detail' current_assignment.manager.id %}"
+                                >
+                                    {{ current_assignment.manager.full_name }}
+                                </a>
+                            {% else %}
+                                Üst yönetici bulunmuyor
+                            {% endif %}
+                        </dd>
+                    </div>
+
+                    <div>
+                        <dt>Çalışma Türü</dt>
+                        <dd>
+                            {{ current_assignment.get_employment_type_display }}
+                        </dd>
+                    </div>
+
+                    <div>
+                        <dt>Atama Başlangıcı</dt>
+                        <dd>
+                            {{ current_assignment.start_date|date:"d.m.Y" }}
+                        </dd>
+                    </div>
+
+                    <div>
+                        <dt>Organizasyon Rolü</dt>
+                        <dd>
+                            {% if current_assignment.is_department_manager %}
+                                Departman Yöneticisi
+                            {% else %}
+                                Ekip Üyesi
+                            {% endif %}
+                        </dd>
+                    </div>
+                </dl>
+            {% else %}
+                <div class="hr-panel__empty">
+                    Bu personel için aktif birincil atama bulunmuyor.
+                </div>
+            {% endif %}
+        </section>
+    </div>
+
+    <section class="hr-panel hr-profile__section">
+        <div class="hr-panel__heading">
+            <div>
+                <span class="hr-panel__eyebrow">
+                    RAPORLAMA HATTI
+                </span>
+
+                <h3 class="hr-panel__title">
+                    Doğrudan Bağlı Çalışanlar
+                </h3>
+            </div>
+
+            <span class="hr-panel__count">
+                {{ direct_reports|length }} çalışan
+            </span>
+        </div>
+
+        {% if direct_reports %}
+            <div class="hr-report-grid">
+                {% for report in direct_reports %}
+                    <a
+                        href="{% url 'hr:employee_detail' report.employee.id %}"
+                        class="hr-report-card"
+                    >
+                        <span class="hr-report-card__avatar">
+                            {{ report.employee.first_name|first }}{{ report.employee.last_name|first }}
+                        </span>
+
+                        <span class="hr-report-card__content">
+                            <strong>
+                                {{ report.employee.full_name }}
+                            </strong>
+                            <small>
+                                {{ report.position.title }}
+                            </small>
+                            <small>
+                                {{ report.department.name }}
+                            </small>
+                        </span>
+
+                        <span class="hr-report-card__arrow">
+                            →
+                        </span>
+                    </a>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="hr-panel__empty">
+                Bu personele doğrudan bağlı aktif çalışan bulunmuyor.
+            </div>
+        {% endif %}
+    </section>
+
+    <section class="hr-panel hr-profile__section">
+        <div class="hr-panel__heading">
+            <div>
+                <span class="hr-panel__eyebrow">
+                    ÇALIŞMA GEÇMİŞİ
+                </span>
+
+                <h3 class="hr-panel__title">
+                    Pozisyon ve Atama Geçmişi
+                </h3>
+            </div>
+        </div>
+
+        {% if assignment_history %}
+            <div class="data-table-wrapper">
+                <table class="data-table hr-history-table">
+                    <thead>
+                        <tr>
+                            <th>Pozisyon</th>
+                            <th>Departman</th>
+                            <th>Şube</th>
+                            <th>Yönetici</th>
+                            <th>Başlangıç</th>
+                            <th>Bitiş</th>
+                            <th>Atama</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        {% for assignment in assignment_history %}
+                            <tr>
+                                <td>
+                                    <div class="customer-cell">
+                                        <strong>
+                                            {{ assignment.position.title }}
+                                        </strong>
+                                        <span>
+                                            {{ assignment.position.code }}
+                                        </span>
+                                    </div>
+                                </td>
+
+                                <td>{{ assignment.department.name }}</td>
+                                <td>{{ assignment.branch.name }}</td>
+
+                                <td>
+                                    {% if assignment.manager %}
+                                        {{ assignment.manager.full_name }}
+                                    {% else %}
+                                        —
+                                    {% endif %}
+                                </td>
+
+                                <td>
+                                    {{ assignment.start_date|date:"d.m.Y" }}
+                                </td>
+
+                                <td>
+                                    {% if assignment.end_date %}
+                                        {{ assignment.end_date|date:"d.m.Y" }}
+                                    {% else %}
+                                        Devam ediyor
+                                    {% endif %}
+                                </td>
+
+                                <td>
+                                    {% if assignment.is_primary %}
+                                        <span class="hr-status hr-status--active">
+                                            Birincil
+                                        </span>
+                                    {% else %}
+                                        <span class="hr-status hr-status--suspended">
+                                            İkincil
+                                        </span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="hr-panel__empty">
+                Personel için çalışma geçmişi bulunmuyor.
+            </div>
+        {% endif %}
+    </section>
+        <section class="hr-panel hr-profile__section">
+        <div class="hr-panel__heading">
+            <div>
+                <span class="hr-panel__eyebrow">
+                    DENETİM İZİ
+                </span>
+
+                <h3 class="hr-panel__title">
+                    Atama Değişiklik Kayıtları
+                </h3>
+            </div>
+
+            <span class="hr-panel__count">
+                {{ assignment_events|length }} değişiklik
+            </span>
+        </div>
+
+        {% if assignment_events %}
+            <div class="hr-event-list">
+                {% for event in assignment_events %}
+                    <article class="hr-event">
+                        <span class="hr-event__date">
+                            {{ event.effective_date|date:"d.m.Y" }}
+                        </span>
+
+                        <div class="hr-event__change">
+                            <div>
+                                <small>Önceki</small>
+                                <strong>
+                                    {{ event.previous_assignment.position.title }}
+                                </strong>
+                                <span>
+                                    {{ event.previous_assignment.department.name }}
+                                </span>
+                            </div>
+
+                            <span class="hr-event__arrow">→</span>
+
+                            <div>
+                                <small>Yeni</small>
+                                <strong>
+                                    {{ event.new_assignment.position.title }}
+                                </strong>
+                                <span>
+                                    {{ event.new_assignment.department.name }}
+                                </span>
+                            </div>
+                        </div>
+
+                        <div class="hr-event__reason">
+                            <small>Gerekçe</small>
+                            <p>{{ event.reason }}</p>
+                            <span>
+                                Değiştiren:
+                                {{ event.changed_by|default:"Sistem" }}
+                            </span>
+                        </div>
+                    </article>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="hr-panel__empty">
+                Bu personel için kayıtlı atama değişikliği bulunmuyor.
+            </div>
+        {% endif %}
+    </section>
+</section>
+{% endblock %}

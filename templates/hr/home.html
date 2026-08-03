@@ -1,19 +1,245 @@
 {% extends "base.html" %}
+{% load static %}
 
 {% block title %}
 İnsan Kaynakları | Glauria ERP
 {% endblock %}
 
+{% block extra_css %}
+<link
+    rel="stylesheet"
+    href="{% static 'css/hr.css' %}?v=hr-workforce-v1"
+>
+{% endblock %}
+
 {% block content %}
-<section class="module-page">
+<section class="module-page hr-dashboard">
+    {% if can_access_hr == False %}
+        {% include "components/page_header.html" with eyebrow="İNSAN KAYNAKLARI YÖNETİMİ" title="İnsan Kaynakları" description="Personel ve organizasyon verileri şirket bazında güvenli şekilde yönetilir." %}
 
-    {% include "components/page_header.html" with eyebrow="İNSAN KAYNAKLARI YÖNETİMİ" title="İnsan Kaynakları" description="Personelleri, departmanları, izinleri ve performans süreçlerini tek merkezden yönetin." action_text="+ Yeni Personel" action_url="#" %}
+        <section class="hr-access-state">
+            <span class="hr-access-state__icon">◇</span>
+            <h3>İK modülüne erişiminiz bulunmuyor</h3>
+            <p>
+                Bu çalışma alanında İnsan Kaynakları verilerini
+                görüntülemek için HR modül izni gerekir.
+            </p>
+        </section>
+    {% else %}
+        {% url "hr:employee_list" as employee_list_url %}
 
-    {% include "components/list_toolbar.html" with search_placeholder="Personel, departman veya pozisyon ara..." filter_text="Filtrele" %}
+        {% include "components/page_header.html" with title="İnsan Kaynakları" description="Personel kartlarını, pozisyonları, departman yöneticilerini ve organizasyon hiyerarşisini tek merkezden izleyin." action_text="Personel Dizini" action_url=employee_list_url %}
+                <nav class="hr-subnav">
+            <a
+                href="{% url 'hr:home' %}"
+                class="is-active"
+            >
+                İK Ana Paneli
+            </a>
 
-    <div class="module-empty-wrapper">
-        {% include "components/empty_state.html" with icon="👤" title="Henüz personel kaydı bulunmuyor" description="İlk personel kaydını oluşturarak insan kaynakları süreçlerini başlatabilirsiniz." action_text="+ Yeni Personel" action_url="#" %}
-    </div>
+            <a href="{% url 'hr:employee_list' %}">
+                Personel Dizini
+            </a>
 
+            <a href="{% url 'hr:department_list' %}">
+                Departmanlar
+            </a>
+
+
+            <a href="{% url 'hr:position_list' %}">
+                Pozisyonlar
+            </a>
+
+        <a href="{% url 'hr:absence_request_list' %}">
+            İzinler
+        </a>
+
+
+            {% if can_manage_hr %}
+                <a
+                    href="{% url 'hr:employee_create' %}"
+                    class="hr-subnav__primary"
+                >
+                    + Yeni Personel
+                </a>
+            {% endif %}
+        </nav>
+
+        <div class="hr-metrics">
+            <article class="hr-metric-card hr-metric-card--primary">
+                <span class="hr-metric-card__label">
+                    Toplam Personel
+                </span>
+                <strong class="hr-metric-card__value">
+                    {{ total_employee_count }}
+                </strong>
+                <span class="hr-metric-card__meta">
+                    Aktif personel kartları
+                </span>
+            </article>
+
+            <article class="hr-metric-card">
+                <span class="hr-metric-card__label">
+                    Aktif Çalışan
+                </span>
+                <strong class="hr-metric-card__value hr-metric-card__value--positive">
+                    {{ active_employee_count }}
+                </strong>
+                <span class="hr-metric-card__meta">
+                    {{ on_leave_employee_count }} personel izinli
+                </span>
+            </article>
+
+            <article class="hr-metric-card">
+                <span class="hr-metric-card__label">
+                    Aktif Pozisyon
+                </span>
+                <strong class="hr-metric-card__value">
+                    {{ position_count }}
+                </strong>
+                <span class="hr-metric-card__meta">
+                    {{ active_assignment_count }} aktif atama
+                </span>
+            </article>
+
+            <article class="hr-metric-card">
+                <span class="hr-metric-card__label">
+                    Departman Yöneticisi
+                </span>
+                <strong class="hr-metric-card__value">
+                    {{ department_manager_count }}
+                </strong>
+                <span class="hr-metric-card__meta">
+                    Organizasyon sorumluları
+                </span>
+            </article>
+        </div>
+
+        <div class="hr-dashboard__grid">
+            <section class="hr-panel">
+                <div class="hr-panel__heading">
+                    <div>
+                        <span class="hr-panel__eyebrow">
+                            ORGANİZASYON YAPISI
+                        </span>
+                        <h3 class="hr-panel__title">
+                            Departmanlar ve Yöneticiler
+                        </h3>
+                    </div>
+
+                    <span class="hr-panel__count">
+                        {{ departments|length }} departman
+                    </span>
+                </div>
+
+                {% if departments %}
+                    <div class="hr-department-list">
+                        {% for department in departments %}
+                            <article class="hr-department">
+                                <div class="hr-department__identity">
+                                    <span class="hr-department__code">
+                                        {{ department.code }}
+                                    </span>
+
+                                    <div>
+                                        <strong>
+                                            {{ department.name }}
+                                        </strong>
+                                        <span>
+                                            {{ department.branch.name }}
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <div class="hr-department__manager">
+                                    {% with manager_assignment=department.active_manager_assignments.0 %}
+                                        {% if manager_assignment %}
+                                            <strong>
+                                                {{ manager_assignment.employee.full_name }}
+                                            </strong>
+                                            <span>
+                                                {{ manager_assignment.position.title }}
+                                            </span>
+                                        {% else %}
+                                            <strong>Yönetici atanmamış</strong>
+                                            <span>Organizasyon kaydı bekliyor</span>
+                                        {% endif %}
+                                    {% endwith %}
+                                </div>
+
+                                <span class="hr-department__count">
+                                    {{ department.active_employee_count }}
+                                    personel
+                                </span>
+                            </article>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="hr-panel__empty">
+                        Bu şirkete bağlı aktif departman bulunmuyor.
+                    </div>
+                {% endif %}
+            </section>
+
+            <section class="hr-panel">
+                <div class="hr-panel__heading">
+                    <div>
+                        <span class="hr-panel__eyebrow">
+                            İŞE BAŞLAYANLAR
+                        </span>
+                        <h3 class="hr-panel__title">
+                            Son 90 Gün
+                        </h3>
+                    </div>
+                </div>
+
+                {% if recent_employees %}
+                    <div class="hr-people-list">
+                        {% for employee in recent_employees %}
+                            {% with assignment=employee.current_assignments.0 %}
+                                <a
+                                    href="{% url 'hr:employee_detail' employee.id %}"
+                                    class="hr-person-row"
+                                >
+                                    <span class="hr-person-row__avatar">
+                                        {{ employee.first_name|first }}{{ employee.last_name|first }}
+                                    </span>
+
+                                    <span class="hr-person-row__content">
+                                        <strong>
+                                            {{ employee.full_name }}
+                                        </strong>
+                                        <span>
+                                            {% if assignment %}
+                                                {{ assignment.position.title }}
+                                            {% else %}
+                                                Pozisyon atanmamış
+                                            {% endif %}
+                                        </span>
+                                    </span>
+
+                                    <span class="hr-person-row__date">
+                                        {{ employee.hire_date|date:"d.m.Y" }}
+                                    </span>
+                                </a>
+                            {% endwith %}
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="hr-panel__empty">
+                        Son 90 gün içinde işe başlayan personel bulunmuyor.
+                    </div>
+                {% endif %}
+
+                <a
+                    href="{% url 'hr:employee_list' %}"
+                    class="hr-panel__link"
+                >
+                    Tüm personeli görüntüle
+                    <span>→</span>
+                </a>
+            </section>
+        </div>
+    {% endif %}
 </section>
 {% endblock %}

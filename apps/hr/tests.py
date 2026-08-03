@@ -1,3 +1,1429 @@
+from io import StringIO
+from datetime import date
+from decimal import Decimal
+
+from django.urls import reverse
+from django.core.management import call_command
+from django.core.exceptions import ValidationError
 from django.test import TestCase
 
-# Create your tests here.
+from apps.accounts.models import OrganizationMembership, User
+from apps.organizations.models import Branch, Company, Department
+
+from .models import (
+    AbsenceBalance,
+    AbsenceRequest,
+    AbsenceRequestEvent,
+    AbsenceType,
+    Employee,
+    EmploymentAssignment,
+    EmploymentAssignmentEvent,
+    Position,
+)
+from .services import (
+    approve_absence_request,
+    cancel_absence_request,
+    change_employee_assignment,
+    reject_absence_request,
+    submit_absence_request,
+)
+class HRModelTestCase(TestCase):
+    def setUp(self):
+        self.company = Company.objects.create(
+            name="HR Test Şirketi",
+        )
+
+        self.branch = Branch.objects.create(
+            company=self.company,
+            name="Test Genel Merkez",
+            code="TEST-HQ",
+        )
+
+        self.executive_department = Department.objects.create(
+            branch=self.branch,
+            name="Yönetim",
+            code="EXEC",
+        )
+
+        self.hr_department = Department.objects.create(
+            branch=self.branch,
+            name="İnsan Kaynakları",
+            code="HR",
+        )
+
+        self.manager_position = Position.objects.create(
+            company=self.company,
+            department=self.hr_department,
+            code="HR-MGR",
+            title="İnsan Kaynakları Müdürü",
+        )
+
+        self.specialist_position = Position.objects.create(
+            company=self.company,
+            department=self.hr_department,
+            code="HR-SPC",
+            title="İnsan Kaynakları Uzmanı",
+        )
+
+        self.manager = Employee.objects.create(
+            company=self.company,
+            employee_number="EMP-0001",
+            first_name="Ayşe",
+            last_name="Yılmaz",
+            work_email="ayse.yilmaz@example.com",
+            hire_date=date(2024, 1, 15),
+        )
+
+        self.employee = Employee.objects.create(
+            company=self.company,
+            employee_number="EMP-0002",
+            first_name="Mehmet",
+            last_name="Kaya",
+            work_email="mehmet.kaya@example.com",
+            hire_date=date(2025, 3, 10),
+        )
+
+    def test_employee_full_name(self):
+        self.assertEqual(
+            self.employee.full_name,
+            "Mehmet Kaya",
+        )
+
+    def test_position_department_must_belong_to_company(self):
+        other_company = Company.objects.create(
+            name="Başka Test Şirketi",
+        )
+
+        invalid_position = Position(
+            company=other_company,
+            department=self.hr_department,
+            code="INVALID",
+            title="Geçersiz Pozisyon",
+        )
+
+        with self.assertRaises(ValidationError):
+            invalid_position.full_clean()
+
+    def test_portal_user_cannot_be_linked_to_employee(self):
+        portal_user = User.objects.create_user(
+            username="portal_test",
+            email="portal@example.com",
+            password="test-password",
+            user_type=User.UserType.PORTAL,
+        )
+
+        invalid_employee = Employee(
+            company=self.company,
+            user=portal_user,
+            employee_number="EMP-PORTAL",
+            first_name="Portal",
+            last_name="Kullanıcısı",
+            hire_date=date(2026, 1, 1),
+        )
+
+        with self.assertRaises(ValidationError):
+            invalid_employee.full_clean()
+
+    def test_employee_cannot_be_own_manager(self):
+        invalid_assignment = EmploymentAssignment(
+            employee=self.employee,
+            branch=self.branch,
+            department=self.hr_department,
+            position=self.specialist_position,
+            manager=self.employee,
+            start_date=date(2026, 1, 1),
+        )
+
+        with self.assertRaises(ValidationError):
+            invalid_assignment.full_clean()
+
+    def test_employee_can_have_only_one_active_primary_assignment(self):
+        EmploymentAssignment.objects.create(
+            employee=self.employee,
+            branch=self.branch,
+            department=self.hr_department,
+            position=self.specialist_position,
+            manager=self.manager,
+            start_date=date(2026, 1, 1),
+            is_primary=True,
+        )
+
+        duplicate_assignment = EmploymentAssignment(
+            employee=self.employee,
+            branch=self.branch,
+            department=self.hr_department,
+            position=self.specialist_position,
+            manager=self.manager,
+            start_date=date(2026, 2, 1),
+            is_primary=True,
+        )
+
+        with self.assertRaises(ValidationError):
+            duplicate_assignment.full_clean()
+
+    def test_department_can_have_only_one_active_manager(self):
+        EmploymentAssignment.objects.create(
+            employee=self.manager,
+            branch=self.branch,
+            department=self.hr_department,
+            position=self.manager_position,
+            start_date=date(2024, 1, 15),
+            is_primary=True,
+            is_department_manager=True,
+        )
+
+        duplicate_manager_assignment = EmploymentAssignment(
+            employee=self.employee,
+            branch=self.branch,
+            department=self.hr_department,
+            position=self.specialist_position,
+            start_date=date(2026, 1, 1),
+            is_primary=True,
+            is_department_manager=True,
+        )
+
+        with self.assertRaises(ValidationError):
+            duplicate_manager_assignment.full_clean()
+
+    def test_assignment_department_must_belong_to_branch(self):
+        other_branch = Branch.objects.create(
+            company=self.company,
+            name="Diğer Şube",
+            code="OTHER",
+        )
+
+        invalid_assignment = EmploymentAssignment(
+            employee=self.employee,
+            branch=other_branch,
+            department=self.hr_department,
+            position=self.specialist_position,
+            manager=self.manager,
+            start_date=date(2026, 1, 1),
+        )
+
+        with self.assertRaises(ValidationError):
+            invalid_assignment.full_clean()
+class HRViewTestCase(TestCase):
+    def setUp(self):
+        self.company = Company.objects.create(
+            name="HR Ekran Test Şirketi",
+        )
+
+        self.branch = Branch.objects.create(
+            company=self.company,
+            name="Test Genel Merkez",
+            code="HR-VIEW-HQ",
+        )
+
+        self.department = Department.objects.create(
+            branch=self.branch,
+            name="İnsan Kaynakları",
+            code="HR",
+        )
+
+        self.position = Position.objects.create(
+            company=self.company,
+            department=self.department,
+            code="HR-MGR",
+            title="İnsan Kaynakları Müdürü",
+        )
+
+        self.admin_user = User.objects.create_user(
+            username="hr_admin",
+            email="hr_admin@example.com",
+            password="test-password",
+            user_type=User.UserType.INTERNAL,
+        )
+
+        OrganizationMembership.objects.create(
+            user=self.admin_user,
+            company=self.company,
+            branch=self.branch,
+            department=self.department,
+            job_title="İK Yöneticisi",
+            role=OrganizationMembership.Role.ADMIN,
+            is_primary=True,
+            is_active=True,
+        )
+
+        self.hr_user = User.objects.create_user(
+            username="hr_specialist",
+            email="hr_specialist@example.com",
+            password="test-password",
+            user_type=User.UserType.INTERNAL,
+        )
+
+        OrganizationMembership.objects.create(
+            user=self.hr_user,
+            company=self.company,
+            branch=self.branch,
+            department=self.department,
+            job_title="İK Uzmanı",
+            role=OrganizationMembership.Role.MEMBER,
+            permissions=[
+                OrganizationMembership.Permission.ACCESS_HR,
+            ],
+            is_primary=True,
+            is_active=True,
+        )
+
+        self.no_access_user = User.objects.create_user(
+            username="no_hr_access",
+            email="no_hr_access@example.com",
+            password="test-password",
+            user_type=User.UserType.INTERNAL,
+        )
+
+        OrganizationMembership.objects.create(
+            user=self.no_access_user,
+            company=self.company,
+            branch=self.branch,
+            department=self.department,
+            job_title="Standart Kullanıcı",
+            role=OrganizationMembership.Role.MEMBER,
+            permissions=[],
+            is_primary=True,
+            is_active=True,
+        )
+
+        self.employee = Employee.objects.create(
+            company=self.company,
+            user=self.hr_user,
+            employee_number="VIEW-0001",
+            first_name="Selin",
+            last_name="Aydın",
+            work_email="selin.aydin@example.com",
+            hire_date=date(2025, 1, 10),
+        )
+
+        self.assignment = EmploymentAssignment.objects.create(
+            employee=self.employee,
+            branch=self.branch,
+            department=self.department,
+            position=self.position,
+            start_date=date(2025, 1, 10),
+            is_primary=True,
+            is_department_manager=True,
+        )
+
+        self.other_company = Company.objects.create(
+            name="İzole HR Test Şirketi",
+        )
+
+        self.other_branch = Branch.objects.create(
+            company=self.other_company,
+            name="Diğer Genel Merkez",
+            code="OTHER-HQ",
+        )
+
+        self.other_department = Department.objects.create(
+            branch=self.other_branch,
+            name="Diğer İnsan Kaynakları",
+            code="OTHER-HR",
+        )
+
+        self.other_employee = Employee.objects.create(
+            company=self.other_company,
+            employee_number="OTHER-0001",
+            first_name="Başka",
+            last_name="Personel",
+            hire_date=date(2025, 2, 1),
+        )
+
+    def test_hr_dashboard_returns_company_metrics(self):
+        self.client.force_login(self.admin_user)
+
+        response = self.client.get(
+            reverse("hr:home"),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.context["can_access_hr"])
+        self.assertEqual(
+            response.context["total_employee_count"],
+            1,
+        )
+        self.assertEqual(
+            response.context["position_count"],
+            1,
+        )
+        self.assertEqual(
+            response.context["department_manager_count"],
+            1,
+        )
+
+    def test_explicit_hr_permission_can_access_employee_screens(self):
+        self.client.force_login(self.hr_user)
+
+        list_response = self.client.get(
+            reverse("hr:employee_list"),
+            {
+                "q": "Selin",
+                "status": Employee.EmploymentStatus.ACTIVE,
+            },
+        )
+
+        detail_response = self.client.get(
+            reverse(
+                "hr:employee_detail",
+                kwargs={
+                    "employee_id": self.employee.id,
+                },
+            ),
+        )
+
+        self.assertEqual(
+            list_response.status_code,
+            200,
+        )
+        self.assertContains(
+            list_response,
+            "Selin Aydın",
+        )
+
+        self.assertEqual(
+            detail_response.status_code,
+            200,
+        )
+        self.assertContains(
+            detail_response,
+            "İnsan Kaynakları Müdürü",
+        )
+    def test_user_without_hr_permission_receives_forbidden(self):
+        self.client.force_login(self.no_access_user)
+
+        dashboard_response = self.client.get(
+            reverse("hr:home"),
+        )
+
+        directory_response = self.client.get(
+            reverse("hr:employee_list"),
+        )
+
+        detail_response = self.client.get(
+            reverse(
+                "hr:employee_detail",
+                kwargs={
+                    "employee_id": self.employee.id,
+                },
+            ),
+        )
+
+        self.assertEqual(
+            dashboard_response.status_code,
+            403,
+        )
+        self.assertEqual(
+            directory_response.status_code,
+            403,
+        )
+        self.assertEqual(
+            detail_response.status_code,
+            403,
+        )
+
+    def test_employee_detail_is_isolated_by_company(self):
+        self.client.force_login(self.admin_user)
+
+        response = self.client.get(
+            reverse(
+                "hr:employee_detail",
+                kwargs={
+                    "employee_id": self.other_employee.id,
+                },
+            ),
+        )
+
+        self.assertEqual(response.status_code, 404)
+    def test_hr_manager_can_create_employee_with_initial_assignment(self):
+        self.client.force_login(self.admin_user)
+        response = self.client.post(
+            reverse("hr:employee_create"),
+            {
+                "employee-user": "",
+                "employee-employee_number": "VIEW-0002",
+                "employee-first_name": "Ece",
+                "employee-last_name": "Demir",
+                "employee-preferred_name": "",
+                "employee-work_email": "ece.demir@example.com",
+                "employee-personal_email": "",
+                "employee-phone": "",
+                "employee-birth_date": "",
+                "employee-hire_date": "2026-08-01",
+                "employee-termination_date": "",
+                "employee-employment_status": (
+                    Employee.EmploymentStatus.ACTIVE
+                ),
+                "employee-notes": "",
+                "employee-is_active": "on",
+                "assignment-branch": str(self.branch.id),
+                "assignment-department": str(
+                    self.department.id
+                ),
+                "assignment-position": str(self.position.id),
+                "assignment-manager": str(self.employee.id),
+                "assignment-employment_type": (
+                    EmploymentAssignment
+                    .EmploymentType
+                    .FULL_TIME
+                ),
+                "assignment-start_date": "2026-08-01",
+            },
+        )
+        created_employee = Employee.objects.get(
+            company=self.company,
+            employee_number="VIEW-0002",
+        )
+        self.assertRedirects(
+            response,
+            reverse(
+                "hr:employee_detail",
+                kwargs={
+                    "employee_id": created_employee.id,
+                },
+            ),
+        )
+        created_assignment = (
+            created_employee.assignments.get(
+                is_primary=True,
+                end_date__isnull=True,
+            )
+        )
+        self.assertEqual(
+            created_assignment.department,
+            self.department,
+        )
+        self.assertEqual(
+            created_assignment.position,
+            self.position,
+        )
+        self.assertEqual(
+            created_assignment.manager,
+            self.employee,
+        )
+
+    def test_hr_manager_can_update_employee_card(self):
+        self.client.force_login(self.admin_user)
+
+        response = self.client.post(
+            reverse(
+                "hr:employee_update",
+                kwargs={
+                    "employee_id": self.employee.id,
+                },
+            ),
+            {
+                "user": str(self.hr_user.id),
+                "employee_number": self.employee.employee_number,
+                "first_name": "Selin",
+                "last_name": "Aydın",
+                "preferred_name": "Selin",
+                "work_email": "selin.new@example.com",
+                "personal_email": "",
+                "phone": "+90 555 000 00 00",
+                "birth_date": "",
+                "hire_date": "2025-01-10",
+                "termination_date": "",
+                "employment_status": (
+                    Employee.EmploymentStatus.ACTIVE
+                ),
+                "notes": "Personel kartı güncellendi.",
+                "is_active": "on",
+            },
+        )
+
+        self.assertRedirects(
+            response,
+            reverse(
+                "hr:employee_detail",
+                kwargs={
+                    "employee_id": self.employee.id,
+                },
+            ),
+        )
+
+        self.employee.refresh_from_db()
+
+        self.assertEqual(
+            self.employee.preferred_name,
+            "Selin",
+        )
+        self.assertEqual(
+            self.employee.work_email,
+            "selin.new@example.com",
+        )
+        self.assertEqual(
+            self.employee.phone,
+            "+90 555 000 00 00",
+        )
+
+    def test_hr_manager_can_create_position(self):
+        self.client.force_login(self.admin_user)
+
+        response = self.client.post(
+            reverse("hr:position_create"),
+            {
+                "department": str(self.department.id),
+                "code": "HR-SNR",
+                "title": "Kıdemli İnsan Kaynakları Uzmanı",
+                "description": "Kıdemli İK uzmanı pozisyonu.",
+                "is_active": "on",
+            },
+        )
+
+        self.assertRedirects(
+            response,
+            reverse("hr:position_list"),
+        )
+
+        position = Position.objects.get(
+            company=self.company,
+            code="HR-SNR",
+        )
+
+        self.assertEqual(
+            position.department,
+            self.department,
+        )
+        self.assertTrue(position.is_active)
+
+    def test_hr_specialist_cannot_manage_hr_records(self):
+        self.client.force_login(self.hr_user)
+
+        responses = [
+            self.client.get(
+                reverse("hr:employee_create"),
+            ),
+            self.client.get(
+                reverse(
+                    "hr:employee_update",
+                    kwargs={
+                        "employee_id": self.employee.id,
+                    },
+                ),
+            ),
+            self.client.get(
+                reverse("hr:position_create"),
+            ),
+            self.client.get(
+                reverse(
+                    "hr:position_update",
+                    kwargs={
+                        "position_id": self.position.id,
+                    },
+                ),
+            ),
+        ]
+
+        for response in responses:
+            self.assertEqual(
+                response.status_code,
+                403,
+            )
+    def test_assignment_change_preserves_history_and_creates_event(self):
+        operations_department = Department.objects.create(
+            branch=self.branch,
+            name="Operasyon",
+            code="OPS",
+        )
+
+        operations_position = Position.objects.create(
+            company=self.company,
+            department=operations_department,
+            code="OPS-MGR",
+            title="Operasyon Müdürü",
+        )
+
+        new_assignment = change_employee_assignment(
+            employee=self.employee,
+            branch=self.branch,
+            department=operations_department,
+            position=operations_position,
+            manager=None,
+            employment_type=(
+                EmploymentAssignment.EmploymentType.FULL_TIME
+            ),
+            effective_date=date(2026, 1, 1),
+            is_department_manager=True,
+            changed_by=self.admin_user,
+            change_reason="Organizasyon yapılanması değişikliği.",
+        )
+
+        self.assignment.refresh_from_db()
+
+        self.assertEqual(
+            self.assignment.end_date,
+            date(2025, 12, 31),
+        )
+        self.assertEqual(
+            new_assignment.start_date,
+            date(2026, 1, 1),
+        )
+        self.assertIsNone(new_assignment.end_date)
+        self.assertEqual(
+            new_assignment.department,
+            operations_department,
+        )
+
+        event = EmploymentAssignmentEvent.objects.get(
+            new_assignment=new_assignment,
+        )
+
+        self.assertEqual(
+            event.previous_assignment,
+            self.assignment,
+        )
+        self.assertEqual(
+            event.employee,
+            self.employee,
+        )
+        self.assertEqual(
+            event.changed_by,
+            self.admin_user,
+        )
+        self.assertEqual(
+            event.reason,
+            "Organizasyon yapılanması değişikliği.",
+        )
+
+    def test_hr_manager_can_change_assignment_from_view(self):
+        operations_department = Department.objects.create(
+            branch=self.branch,
+            name="Yeni Operasyon",
+            code="NEW-OPS",
+        )
+
+        operations_position = Position.objects.create(
+            company=self.company,
+            department=operations_department,
+            code="NEW-OPS-MGR",
+            title="Yeni Operasyon Müdürü",
+        )
+
+        self.client.force_login(self.admin_user)
+
+        response = self.client.post(
+            reverse(
+                "hr:employee_assignment_change",
+                kwargs={
+                    "employee_id": self.employee.id,
+                },
+            ),
+            {
+                "branch": str(self.branch.id),
+                "department": str(operations_department.id),
+                "position": str(operations_position.id),
+                "manager": "",
+                "employment_type": (
+                    EmploymentAssignment
+                    .EmploymentType
+                    .FULL_TIME
+                ),
+                "effective_date": "2026-01-01",
+                "is_department_manager": "on",
+                "change_reason": (
+                    "View üzerinden organizasyon değişikliği."
+                ),
+            },
+        )
+
+        self.assertRedirects(
+            response,
+            reverse(
+                "hr:employee_detail",
+                kwargs={
+                    "employee_id": self.employee.id,
+                },
+            ),
+        )
+
+        active_assignment = self.employee.assignments.get(
+            is_primary=True,
+            end_date__isnull=True,
+        )
+
+        self.assertEqual(
+            active_assignment.position,
+            operations_position,
+        )
+        self.assertTrue(
+            EmploymentAssignmentEvent.objects.filter(
+                employee=self.employee,
+                new_assignment=active_assignment,
+                changed_by=self.admin_user,
+            ).exists()
+        )
+
+    def test_hr_specialist_cannot_change_assignment(self):
+        self.client.force_login(self.hr_user)
+
+        response = self.client.get(
+            reverse(
+                "hr:employee_assignment_change",
+                kwargs={
+                    "employee_id": self.employee.id,
+                },
+            ),
+        )
+
+        self.assertEqual(
+            response.status_code,
+            403,
+        )
+    def test_department_list_returns_company_organization_data(self):
+        self.client.force_login(self.admin_user)
+
+        response = self.client.get(
+            reverse("hr:department_list"),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(
+            response,
+            self.department.name,
+        )
+        self.assertContains(
+            response,
+            self.position.title,
+        )
+        self.assertNotContains(
+            response,
+            self.other_department.name,
+        )
+
+    def test_department_detail_is_isolated_by_company(self):
+        self.client.force_login(self.admin_user)
+
+        response = self.client.get(
+            reverse(
+                "hr:department_detail",
+                kwargs={
+                    "department_id": self.other_department.id,
+                },
+            ),
+        )
+
+        self.assertEqual(response.status_code, 404)
+
+    def test_hr_manager_can_create_department(self):
+        self.client.force_login(self.admin_user)
+
+        response = self.client.post(
+            reverse("hr:department_create"),
+            {
+                "branch": str(self.branch.id),
+                "parent": str(self.department.id),
+                "code": "HR-OPS",
+                "name": "İK Operasyonları",
+                "is_active": "on",
+            },
+        )
+
+        department = Department.objects.get(
+            branch=self.branch,
+            code="HR-OPS",
+        )
+
+        self.assertRedirects(
+            response,
+            reverse(
+                "hr:department_detail",
+                kwargs={
+                    "department_id": department.id,
+                },
+            ),
+        )
+        self.assertEqual(
+            department.parent,
+            self.department,
+        )
+        self.assertTrue(department.is_active)
+
+    def test_hr_manager_can_update_department(self):
+        self.client.force_login(self.admin_user)
+
+        response = self.client.post(
+            reverse(
+                "hr:department_update",
+                kwargs={
+                    "department_id": self.department.id,
+                },
+            ),
+            {
+                "branch": str(self.branch.id),
+                "parent": "",
+                "code": "HR-NEW",
+                "name": "İnsan ve Kültür",
+                "is_active": "on",
+            },
+        )
+
+        self.assertRedirects(
+            response,
+            reverse(
+                "hr:department_detail",
+                kwargs={
+                    "department_id": self.department.id,
+                },
+            ),
+        )
+
+        self.department.refresh_from_db()
+
+        self.assertEqual(
+            self.department.code,
+            "HR-NEW",
+        )
+        self.assertEqual(
+            self.department.name,
+            "İnsan ve Kültür",
+        )
+
+    def test_hr_specialist_can_view_but_cannot_manage_departments(self):
+        self.client.force_login(self.hr_user)
+
+        list_response = self.client.get(
+            reverse("hr:department_list"),
+        )
+        detail_response = self.client.get(
+            reverse(
+                "hr:department_detail",
+                kwargs={
+                    "department_id": self.department.id,
+                },
+            ),
+        )
+        create_response = self.client.get(
+            reverse("hr:department_create"),
+        )
+        update_response = self.client.get(
+            reverse(
+                "hr:department_update",
+                kwargs={
+                    "department_id": self.department.id,
+                },
+            ),
+        )
+
+        self.assertEqual(list_response.status_code, 200)
+        self.assertEqual(detail_response.status_code, 200)
+        self.assertEqual(create_response.status_code, 403)
+        self.assertEqual(update_response.status_code, 403)
+
+    def test_department_cannot_move_under_its_descendant(self):
+        child_department = Department.objects.create(
+            branch=self.branch,
+            parent=self.department,
+            name="İK Operasyonları",
+            code="HR-OPS",
+        )
+
+        self.client.force_login(self.admin_user)
+
+        response = self.client.post(
+            reverse(
+                "hr:department_update",
+                kwargs={
+                    "department_id": self.department.id,
+                },
+            ),
+            {
+                "branch": str(self.branch.id),
+                "parent": str(child_department.id),
+                "code": self.department.code,
+                "name": self.department.name,
+                "is_active": "on",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(
+            response,
+            (
+                "Bir departman kendi alt departmanının "
+                "altına taşınamaz."
+            ),
+        )
+
+        self.department.refresh_from_db()
+        self.assertIsNone(self.department.parent)
+class AbsenceWorkflowTestCase(TestCase):
+    def setUp(self):
+        self.company = Company.objects.create(
+            name="İzin Test Şirketi",
+        )
+
+        self.employee = Employee.objects.create(
+            company=self.company,
+            employee_number="ABS-0001",
+            first_name="Ece",
+            last_name="Demir",
+            work_email="ece.demir@example.com",
+            hire_date=date(2025, 1, 1),
+        )
+
+        self.hr_user = User.objects.create_user(
+            username="absence_hr_admin",
+            email="absence.hr@example.com",
+            password="test-password",
+            user_type=User.UserType.INTERNAL,
+        )
+
+        self.absence_type = AbsenceType.objects.create(
+            company=self.company,
+            code="annual",
+            name="Yıllık İzin",
+            is_paid=True,
+            requires_approval=True,
+            deducts_balance=True,
+            default_entitlement_days=Decimal("14.00"),
+        )
+
+        self.balance = AbsenceBalance.objects.create(
+            company=self.company,
+            employee=self.employee,
+            absence_type=self.absence_type,
+            year=2026,
+            entitled_days=Decimal("14.00"),
+            carried_days=Decimal("2.00"),
+            adjustment_days=Decimal("0.00"),
+            used_days=Decimal("1.00"),
+        )
+
+    def create_request(
+        self,
+        *,
+        start_date=date(2026, 8, 10),
+        end_date=date(2026, 8, 12),
+        reason="Yıllık izin talebi.",
+    ):
+        return AbsenceRequest.objects.create(
+            company=self.company,
+            employee=self.employee,
+            absence_type=self.absence_type,
+            start_date=start_date,
+            end_date=end_date,
+            reason=reason,
+        )
+
+    def test_absence_request_calculates_requested_days(self):
+        absence_request = self.create_request()
+
+        self.assertEqual(
+            absence_request.requested_days,
+            3,
+        )
+        self.assertEqual(
+            absence_request.status,
+            AbsenceRequest.Status.DRAFT,
+        )
+
+    def test_submit_absence_request_creates_workflow_event(self):
+        absence_request = self.create_request()
+
+        submitted_request = submit_absence_request(
+            absence_request=absence_request,
+            changed_by=self.hr_user,
+            note="Talep yönetici onayına gönderildi.",
+        )
+
+        self.assertEqual(
+            submitted_request.status,
+            AbsenceRequest.Status.SUBMITTED,
+        )
+        self.assertIsNotNone(
+            submitted_request.submitted_at,
+        )
+
+        event = AbsenceRequestEvent.objects.get(
+            request=submitted_request,
+        )
+
+        self.assertEqual(
+            event.previous_status,
+            AbsenceRequest.Status.DRAFT,
+        )
+        self.assertEqual(
+            event.new_status,
+            AbsenceRequest.Status.SUBMITTED,
+        )
+        self.assertEqual(
+            event.changed_by,
+            self.hr_user,
+        )
+
+    def test_approve_absence_request_deducts_balance(self):
+        absence_request = self.create_request()
+
+        absence_request = submit_absence_request(
+            absence_request=absence_request,
+            changed_by=self.hr_user,
+        )
+
+        approved_request = approve_absence_request(
+            absence_request=absence_request,
+            changed_by=self.hr_user,
+            decision_note="İzin talebi uygundur.",
+        )
+
+        self.balance.refresh_from_db()
+
+        self.assertEqual(
+            approved_request.status,
+            AbsenceRequest.Status.APPROVED,
+        )
+        self.assertEqual(
+            approved_request.decided_by,
+            self.hr_user,
+        )
+        self.assertEqual(
+            self.balance.used_days,
+            Decimal("4.00"),
+        )
+        self.assertEqual(
+            approved_request.events.count(),
+            2,
+        )
+
+    def test_reject_absence_request_does_not_change_balance(self):
+        absence_request = self.create_request()
+
+        absence_request = submit_absence_request(
+            absence_request=absence_request,
+            changed_by=self.hr_user,
+        )
+
+        rejected_request = reject_absence_request(
+            absence_request=absence_request,
+            changed_by=self.hr_user,
+            decision_note="Ekip planlamasıyla çakışıyor.",
+        )
+
+        self.balance.refresh_from_db()
+
+        self.assertEqual(
+            rejected_request.status,
+            AbsenceRequest.Status.REJECTED,
+        )
+        self.assertEqual(
+            self.balance.used_days,
+            Decimal("1.00"),
+        )
+
+    def test_cancelling_approved_request_restores_balance(self):
+        absence_request = self.create_request()
+
+        absence_request = submit_absence_request(
+            absence_request=absence_request,
+            changed_by=self.hr_user,
+        )
+        absence_request = approve_absence_request(
+            absence_request=absence_request,
+            changed_by=self.hr_user,
+        )
+
+        cancelled_request = cancel_absence_request(
+            absence_request=absence_request,
+            changed_by=self.hr_user,
+            note="Personel izin talebini geri çekti.",
+        )
+
+        self.balance.refresh_from_db()
+
+        self.assertEqual(
+            cancelled_request.status,
+            AbsenceRequest.Status.CANCELLED,
+        )
+        self.assertEqual(
+            self.balance.used_days,
+            Decimal("1.00"),
+        )
+        self.assertEqual(
+            cancelled_request.events.count(),
+            3,
+        )
+
+    def test_overlapping_submitted_request_is_rejected(self):
+        first_request = self.create_request(
+            start_date=date(2026, 8, 10),
+            end_date=date(2026, 8, 12),
+        )
+
+        submit_absence_request(
+            absence_request=first_request,
+            changed_by=self.hr_user,
+        )
+
+        overlapping_request = self.create_request(
+            start_date=date(2026, 8, 12),
+            end_date=date(2026, 8, 14),
+        )
+
+        with self.assertRaises(ValidationError):
+            submit_absence_request(
+                absence_request=overlapping_request,
+                changed_by=self.hr_user,
+            )
+
+        overlapping_request.refresh_from_db()
+
+        self.assertEqual(
+            overlapping_request.status,
+            AbsenceRequest.Status.DRAFT,
+        )
+
+    def test_request_exceeding_balance_cannot_be_submitted(self):
+        absence_request = self.create_request(
+            start_date=date(2026, 8, 1),
+            end_date=date(2026, 8, 20),
+        )
+
+        with self.assertRaises(ValidationError):
+            submit_absence_request(
+                absence_request=absence_request,
+                changed_by=self.hr_user,
+            )
+
+        absence_request.refresh_from_db()
+
+        self.assertEqual(
+            absence_request.status,
+            AbsenceRequest.Status.DRAFT,
+        )
+        self.assertFalse(
+            absence_request.events.exists(),
+        )
+class AbsenceViewAccessTestCase(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.owner = User.objects.create_user(
+            username="absence_view_owner",
+            email="absence.view.owner@example.com",
+            password="test-password",
+            user_type=User.UserType.INTERNAL,
+        )
+
+        call_command(
+            "seed_demo",
+            owner=cls.owner.username,
+            stdout=StringIO(),
+        )
+
+        cls.company = Company.objects.get(
+            name="Glauria Demo A.Ş.",
+        )
+
+        cls.hr_manager_user = User.objects.get(
+            username="demo.hr.manager",
+        )
+        cls.hr_specialist_user = User.objects.get(
+            username="demo.hr.specialist",
+        )
+        cls.finance_manager_user = User.objects.get(
+            username="demo.finance.manager",
+        )
+
+        cls.hr_manager_employee = Employee.objects.get(
+            company=cls.company,
+            user=cls.hr_manager_user,
+        )
+        cls.hr_specialist_employee = Employee.objects.get(
+            company=cls.company,
+            user=cls.hr_specialist_user,
+        )
+        cls.finance_manager_employee = Employee.objects.get(
+            company=cls.company,
+            user=cls.finance_manager_user,
+        )
+
+        cls.submitted_request = AbsenceRequest.objects.get(
+            company=cls.company,
+            employee=cls.hr_specialist_employee,
+            status=AbsenceRequest.Status.SUBMITTED,
+        )
+
+        cls.approved_request = AbsenceRequest.objects.get(
+            company=cls.company,
+            employee=cls.finance_manager_employee,
+            status=AbsenceRequest.Status.APPROVED,
+        )
+
+    def test_hr_manager_can_view_all_absence_requests(self):
+        self.client.force_login(self.hr_manager_user)
+
+        response = self.client.get(
+            reverse("hr:absence_request_list"),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Ece Demir")
+        self.assertContains(response, "Burak Kaya")
+        self.assertContains(response, "Mert Yılmaz")
+        self.assertContains(response, "İK Ana Paneli")
+        self.assertContains(response, "İzin ve Devamsızlık")
+
+    def test_employee_can_access_absence_self_service(self):
+        self.client.force_login(self.finance_manager_user)
+
+        response = self.client.get(
+            reverse("hr:absence_request_list"),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Burak Kaya")
+        self.assertNotContains(response, "Ece Demir")
+        self.assertNotContains(response, "Mert Yılmaz")
+        self.assertContains(response, "İzinlerim")
+        self.assertNotContains(response, "İK Ana Paneli")
+        self.assertNotContains(response, "Personel Dizini")
+
+    def test_employee_cannot_access_hr_dashboard(self):
+        self.client.force_login(self.finance_manager_user)
+
+        response = self.client.get(
+            reverse("hr:home"),
+        )
+
+        self.assertEqual(response.status_code, 403)
+
+    def test_employee_cannot_view_unrelated_absence_request(self):
+        self.client.force_login(self.finance_manager_user)
+
+        response = self.client.get(
+            reverse(
+                "hr:absence_request_detail",
+                kwargs={
+                    "request_id": self.submitted_request.id,
+                },
+            ),
+        )
+
+        self.assertEqual(response.status_code, 404)
+
+    def test_direct_manager_can_view_report_absence_request(self):
+        assignment = EmploymentAssignment.objects.get(
+            employee=self.hr_specialist_employee,
+            is_primary=True,
+            end_date__isnull=True,
+        )
+        assignment.manager = self.finance_manager_employee
+        assignment.save()
+
+        self.client.force_login(self.finance_manager_user)
+
+        response = self.client.get(
+            reverse("hr:absence_request_list"),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Burak Kaya")
+        self.assertContains(response, "Ece Demir")
+
+    def test_non_hr_manager_cannot_decide_absence_request(self):
+        self.client.force_login(self.finance_manager_user)
+
+        response = self.client.post(
+            reverse(
+                "hr:absence_request_decide",
+                kwargs={
+                    "request_id": self.submitted_request.id,
+                },
+            ),
+            {
+                "action": "approve",
+                "decision_note": "Yetkisiz karar denemesi.",
+            },
+        )
+
+        self.assertEqual(response.status_code, 403)
+
+        self.submitted_request.refresh_from_db()
+
+        self.assertEqual(
+            self.submitted_request.status,
+            AbsenceRequest.Status.SUBMITTED,
+        )
+
+    def test_hr_manager_can_approve_request_from_view(self):
+        self.client.force_login(self.hr_manager_user)
+
+        response = self.client.post(
+            reverse(
+                "hr:absence_request_decide",
+                kwargs={
+                    "request_id": self.submitted_request.id,
+                },
+            ),
+            {
+                "action": "approve",
+                "decision_note": "İzin planlaması uygundur.",
+            },
+        )
+
+        self.assertRedirects(
+            response,
+            reverse(
+                "hr:absence_request_detail",
+                kwargs={
+                    "request_id": self.submitted_request.id,
+                },
+            ),
+        )
+
+        self.submitted_request.refresh_from_db()
+
+        self.assertEqual(
+            self.submitted_request.status,
+            AbsenceRequest.Status.APPROVED,
+        )
+        self.assertEqual(
+            self.submitted_request.decided_by,
+            self.hr_manager_user,
+        )
+
+        balance = AbsenceBalance.objects.get(
+            company=self.company,
+            employee=self.hr_specialist_employee,
+            absence_type=self.submitted_request.absence_type,
+            year=self.submitted_request.start_date.year,
+        )
+
+        self.assertEqual(
+            balance.used_days,
+            Decimal("3.00"),
+        )
+
+    def test_user_without_employee_profile_cannot_access_absences(self):
+        user = User.objects.create_user(
+            username="absence_unlinked_user",
+            email="absence.unlinked@example.com",
+            password="test-password",
+            user_type=User.UserType.INTERNAL,
+        )
+
+        branch = Branch.objects.filter(
+            company=self.company,
+        ).first()
+
+        department = Department.objects.filter(
+            branch__company=self.company,
+        ).first()
+
+        OrganizationMembership.objects.create(
+            user=user,
+            company=self.company,
+            branch=branch,
+            department=department,
+            role=OrganizationMembership.Role.MEMBER,
+            permissions=[],
+            is_primary=True,
+            is_active=True,
+        )
+
+        self.client.force_login(user)
+
+        response = self.client.get(
+            reverse("hr:absence_request_list"),
+        )
+
+        self.assertEqual(response.status_code, 403)

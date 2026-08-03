@@ -1,10 +1,123 @@
 from django.urls import path
 
-from .views import home
-
+from .views import (
+    department_create,
+    department_detail,
+    department_list,
+    department_update,
+    employee_create,
+    employee_detail,
+    employee_list,
+    employee_update,
+    home,
+    position_create,
+    position_list,
+    position_update,
+    employee_assignment_change,
+    absence_request_cancel,
+    absence_request_create,
+    absence_request_decide,
+    absence_request_detail,
+    absence_request_list,
+    absence_request_submit,
+)
 
 app_name = "hr"
 
 urlpatterns = [
-    path("", home, name="home"),
+    path(
+        "",
+        home,
+        name="home",
+    ),
+    path(
+        "personeller/",
+        employee_list,
+        name="employee_list",
+    ),
+    path(
+        "personeller/<uuid:employee_id>/",
+        employee_detail,
+        name="employee_detail",
+    ),
+    path(
+        "personeller/<uuid:employee_id>/atama-degistir/",
+        employee_assignment_change,
+        name="employee_assignment_change",
+    ),
+    path(
+        "personeller/yeni/",
+        employee_create,
+        name="employee_create",
+    ),
+    path(
+        "personeller/<uuid:employee_id>/duzenle/",
+        employee_update,
+        name="employee_update",
+    ),
+    path(
+        "pozisyonlar/",
+        position_list,
+        name="position_list",
+    ),
+    path(
+        "pozisyonlar/yeni/",
+        position_create,
+        name="position_create",
+    ),
+    path(
+        "pozisyonlar/<uuid:position_id>/duzenle/",
+        position_update,
+        name="position_update",
+    ),
+        path(
+        "departmanlar/",
+        department_list,
+        name="department_list",
+    ),
+    path(
+        "departmanlar/yeni/",
+        department_create,
+        name="department_create",
+    ),
+    path(
+        "departmanlar/<uuid:department_id>/",
+        department_detail,
+        name="department_detail",
+    ),
+    path(
+        "departmanlar/<uuid:department_id>/duzenle/",
+        department_update,
+        name="department_update",
+    ),
+        path(
+        "izinler/",
+        absence_request_list,
+        name="absence_request_list",
+    ),
+    path(
+        "izinler/yeni/",
+        absence_request_create,
+        name="absence_request_create",
+    ),
+    path(
+        "izinler/<uuid:request_id>/",
+        absence_request_detail,
+        name="absence_request_detail",
+    ),
+    path(
+        "izinler/<uuid:request_id>/onaya-gonder/",
+        absence_request_submit,
+        name="absence_request_submit",
+    ),
+    path(
+        "izinler/<uuid:request_id>/karar/",
+        absence_request_decide,
+        name="absence_request_decide",
+    ),
+    path(
+        "izinler/<uuid:request_id>/iptal/",
+        absence_request_cancel,
+        name="absence_request_cancel",
+    ),
 ]

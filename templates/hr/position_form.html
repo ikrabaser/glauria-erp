@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}
+{% if position %}Pozisyonu Düzenle{% else %}Yeni Pozisyon{% endif %}
+| Glauria ERP
+{% endblock %}
+
+{% block extra_css %}
+<link
+    rel="stylesheet"
+    href="{% static 'css/hr.css' %}?v=hr-management-v1"
+>
+{% endblock %}
+
+{% block content %}
+<section class="module-page hr-form-page">
+    {% url "hr:position_list" as cancel_url %}
+
+    {% if position %}
+        {% include "components/page_header.html" with eyebrow="İNSAN KAYNAKLARI · POZİSYON YÖNETİMİ" title="Pozisyonu Düzenle" description=position.title action_text="Pozisyonlar" action_url=cancel_url %}
+    {% else %}
+        {% include "components/page_header.html" with eyebrow="İNSAN KAYNAKLARI · POZİSYON YÖNETİMİ" title="Yeni Pozisyon" description="Departmana bağlı yeni bir organizasyon pozisyonu oluşturun." action_text="Pozisyonlar" action_url=cancel_url %}
+    {% endif %}
+
+    <form
+        method="post"
+        class="hr-record-form hr-record-form--compact"
+        novalidate
+    >
+        {% csrf_token %}
+
+        {% if form.non_field_errors %}
+            <div class="hr-form-errors">
+                {{ form.non_field_errors }}
+            </div>
+        {% endif %}
+
+        <section class="hr-form-section">
+            <div class="hr-form-section__heading">
+                <span>POZİSYON TANIMI</span>
+                <h3>Organizasyon Bilgileri</h3>
+                <p>
+                    Pozisyon kodu şirket içinde benzersiz olmalıdır.
+                </p>
+            </div>
+
+            <div class="hr-form-grid">
+                {% for field in form %}
+                    <div
+                        class="
+                            hr-form-field
+                            {% if field.name == 'description' %}
+                                hr-form-field--full
+                            {% endif %}
+                            {% if field.field.widget.input_type == 'checkbox' %}
+                                hr-form-field--checkbox
+                            {% endif %}
+                        "
+                    >
+                        {% if field.field.widget.input_type == "checkbox" %}
+                            <label class="hr-checkbox-label">
+                                {{ field }}
+                                <span>{{ field.label }}</span>
+                            </label>
+                        {% else %}
+                            <label for="{{ field.id_for_label }}">
+                                {{ field.label }}
+                            </label>
+                            {{ field }}
+                        {% endif %}
+
+                        {% for error in field.errors %}
+                            <span class="hr-form-field__error">
+                                {{ error }}
+                            </span>
+                        {% endfor %}
+                    </div>
+                {% endfor %}
+            </div>
+        </section>
+
+        <div class="hr-form-actions">
+            <a
+                href="{{ cancel_url }}"
+                class="hr-form-actions__cancel"
+            >
+                İptal
+            </a>
+
+            <button
+                type="submit"
+                class="hr-form-actions__submit"
+            >
+                {% if position %}
+                    Değişiklikleri Kaydet
+                {% else %}
+                    Pozisyon Oluştur
+                {% endif %}
+            </button>
+        </div>
+    </form>
+</section>
+{% endblock %}

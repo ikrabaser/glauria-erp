@@ -78,6 +78,22 @@ def profile_settings(request):
                     f"{reverse('accounts:profile')}?updated=password"
                 )
 
+    memberships = (
+        request.user.organization_memberships
+        .select_related(
+            "company",
+            "branch",
+            "department",
+        )
+        .filter(is_active=True)
+        .order_by(
+            "-is_primary",
+            "company__name",
+            "branch__name",
+            "department__name",
+        )
+    )
+
     return render(
         request,
         "accounts/profile_settings.html",
@@ -85,8 +101,40 @@ def profile_settings(request):
             "profile_form": profile_form,
             "password_form": password_form,
             "membership": membership,
+            "memberships": memberships,
         },
     )
+@login_required
+@require_POST
+def workspace_switch(request, membership_id):
+    target_membership = get_object_or_404(
+        OrganizationMembership.objects.select_related(
+            "company",
+            "branch",
+            "department",
+        ),
+        id=membership_id,
+        user=request.user,
+        is_active=True,
+    )
+
+    with transaction.atomic():
+        request.user.organization_memberships.update(
+            is_primary=False,
+        )
+
+        target_membership.is_primary = True
+        target_membership.save(
+            update_fields=[
+                "is_primary",
+                "updated_at",
+            ],
+        )
+
+    return redirect(
+        f"{reverse('accounts:profile')}?updated=workspace"
+    )
+
 @login_required
 def workspace_members(request):
     current_membership = (

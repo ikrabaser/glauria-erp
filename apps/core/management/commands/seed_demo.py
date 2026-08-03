@@ -1,0 +1,1169 @@
+from datetime import date
+from decimal import Decimal
+
+from django.core.management.base import BaseCommand, CommandError
+from django.db import transaction
+from django.utils import timezone
+
+from apps.accounts.models import OrganizationMembership, User
+from apps.hr.models import (
+    AbsenceBalance,
+    AbsenceRequest,
+    AbsenceRequestEvent,
+    AbsenceType,
+    Employee,
+    EmploymentAssignment,
+    Position,
+)
+from apps.finance.models import (
+    FinanceBudget,
+    FinanceBudgetAccount,
+    FinanceBudgetLine,
+    FinancialAccount,
+    FinancialAccountTransaction,
+)
+from apps.organizations.models import (
+    Branch,
+    Company,
+    CompanySubscription,
+    Department,
+)
+from apps.purchasing.models import (
+    PurchaseRequest,
+    PurchaseRequestLine,
+    Supplier,
+)
+
+
+DEMO_COMPANY_NAME = "Glauria Demo A.Ş."
+DEMO_BRANCH_CODE = "DMO-HQ"
+
+DEMO_DEPARTMENTS = [
+    ("EXEC", "Yönetim"),
+    ("FIN", "Finans ve Muhasebe"),
+    ("PUR", "Satın Alma"),
+    ("HR", "İnsan Kaynakları"),
+    ("SAL", "Satış Yönetimi"),
+    ("OPS", "Operasyon"),
+]
+
+DEMO_BUDGET_ACCOUNTS = [
+    (
+        "GEL-SATIS",
+        "Ürün ve Hizmet Satışları",
+        FinanceBudgetAccount.AccountType.REVENUE,
+        "Ürün ve hizmet satışlarından beklenen nakit girişleri.",
+    ),
+    (
+        "GEL-DANISMANLIK",
+        "Danışmanlık Gelirleri",
+        FinanceBudgetAccount.AccountType.REVENUE,
+        "Danışmanlık ve proje hizmetlerinden beklenen gelirler.",
+    ),
+    (
+        "GID-PAZARLAMA",
+        "Pazarlama Giderleri",
+        FinanceBudgetAccount.AccountType.EXPENSE,
+        "Dijital reklam, kampanya ve marka iletişimi harcamaları.",
+    ),
+    (
+        "GID-PERSONEL",
+        "Personel Giderleri",
+        FinanceBudgetAccount.AccountType.EXPENSE,
+        "Ücret, yan hak ve insan kaynakları maliyetleri.",
+    ),
+    (
+        "GID-OPERASYON",
+        "Operasyon Giderleri",
+        FinanceBudgetAccount.AccountType.EXPENSE,
+        "Ofis, yazılım, lojistik ve günlük operasyon harcamaları.",
+    ),
+]
+
+DEMO_BUDGET_LINES = [
+    (
+        date(2026, 8, 1),
+        "GEL-SATIS",
+        "Ağustos ürün ve hizmet satış hedefi",
+        Decimal("125000.00"),
+        Decimal("0.00"),
+        "Demo satış hedefi",
+    ),
+    (
+        date(2026, 8, 1),
+        "GEL-DANISMANLIK",
+        "Ağustos danışmanlık gelir hedefi",
+        Decimal("35000.00"),
+        Decimal("0.00"),
+        "Demo danışmanlık hedefi",
+    ),
+    (
+        date(2026, 8, 1),
+        "GID-PAZARLAMA",
+        "Ağustos pazarlama bütçesi",
+        Decimal("0.00"),
+        Decimal("25000.00"),
+        "Dijital reklam ve kampanya",
+    ),
+    (
+        date(2026, 8, 1),
+        "GID-PERSONEL",
+        "Ağustos personel bütçesi",
+        Decimal("0.00"),
+        Decimal("65000.00"),
+        "Ücret ve yan haklar",
+    ),
+    (
+        date(2026, 8, 1),
+        "GID-OPERASYON",
+        "Ağustos operasyon bütçesi",
+        Decimal("0.00"),
+        Decimal("30000.00"),
+        "Ofis ve yazılım giderleri",
+    ),
+    (
+        date(2026, 9, 1),
+        "GEL-SATIS",
+        "Eylül ürün ve hizmet satış hedefi",
+        Decimal("140000.00"),
+        Decimal("0.00"),
+        "Demo satış hedefi",
+    ),
+    (
+        date(2026, 9, 1),
+        "GEL-DANISMANLIK",
+        "Eylül danışmanlık gelir hedefi",
+        Decimal("40000.00"),
+        Decimal("0.00"),
+        "Demo danışmanlık hedefi",
+    ),
+    (
+        date(2026, 9, 1),
+        "GID-PAZARLAMA",
+        "Eylül pazarlama bütçesi",
+        Decimal("0.00"),
+        Decimal("30000.00"),
+        "Dijital reklam ve kampanya",
+    ),
+    (
+        date(2026, 9, 1),
+        "GID-PERSONEL",
+        "Eylül personel bütçesi",
+        Decimal("0.00"),
+        Decimal("65000.00"),
+        "Ücret ve yan haklar",
+    ),
+    (
+        date(2026, 9, 1),
+        "GID-OPERASYON",
+        "Eylül operasyon bütçesi",
+        Decimal("0.00"),
+        Decimal("35000.00"),
+        "Ofis ve yazılım giderleri",
+    ),
+    (
+        date(2026, 10, 1),
+        "GEL-SATIS",
+        "Ekim ürün ve hizmet satış hedefi",
+        Decimal("155000.00"),
+        Decimal("0.00"),
+        "Demo satış hedefi",
+    ),
+    (
+        date(2026, 10, 1),
+        "GEL-DANISMANLIK",
+        "Ekim danışmanlık gelir hedefi",
+        Decimal("45000.00"),
+        Decimal("0.00"),
+        "Demo danışmanlık hedefi",
+    ),
+    (
+        date(2026, 10, 1),
+        "GID-PAZARLAMA",
+        "Ekim pazarlama bütçesi",
+        Decimal("0.00"),
+        Decimal("35000.00"),
+        "Dijital reklam ve kampanya",
+    ),
+    (
+        date(2026, 10, 1),
+        "GID-PERSONEL",
+        "Ekim personel bütçesi",
+        Decimal("0.00"),
+        Decimal("65000.00"),
+        "Ücret ve yan haklar",
+    ),
+    (
+        date(2026, 10, 1),
+        "GID-OPERASYON",
+        "Ekim operasyon bütçesi",
+        Decimal("0.00"),
+        Decimal("35000.00"),
+        "Ofis ve yazılım giderleri",
+    ),
+]
+
+DEMO_FINANCIAL_TRANSACTIONS = [
+    (
+        "SEED-DEMO-2026-08-001",
+        "GEL-SATIS",
+        "in",
+        "manual_in",
+        date(2026, 8, 5),
+        Decimal("82000.00"),
+        "Demo ürün ve hizmet satış tahsilatı",
+    ),
+    (
+        "SEED-DEMO-2026-08-002",
+        "GEL-DANISMANLIK",
+        "in",
+        "manual_in",
+        date(2026, 8, 12),
+        Decimal("22000.00"),
+        "Demo danışmanlık tahsilatı",
+    ),
+    (
+        "SEED-DEMO-2026-08-003",
+        "GID-PAZARLAMA",
+        "out",
+        "manual_out",
+        date(2026, 8, 16),
+        Decimal("12000.00"),
+        "Demo dijital reklam ödemesi",
+    ),
+    (
+        "SEED-DEMO-2026-08-004",
+        "GID-PERSONEL",
+        "out",
+        "manual_out",
+        date(2026, 8, 25),
+        Decimal("48000.00"),
+        "Demo personel gideri",
+    ),
+    (
+        "SEED-DEMO-2026-08-005",
+        "GID-OPERASYON",
+        "out",
+        "manual_out",
+        date(2026, 8, 28),
+        Decimal("10500.00"),
+        "Demo operasyon gideri",
+    ),
+]
+
+DEMO_HR_USERS = [
+    {
+        "username": "demo.ceo",
+        "first_name": "Deniz",
+        "last_name": "Arslan",
+        "email": "deniz.arslan@demo.glauria.local",
+        "employee_number": "GLA-0001",
+        "department_code": "EXEC",
+        "position_code": "EXEC-GM",
+        "position_title": "Genel Müdür",
+        "job_title": "Genel Müdür",
+        "role": OrganizationMembership.Role.ADMIN,
+        "permissions": [],
+        "manager_username": None,
+        "is_department_manager": True,
+        "hire_date": date(2023, 1, 2),
+    },
+    {
+        "username": "demo.hr.manager",
+        "first_name": "Selin",
+        "last_name": "Aydın",
+        "email": "selin.aydin@demo.glauria.local",
+        "employee_number": "GLA-0002",
+        "department_code": "HR",
+        "position_code": "HR-MGR",
+        "position_title": "İnsan Kaynakları Müdürü",
+        "job_title": "İnsan Kaynakları Müdürü",
+        "role": OrganizationMembership.Role.MANAGER,
+        "permissions": [
+            OrganizationMembership.Permission.ACCESS_HR,
+            OrganizationMembership.Permission.MANAGE_MEMBERS,
+        ],
+        "manager_username": "demo.ceo",
+        "is_department_manager": True,
+        "hire_date": date(2023, 3, 6),
+    },
+    {
+        "username": "demo.hr.specialist",
+        "first_name": "Ece",
+        "last_name": "Demir",
+        "email": "ece.demir@demo.glauria.local",
+        "employee_number": "GLA-0003",
+        "department_code": "HR",
+        "position_code": "HR-SPC",
+        "position_title": "İnsan Kaynakları Uzmanı",
+        "job_title": "İnsan Kaynakları Uzmanı",
+        "role": OrganizationMembership.Role.MEMBER,
+        "permissions": [
+            OrganizationMembership.Permission.ACCESS_HR,
+        ],
+        "manager_username": "demo.hr.manager",
+        "is_department_manager": False,
+        "hire_date": date(2024, 2, 12),
+    },
+    {
+        "username": "demo.finance.manager",
+        "first_name": "Burak",
+        "last_name": "Kaya",
+        "email": "burak.kaya@demo.glauria.local",
+        "employee_number": "GLA-0004",
+        "department_code": "FIN",
+        "position_code": "FIN-MGR",
+        "position_title": "Finans Müdürü",
+        "job_title": "Finans Müdürü",
+        "role": OrganizationMembership.Role.MANAGER,
+        "permissions": [
+            OrganizationMembership.Permission.ACCESS_FINANCE,
+        ],
+        "manager_username": "demo.ceo",
+        "is_department_manager": True,
+        "hire_date": date(2023, 5, 8),
+    },
+    {
+        "username": "demo.purchasing.manager",
+        "first_name": "Mert",
+        "last_name": "Yılmaz",
+        "email": "mert.yilmaz@demo.glauria.local",
+        "employee_number": "GLA-0005",
+        "department_code": "PUR",
+        "position_code": "PUR-MGR",
+        "position_title": "Satın Alma Müdürü",
+        "job_title": "Satın Alma Müdürü",
+        "role": OrganizationMembership.Role.MANAGER,
+        "permissions": [
+            OrganizationMembership.Permission.ACCESS_PURCHASING,
+        ],
+        "manager_username": "demo.ceo",
+        "is_department_manager": True,
+        "hire_date": date(2023, 7, 10),
+    },
+    {
+        "username": "demo.sales.manager",
+        "first_name": "Elif",
+        "last_name": "Şahin",
+        "email": "elif.sahin@demo.glauria.local",
+        "employee_number": "GLA-0006",
+        "department_code": "SAL",
+        "position_code": "SAL-MGR",
+        "position_title": "Satış Müdürü",
+        "job_title": "Satış Müdürü",
+        "role": OrganizationMembership.Role.MANAGER,
+        "permissions": [
+            OrganizationMembership.Permission.ACCESS_SALES,
+        ],
+        "manager_username": "demo.ceo",
+        "is_department_manager": True,
+        "hire_date": date(2023, 9, 4),
+    },
+    {
+        "username": "demo.operations.manager",
+        "first_name": "Can",
+        "last_name": "Öztürk",
+        "email": "can.ozturk@demo.glauria.local",
+        "employee_number": "GLA-0007",
+        "department_code": "OPS",
+        "position_code": "OPS-MGR",
+        "position_title": "Operasyon Müdürü",
+        "job_title": "Operasyon Müdürü",
+        "role": OrganizationMembership.Role.MANAGER,
+        "permissions": [
+            OrganizationMembership.Permission.ACCESS_INVENTORY,
+            OrganizationMembership.Permission.ACCESS_MANUFACTURING,
+        ],
+        "manager_username": "demo.ceo",
+        "is_department_manager": True,
+        "hire_date": date(2023, 11, 6),
+    },
+]
+DEMO_ABSENCE_TYPES = [
+    {
+        "code": "ANNUAL",
+        "name": "Yıllık İzin",
+        "description": (
+            "Personelin yıllık ücretli izin hakkı."
+        ),
+        "is_paid": True,
+        "requires_approval": True,
+        "deducts_balance": True,
+        "default_entitlement_days": Decimal("14.00"),
+    },
+    {
+        "code": "SICK",
+        "name": "Hastalık İzni",
+        "description": (
+            "Sağlık durumuna bağlı ücretli izin kaydı."
+        ),
+        "is_paid": True,
+        "requires_approval": True,
+        "deducts_balance": False,
+        "default_entitlement_days": Decimal("10.00"),
+    },
+    {
+        "code": "EXCUSE",
+        "name": "Mazeret İzni",
+        "description": (
+            "Kısa süreli kişisel mazeret izinleri."
+        ),
+        "is_paid": True,
+        "requires_approval": True,
+        "deducts_balance": True,
+        "default_entitlement_days": Decimal("5.00"),
+    },
+]
+
+
+DEMO_ABSENCE_REQUESTS = [
+    {
+        "employee_username": "demo.hr.specialist",
+        "absence_type_code": "ANNUAL",
+        "start_date": date(2026, 8, 10),
+        "end_date": date(2026, 8, 12),
+        "reason": (
+            "Aile ziyareti için yıllık izin talebi."
+        ),
+        "status": AbsenceRequest.Status.SUBMITTED,
+        "decision_note": "",
+    },
+    {
+        "employee_username": "demo.finance.manager",
+        "absence_type_code": "ANNUAL",
+        "start_date": date(2026, 7, 20),
+        "end_date": date(2026, 7, 22),
+        "reason": (
+            "Planlanan yaz dönemi yıllık izni."
+        ),
+        "status": AbsenceRequest.Status.APPROVED,
+        "decision_note": (
+            "Departman iş planı doğrultusunda onaylandı."
+        ),
+    },
+    {
+        "employee_username": "demo.purchasing.manager",
+        "absence_type_code": "EXCUSE",
+        "start_date": date(2026, 8, 18),
+        "end_date": date(2026, 8, 18),
+        "reason": (
+            "Kişisel resmi işlemler için mazeret izni."
+        ),
+        "status": AbsenceRequest.Status.DRAFT,
+        "decision_note": "",
+    },
+]
+
+class Command(BaseCommand):
+    help = (
+        "Glauria Demo A.Ş. için organizasyon, İK, finans ve satın alma "
+        "örnek kayıtlarını güvenle oluşturur."
+    )
+
+    def add_arguments(self, parser):
+        parser.add_argument(
+            "--owner",
+            required=True,
+            help=(
+                "Demo şirketinde owner yapılacak mevcut kullanıcı adı. "
+                "Örnek: --owner ikra"
+            ),
+        )
+        parser.add_argument(
+            "--demo-password",
+            default=None,
+            help=(
+                "Demo kullanıcılarına atanacak ortak geliştirme parolası. "
+                "Verilmezse yeni hesaplar kullanılamaz parola ile oluşturulur."
+            ),
+        )
+
+    @transaction.atomic
+    def handle(self, *args, **options):
+        owner_username = options["owner"].strip()
+        demo_password = options["demo_password"]
+
+        try:
+            owner = User.objects.get(username=owner_username)
+        except User.DoesNotExist as exc:
+            raise CommandError(
+                f"'{owner_username}' adlı kullanıcı bulunamadı."
+            ) from exc
+
+        company, company_created = Company.objects.get_or_create(
+            name=DEMO_COMPANY_NAME,
+            defaults={
+                "legal_name": "Glauria Demo Anonim Şirketi",
+                "tax_number": "1111111111",
+                "tax_office": "Demo Vergi Dairesi",
+                "email": "demo@glauria.local",
+                "phone": "+90 312 000 00 00",
+                "address": (
+                    "Glauria Demo Merkezi, Ankara, Türkiye"
+                ),
+            },
+        )
+
+        subscription, subscription_created = (
+            CompanySubscription.objects.get_or_create(
+                company=company,
+                defaults={
+                    "plan": CompanySubscription.Plan.ENTERPRISE,
+                    "status": CompanySubscription.Status.ACTIVE,
+                    "member_limit": 50,
+                },
+            )
+        )
+
+        branch, branch_created = Branch.objects.get_or_create(
+            company=company,
+            code=DEMO_BRANCH_CODE,
+            defaults={
+                "name": "Demo Genel Merkez",
+                "email": "merkez@glauria.local",
+                "phone": "+90 312 000 00 01",
+                "address": (
+                    "Glauria Demo Merkezi, Ankara, Türkiye"
+                ),
+            },
+        )
+
+        departments = {}
+        created_department_count = 0
+
+        for department_code, department_name in DEMO_DEPARTMENTS:
+            department, created = Department.objects.get_or_create(
+                branch=branch,
+                code=department_code,
+                defaults={
+                    "name": department_name,
+                },
+            )
+            departments[department_code] = department
+
+            if created:
+                created_department_count += 1
+
+        membership, membership_created = (
+            OrganizationMembership.objects.get_or_create(
+                user=owner,
+                company=company,
+                branch=branch,
+                department=departments["EXEC"],
+                defaults={
+                    "job_title": "Demo Şirket Sahibi",
+                    "role": OrganizationMembership.Role.OWNER,
+                    "is_primary": False,
+                    "is_active": True,
+                },
+            )
+        )
+        created_hr_user_count = 0
+        created_hr_membership_count = 0
+        created_position_count = 0
+        created_employee_count = 0
+        created_assignment_count = 0
+
+        hr_users = {}
+        hr_employees = {}
+        hr_positions = {}
+
+        for person_data in DEMO_HR_USERS:
+            department = departments[
+                person_data["department_code"]
+            ]
+
+            position, position_created = Position.objects.update_or_create(
+                company=company,
+                code=person_data["position_code"],
+                defaults={
+                    "department": department,
+                    "title": person_data["position_title"],
+                    "description": (
+                        "Glauria Demo A.Ş. için oluşturulan "
+                        "örnek İK pozisyonu."
+                    ),
+                    "is_active": True,
+                },
+            )
+
+            hr_positions[person_data["position_code"]] = position
+
+            if position_created:
+                created_position_count += 1
+
+            user, user_created = User.objects.update_or_create(
+                username=person_data["username"],
+                defaults={
+                    "first_name": person_data["first_name"],
+                    "last_name": person_data["last_name"],
+                    "email": person_data["email"],
+                    "user_type": User.UserType.INTERNAL,
+                    "is_active": True,
+                },
+            )
+
+            if demo_password:
+                user.set_password(demo_password)
+                user.save(update_fields=["password"])
+            elif user_created:
+                user.set_unusable_password()
+                user.save(update_fields=["password"])
+
+            hr_users[person_data["username"]] = user
+
+            if user_created:
+                created_hr_user_count += 1
+
+            _, hr_membership_created = (
+                OrganizationMembership.objects.update_or_create(
+                    user=user,
+                    company=company,
+                    branch=branch,
+                    department=department,
+                    defaults={
+                        "job_title": person_data["job_title"],
+                        "role": person_data["role"],
+                        "permissions": person_data["permissions"],
+                        "is_primary": False,
+                        "is_active": True,
+                    },
+                )
+            )
+
+            if hr_membership_created:
+                created_hr_membership_count += 1
+
+            employee, employee_created = Employee.objects.update_or_create(
+                company=company,
+                employee_number=person_data["employee_number"],
+                defaults={
+                    "user": user,
+                    "first_name": person_data["first_name"],
+                    "last_name": person_data["last_name"],
+                    "work_email": person_data["email"],
+                    "hire_date": person_data["hire_date"],
+                    "employment_status": (
+                        Employee.EmploymentStatus.ACTIVE
+                    ),
+                    "is_active": True,
+                },
+            )
+
+            hr_employees[person_data["username"]] = employee
+
+            if employee_created:
+                created_employee_count += 1
+
+        for person_data in DEMO_HR_USERS:
+            employee = hr_employees[person_data["username"]]
+            department = departments[
+                person_data["department_code"]
+            ]
+            position = hr_positions[
+                person_data["position_code"]
+            ]
+
+            manager_username = person_data["manager_username"]
+            manager = (
+                hr_employees[manager_username]
+                if manager_username
+                else None
+            )
+
+            _, assignment_created = (
+                EmploymentAssignment.objects.update_or_create(
+                    employee=employee,
+                    is_primary=True,
+                    end_date=None,
+                    defaults={
+                        "branch": branch,
+                        "department": department,
+                        "position": position,
+                        "manager": manager,
+                        "employment_type": (
+                            EmploymentAssignment
+                            .EmploymentType
+                            .FULL_TIME
+                        ),
+                        "start_date": person_data["hire_date"],
+                        "is_department_manager": (
+                            person_data["is_department_manager"]
+                        ),
+                    },
+                )
+            )
+
+            if assignment_created:
+                created_assignment_count += 1
+        absence_types = {}
+        created_absence_type_count = 0
+        created_absence_balance_count = 0
+        created_absence_request_count = 0
+        created_absence_event_count = 0
+
+        for absence_type_data in DEMO_ABSENCE_TYPES:
+            absence_type, absence_type_created = (
+                AbsenceType.objects.update_or_create(
+                    company=company,
+                    code=absence_type_data["code"],
+                    defaults={
+                        "name": absence_type_data["name"],
+                        "description": (
+                            absence_type_data["description"]
+                        ),
+                        "is_paid": absence_type_data["is_paid"],
+                        "requires_approval": (
+                            absence_type_data[
+                                "requires_approval"
+                            ]
+                        ),
+                        "deducts_balance": (
+                            absence_type_data[
+                                "deducts_balance"
+                            ]
+                        ),
+                        "default_entitlement_days": (
+                            absence_type_data[
+                                "default_entitlement_days"
+                            ]
+                        ),
+                        "is_active": True,
+                    },
+                )
+            )
+
+            absence_types[
+                absence_type_data["code"]
+            ] = absence_type
+
+            if absence_type_created:
+                created_absence_type_count += 1
+
+        for employee_username, employee in hr_employees.items():
+            for absence_type_code, absence_type in (
+                absence_types.items()
+            ):
+                used_days = Decimal("0.00")
+
+                if (
+                    employee_username
+                    == "demo.finance.manager"
+                    and absence_type_code == "ANNUAL"
+                ):
+                    used_days = Decimal("3.00")
+
+                _, balance_created = (
+                    AbsenceBalance.objects.update_or_create(
+                        company=company,
+                        employee=employee,
+                        absence_type=absence_type,
+                        year=2026,
+                        defaults={
+                            "entitled_days": (
+                                absence_type
+                                .default_entitlement_days
+                            ),
+                            "carried_days": Decimal("0.00"),
+                            "adjustment_days": Decimal("0.00"),
+                            "used_days": used_days,
+                        },
+                    )
+                )
+
+                if balance_created:
+                    created_absence_balance_count += 1
+
+        absence_requests = {}
+
+        for request_data in DEMO_ABSENCE_REQUESTS:
+            employee = hr_employees[
+                request_data["employee_username"]
+            ]
+            absence_type = absence_types[
+                request_data["absence_type_code"]
+            ]
+            status = request_data["status"]
+
+            is_submitted = status in {
+                AbsenceRequest.Status.SUBMITTED,
+                AbsenceRequest.Status.APPROVED,
+            }
+            is_decided = (
+                status == AbsenceRequest.Status.APPROVED
+            )
+
+            absence_request, request_created = (
+                AbsenceRequest.objects.update_or_create(
+                    company=company,
+                    employee=employee,
+                    absence_type=absence_type,
+                    start_date=request_data["start_date"],
+                    end_date=request_data["end_date"],
+                    defaults={
+                        "reason": request_data["reason"],
+                        "status": status,
+                        "submitted_at": (
+                            timezone.now()
+                            if is_submitted
+                            else None
+                        ),
+                        "decided_at": (
+                            timezone.now()
+                            if is_decided
+                            else None
+                        ),
+                        "decided_by": (
+                            hr_users["demo.hr.manager"]
+                            if is_decided
+                            else None
+                        ),
+                        "decision_note": (
+                            request_data["decision_note"]
+                        ),
+                    },
+                )
+            )
+
+            absence_requests[
+                (
+                    request_data["employee_username"],
+                    request_data["absence_type_code"],
+                    request_data["start_date"],
+                )
+            ] = absence_request
+
+            if request_created:
+                created_absence_request_count += 1
+
+            if is_submitted:
+                _, submitted_event_created = (
+                    AbsenceRequestEvent.objects.get_or_create(
+                        request=absence_request,
+                        previous_status=(
+                            AbsenceRequest.Status.DRAFT
+                        ),
+                        new_status=(
+                            AbsenceRequest.Status.SUBMITTED
+                        ),
+                        defaults={
+                            "company": company,
+                            "changed_by": employee.user,
+                            "note": (
+                                "Demo izin talebi onaya "
+                                "gönderildi."
+                            ),
+                        },
+                    )
+                )
+
+                if submitted_event_created:
+                    created_absence_event_count += 1
+
+            if is_decided:
+                _, approved_event_created = (
+                    AbsenceRequestEvent.objects.get_or_create(
+                        request=absence_request,
+                        previous_status=(
+                            AbsenceRequest.Status.SUBMITTED
+                        ),
+                        new_status=(
+                            AbsenceRequest.Status.APPROVED
+                        ),
+                        defaults={
+                            "company": company,
+                            "changed_by": (
+                                hr_users["demo.hr.manager"]
+                            ),
+                            "note": (
+                                request_data["decision_note"]
+                            ),
+                        },
+                    )
+                )
+
+                if approved_event_created:
+                    created_absence_event_count += 1
+
+        financial_account, financial_account_created = (
+            FinancialAccount.objects.get_or_create(
+                company=company,
+                name="Demo Operasyon Bankası",
+                currency="TRY",
+                defaults={
+                    "account_type": (
+                        FinancialAccount.AccountType.BANK
+                    ),
+                    "bank_name": "Glauria Demo Bankası",
+                    "is_active": True,
+                },
+            )
+        )
+
+        budget_accounts = {}
+        created_budget_account_count = 0
+
+        for code, name, account_type, description in (
+            DEMO_BUDGET_ACCOUNTS
+        ):
+            budget_account, created = (
+                FinanceBudgetAccount.objects.get_or_create(
+                    company=company,
+                    code=code,
+                    defaults={
+                        "name": name,
+                        "account_type": account_type,
+                        "description": description,
+                        "is_active": True,
+                    },
+                )
+            )
+            budget_accounts[code] = budget_account
+
+            if created:
+                created_budget_account_count += 1
+
+        demo_budget, demo_budget_created = (
+            FinanceBudget.objects.get_or_create(
+                company=company,
+                name="2026 Demo Operasyon Bütçesi",
+                fiscal_year=2026,
+                defaults={
+                    "currency": "TRY",
+                    "status": FinanceBudget.Status.ACTIVE,
+                    "description": (
+                        "Glauria Demo A.Ş. için üç aylık operasyon "
+                        "ve nakit planı."
+                    ),
+                    "created_by": owner,
+                    "submitted_by": owner,
+                    "submitted_at": timezone.now(),
+                    "approved_by": owner,
+                    "approved_at": timezone.now(),
+                },
+            )
+        )
+
+        created_budget_line_count = 0
+
+        for (
+            period_month,
+            account_code,
+            category,
+            planned_inflow,
+            planned_outflow,
+            notes,
+        ) in DEMO_BUDGET_LINES:
+            _, created = FinanceBudgetLine.objects.get_or_create(
+                budget=demo_budget,
+                budget_account=budget_accounts[account_code],
+                period_month=period_month,
+                defaults={
+                    "category": category,
+                    "planned_inflow": planned_inflow,
+                    "planned_outflow": planned_outflow,
+                    "notes": notes,
+                },
+            )
+
+            if created:
+                created_budget_line_count += 1
+
+        created_transaction_count = 0
+
+        for (
+            reference_number,
+            account_code,
+            direction,
+            transaction_type,
+            transaction_date,
+            amount,
+            description,
+        ) in DEMO_FINANCIAL_TRANSACTIONS:
+            _, created = (
+                FinancialAccountTransaction.objects.get_or_create(
+                    company=company,
+                    reference_number=reference_number,
+                    defaults={
+                        "account": financial_account,
+                        "budget_account": budget_accounts[account_code],
+                        "direction": direction,
+                        "transaction_type": transaction_type,
+                        "transaction_date": transaction_date,
+                        "amount": amount,
+                        "description": description,
+                        "created_by": owner,
+                    },
+                )
+            )
+
+            if created:
+                created_transaction_count += 1
+
+        demo_suppliers = [
+            {
+                "code": "TED-DIJITAL-01",
+                "name": "Demo Dijital Medya Ltd.",
+                "legal_name": (
+                    "Demo Dijital Medya Reklam ve Danışmanlık Ltd. Şti."
+                ),
+                "tax_number": "2222222222",
+                "tax_office": "Çankaya Vergi Dairesi",
+                "contact_name": "Ece Yılmaz",
+                "email": "tedarikci@demo.glauria.local",
+                "phone": "+90 312 000 10 01",
+                "address": "Çankaya, Ankara, Türkiye",
+                "payment_term_days": 30,
+            },
+            {
+                "code": "TED-OFIS-01",
+                "name": "Demo Ofis Çözümleri A.Ş.",
+                "legal_name": "Demo Ofis Çözümleri Anonim Şirketi",
+                "tax_number": "3333333333",
+                "tax_office": "Kızılay Vergi Dairesi",
+                "contact_name": "Mert Kaya",
+                "email": "ofis@demo.glauria.local",
+                "phone": "+90 312 000 10 02",
+                "address": "Yenimahalle, Ankara, Türkiye",
+                "payment_term_days": 45,
+            },
+        ]
+
+        created_supplier_count = 0
+
+        for supplier_data in demo_suppliers:
+            _, created = Supplier.objects.get_or_create(
+                company=company,
+                code=supplier_data["code"],
+                defaults={
+                    **supplier_data,
+                    "is_active": True,
+                },
+            )
+
+            if created:
+                created_supplier_count += 1
+
+        purchase_request, purchase_request_created = (
+            PurchaseRequest.objects.get_or_create(
+                company=company,
+                title="Eylül Demo Dijital Reklam Talebi",
+                defaults={
+                    "currency": "TRY",
+                    "needed_by_date": date(2026, 9, 15),
+                    "description": (
+                        "Demo şirketinin Eylül dijital reklam "
+                        "kampanyası için oluşturulmuş taslak talep."
+                    ),
+                    "requested_by": owner,
+                },
+            )
+        )
+
+        _, purchase_request_line_created = (
+            PurchaseRequestLine.objects.get_or_create(
+                purchase_request=purchase_request,
+                budget_account=budget_accounts["GID-PAZARLAMA"],
+                description="Eylül demo dijital reklam paketi",
+                defaults={
+                    "quantity": Decimal("1.00"),
+                    "unit_price": Decimal("18000.00"),
+                    "needed_by_date": date(2026, 9, 15),
+                    "notes": (
+                        "Taslak talep; onay akışını test etmek için."
+                    ),
+                },
+            )
+        )
+
+        self.stdout.write("")
+        self.stdout.write(
+            self.style.SUCCESS("Seed demo altyapısı hazır.")
+        )
+        self.stdout.write(
+            f"Şirket: {company.name} "
+            f"({'oluşturuldu' if company_created else 'zaten vardı'})"
+        )
+        self.stdout.write(
+            f"Abonelik: {subscription.get_plan_display()} "
+            f"({'oluşturuldu' if subscription_created else 'zaten vardı'})"
+        )
+        self.stdout.write(
+            f"Şube: {branch.name} "
+            f"({'oluşturuldu' if branch_created else 'zaten vardı'})"
+        )
+        self.stdout.write(
+            f"Yeni departman sayısı: {created_department_count}"
+        )
+        self.stdout.write(
+            "Demo sahibi: "
+            f"{owner.username} "
+            f"({'oluşturuldu' if membership_created else 'zaten vardı'})"
+        )
+        self.stdout.write(
+            f"Yeni demo kullanıcı sayısı: {created_hr_user_count}"
+        )
+        self.stdout.write(
+            "Yeni demo üyelik sayısı: "
+            f"{created_hr_membership_count}"
+        )
+        self.stdout.write(
+            f"Yeni pozisyon sayısı: {created_position_count}"
+        )
+        self.stdout.write(
+            f"Yeni personel kartı sayısı: {created_employee_count}"
+        )
+        self.stdout.write(
+            f"Yeni personel ataması sayısı: {created_assignment_count}"
+        )
+        self.stdout.write(
+            "Yeni izin türü sayısı: "
+            f"{created_absence_type_count}"
+        )
+        self.stdout.write(
+            "Yeni izin bakiyesi sayısı: "
+            f"{created_absence_balance_count}"
+        )
+        self.stdout.write(
+            "Yeni izin talebi sayısı: "
+            f"{created_absence_request_count}"
+        )
+        self.stdout.write(
+            "Yeni izin işlem kaydı sayısı: "
+            f"{created_absence_event_count}"
+        )
+        self.stdout.write(
+            "Kasa / banka hesabı: "
+            f"{financial_account.name} "
+            f"({'oluşturuldu' if financial_account_created else 'zaten vardı'})"
+        )
+        self.stdout.write(
+            f"Yeni bütçe hesabı sayısı: {created_budget_account_count}"
+        )
+        self.stdout.write(
+            "Demo bütçe: "
+            f"{demo_budget.name} "
+            f"({'oluşturuldu' if demo_budget_created else 'zaten vardı'})"
+        )
+        self.stdout.write(
+            f"Yeni bütçe satırı sayısı: {created_budget_line_count}"
+        )
+        self.stdout.write(
+            f"Yeni finans hareketi sayısı: {created_transaction_count}"
+        )
+        self.stdout.write(
+            f"Yeni tedarikçi sayısı: {created_supplier_count}"
+        )
+        self.stdout.write(
+            "Demo satın alma talebi: "
+            f"{purchase_request.request_number} "
+            f"({'oluşturuldu' if purchase_request_created else 'zaten vardı'})"
+        )
+        self.stdout.write(
+            "Demo talep kalemi: "
+            f"{'oluşturuldu' if purchase_request_line_created else 'zaten vardı'}"
+        )
+        self.stdout.write("")
+        self.stdout.write(
+            "Not: Mevcut Maison Glauria kayıtları değiştirilmedi."
+        )

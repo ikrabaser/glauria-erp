@@ -8,6 +8,7 @@ from .views import (
     customer_account_detail,
     cash_bank_accounts,
     cash_bank_account_detail,
+    cash_bank_expense_create,
     payment_plans,
     payment_plan_detail,
     payment_plan_allocation_create,
@@ -55,6 +56,11 @@ urlpatterns = [
         "kasa-banka/<uuid:account_id>/",
         cash_bank_account_detail,
         name="cash_bank_account_detail",
+    ),
+    path(
+    "kasa-banka/<uuid:account_id>/gider/",
+    cash_bank_expense_create,
+    name="cash_bank_expense_create",
     ),
     path(
         "odeme-planlari/",

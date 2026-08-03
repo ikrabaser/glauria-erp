@@ -1,0 +1,409 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}
+{{ supplier_invoice.invoice_number }} | Tedarikçi Faturası
+{% endblock %}
+
+{% block extra_css %}
+<link
+    rel="stylesheet"
+    href="{% static 'css/finance.css' %}?v=supplier-invoice-detail-v1"
+>
+{% endblock %}
+
+{% block content %}
+<section class="module-page finance-dashboard">
+    <a
+        href="{% url 'purchasing:supplier_invoices' %}"
+        class="finance-back-link"
+    >
+        ← Tedarikçi Faturalarına Dön
+    </a>
+
+    <header class="page-header">
+        <div class="page-header__content">
+            <span class="page-header__eyebrow">
+                TEDARİKÇİ FATURASI
+            </span>
+
+            <h2 class="page-header__title">
+                {{ supplier_invoice.invoice_number }}
+            </h2>
+
+            <p class="page-header__description">
+                {{ supplier_invoice.supplier.name }}
+                · Kaynak sipariş:
+                {{ supplier_invoice.purchase_order.order_number }}
+            </p>
+        </div>
+
+        <div class="finance-budget-status-actions">
+    <span class="finance-panel__count">
+        {{ supplier_invoice.get_status_display }}
+    </span>
+
+    {% if supplier_invoice.status == "draft" %}
+        <form
+            method="post"
+            action="{% url 'purchasing:supplier_invoice_status_update' supplier_invoice.id %}"
+        >
+            {% csrf_token %}
+
+            <input
+                type="hidden"
+                name="action"
+                value="submit"
+            >
+
+            <button
+                type="submit"
+                class="finance-budget-status-action"
+            >
+                Onaya Gönder
+            </button>
+        </form>
+    {% elif supplier_invoice.status == "pending_approval" %}
+        <form
+            method="post"
+            action="{% url 'purchasing:supplier_invoice_status_update' supplier_invoice.id %}"
+        >
+            {% csrf_token %}
+
+            <input
+                type="hidden"
+                name="action"
+                value="return_to_draft"
+            >
+
+            <button
+                type="submit"
+                class="finance-budget-status-action"
+            >
+                Taslağa İade Et
+            </button>
+        </form>
+
+        <form
+            method="post"
+            action="{% url 'purchasing:supplier_invoice_status_update' supplier_invoice.id %}"
+        >
+            {% csrf_token %}
+
+            <input
+                type="hidden"
+                name="action"
+                value="approve"
+            >
+
+            <button
+                type="submit"
+                class="finance-budget-status-action"
+            >
+                Onayla
+            </button>
+        </form>
+    {% endif %}
+</div>
+    </header>
+
+    <section class="finance-summary-grid">
+        <article class="finance-summary-card finance-summary-card--net">
+            <span class="finance-summary-card__label">
+                FATURA TOPLAMI
+            </span>
+
+            <strong class="finance-summary-card__value">
+                ₺{{ total_amount|floatformat:2 }}
+            </strong>
+
+            <span class="finance-summary-card__hint">
+                Fatura kalemleri toplamı
+            </span>
+        </article>
+
+        <article class="finance-summary-card">
+            <span class="finance-summary-card__label">
+                FATURA TARİHİ
+            </span>
+
+            <strong class="finance-summary-card__value">
+                {{ supplier_invoice.invoice_date|date:"d.m.Y" }}
+            </strong>
+
+            <span class="finance-summary-card__hint">
+                Tedarikçinin düzenlediği tarih
+            </span>
+        </article>
+
+        <article class="finance-summary-card">
+            <span class="finance-summary-card__label">
+                VADE TARİHİ
+            </span>
+
+            <strong class="finance-summary-card__value">
+                {{ supplier_invoice.due_date|date:"d.m.Y" }}
+            </strong>
+
+            <span class="finance-summary-card__hint">
+                Planlanan ödeme vadesi
+            </span>
+        </article>
+    </section>
+
+    <div class="finance-dashboard__grid">
+        <section class="finance-panel">
+            <div class="finance-panel__heading">
+                <div>
+                    <span class="finance-panel__eyebrow">
+                        FATURA KALEMLERİ
+                    </span>
+
+                    <h3 class="finance-panel__title">
+                        Teslimata Bağlı Fatura Satırları
+                    </h3>
+                </div>
+
+                <span class="finance-panel__count">
+                    {{ lines|length }} kalem
+                </span>
+            </div>
+
+            <div class="data-table-wrapper">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Bütçe hesabı</th>
+                            <th>Açıklama</th>
+                            <th>Sipariş miktarı</th>
+                            <th>Faturalanan miktar</th>
+                            <th>Birim fiyat</th>
+                            <th>Fatura tutarı</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        {% for line in lines %}
+                            <tr>
+                                <td>
+                                    <div class="customer-cell">
+                                        <strong>
+                                            {{ line.purchase_order_line.budget_account.code }}
+                                        </strong>
+
+                                        <span>
+                                            {{ line.purchase_order_line.budget_account.name }}
+                                        </span>
+                                    </div>
+                                </td>
+
+                                <td>
+                                    {{ line.description }}
+                                </td>
+
+                                <td>
+                                    {{ line.purchase_order_line.quantity|floatformat:2 }}
+                                </td>
+
+                                <td>
+                                    {{ line.quantity|floatformat:2 }}
+                                </td>
+
+                                <td>
+                                    ₺{{ line.unit_price|floatformat:2 }}
+                                </td>
+
+                                <td class="finance-table__balance">
+                                    ₺{{ line.line_total|floatformat:2 }}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section class="finance-panel">
+            <div class="finance-panel__heading">
+                <div>
+                    <span class="finance-panel__eyebrow">
+                        TEDARİKÇİ VE VADE
+                    </span>
+
+                    <h3 class="finance-panel__title">
+                        Fatura Bilgileri
+                    </h3>
+                </div>
+            </div>
+
+            <div class="finance-detail-list">
+                <div class="finance-detail-list__item">
+                    <span>Tedarikçi</span>
+                    <strong>{{ supplier_invoice.supplier.name }}</strong>
+                </div>
+
+                <div class="finance-detail-list__item">
+                    <span>Tedarikçi kodu</span>
+                    <strong>{{ supplier_invoice.supplier.code }}</strong>
+                </div>
+
+                <div class="finance-detail-list__item">
+                    <span>Kaynak sipariş</span>
+                    <strong>
+                        <a
+                            href="{% url 'purchasing:purchase_order_detail' supplier_invoice.purchase_order.id %}"
+                            class="finance-back-link"
+                        >
+                            {{ supplier_invoice.purchase_order.order_number }}
+                        </a>
+                    </strong>
+                </div>
+
+                <div class="finance-detail-list__item">
+                    <span>Oluşturan</span>
+                    <strong>
+                        {{ supplier_invoice.created_by|default:"—" }}
+                    </strong>
+                </div>
+            </div>
+
+            {% if supplier_invoice.notes %}
+                <div class="finance-panel__empty">
+                    {{ supplier_invoice.notes }}
+                </div>
+            {% endif %}
+        </section>
+    </div>
+     {% if payment_form %}
+        <div class="finance-dashboard__grid">
+            <section class="finance-panel">
+                <div class="finance-panel__heading">
+                    <div>
+                        <span class="finance-panel__eyebrow">
+                            FİNANSAL ÖDEME
+                        </span>
+
+                        <h3 class="finance-panel__title">
+                            Kasa / Bankadan Öde
+                        </h3>
+                    </div>
+
+                    <span class="finance-panel__count">
+                        ₺{{ total_amount|floatformat:2 }}
+                    </span>
+                </div>
+
+                <form
+                    method="post"
+                    action="{% url 'purchasing:supplier_invoice_payment_create' supplier_invoice.id %}"
+                    class="finance-form"
+                >
+                    {% csrf_token %}
+
+                    {% if payment_form.non_field_errors %}
+                        <div class="finance-form__errors">
+                            {{ payment_form.non_field_errors }}
+                        </div>
+                    {% endif %}
+
+                    {% for field in payment_form %}
+                        <div class="finance-form__field">
+                            <label for="{{ field.id_for_label }}">
+                                {{ field.label }}
+                            </label>
+
+                            {{ field }}
+                            {{ field.errors }}
+                        </div>
+                    {% endfor %}
+
+                    <button
+                        type="submit"
+                        class="finance-form__submit"
+                    >
+                        ₺{{ total_amount|floatformat:2 }} Ödemeyi Kaydet
+                    </button>
+                </form>
+            </section>
+
+            <section class="finance-panel">
+                <div class="finance-panel__heading">
+                    <div>
+                        <span class="finance-panel__eyebrow">
+                            ÖDEME DURUMU
+                        </span>
+
+                        <h3 class="finance-panel__title">
+                            Ödemeye Hazır
+                        </h3>
+                    </div>
+                </div>
+
+                <div class="finance-panel__empty">
+                    Bu fatura onaylandı. Ödeme kaydı oluşturulduğunda
+                    kasa/banka çıkışı ve bağlı bütçe taahhüdü eş zamanlı
+                    güncellenecek.
+                </div>
+            </section>
+        </div>
+    {% elif payments %}
+        <section class="finance-panel">
+            <div class="finance-panel__heading">
+                <div>
+                    <span class="finance-panel__eyebrow">
+                        ÖDEME GEÇMİŞİ
+                    </span>
+
+                    <h3 class="finance-panel__title">
+                        Kasa / Banka Ödemeleri
+                    </h3>
+                </div>
+
+                <span class="finance-panel__count">
+                    {{ payments|length }} ödeme
+                </span>
+            </div>
+
+            <div class="data-table-wrapper">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Ödeme tarihi</th>
+                            <th>Hesap</th>
+                            <th>Referans</th>
+                            <th>Tutar</th>
+                            <th>Kaydeden</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        {% for payment in payments %}
+                            <tr>
+                                <td>
+                                    {{ payment.payment_date|date:"d.m.Y" }}
+                                </td>
+
+                                <td>
+                                    {{ payment.financial_transaction.account.name }}
+                                </td>
+
+                                <td>
+                                    {{ payment.financial_transaction.reference_number|default:"—" }}
+                                </td>
+
+                                <td class="finance-table__balance">
+                                    −₺{{ payment.amount|floatformat:2 }}
+                                </td>
+
+                                <td>
+                                    {{ payment.created_by|default:"—" }}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    {% endif %}
+</section>
+{% endblock %}

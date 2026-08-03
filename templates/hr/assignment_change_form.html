@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}
+{{ employee.full_name }} · Atama Değişikliği | Glauria ERP
+{% endblock %}
+
+{% block extra_css %}
+<link
+    rel="stylesheet"
+    href="{% static 'css/hr.css' %}?v=hr-assignment-v1"
+>
+{% endblock %}
+
+{% block content %}
+<section class="module-page hr-form-page">
+    {% url "hr:employee_detail" employee.id as cancel_url %}
+
+    {% include "components/page_header.html" with eyebrow="İNSAN KAYNAKLARI · TARİHSEL ATAMA" title="Atama Değişikliği" description=employee.full_name action_text="Personel Kartı" action_url=cancel_url %}
+
+    <section class="hr-assignment-summary">
+        <div>
+            <span>MEVCUT POZİSYON</span>
+            <strong>{{ current_assignment.position.title }}</strong>
+            <small>{{ current_assignment.position.code }}</small>
+        </div>
+
+        <div>
+            <span>DEPARTMAN</span>
+            <strong>{{ current_assignment.department.name }}</strong>
+            <small>{{ current_assignment.branch.name }}</small>
+        </div>
+
+        <div>
+            <span>BAĞLI YÖNETİCİ</span>
+            <strong>
+                {% if current_assignment.manager %}
+                    {{ current_assignment.manager.full_name }}
+                {% else %}
+                    Üst yönetici yok
+                {% endif %}
+            </strong>
+            <small>
+                {{ current_assignment.get_employment_type_display }}
+            </small>
+        </div>
+
+        <div>
+            <span>ATAMA BAŞLANGICI</span>
+            <strong>
+                {{ current_assignment.start_date|date:"d.m.Y" }}
+            </strong>
+            <small>Aktif birincil atama</small>
+        </div>
+    </section>
+
+    <form
+        method="post"
+        class="hr-record-form"
+        novalidate
+    >
+        {% csrf_token %}
+
+        {% if form.non_field_errors %}
+            <div class="hr-form-errors">
+                {{ form.non_field_errors }}
+            </div>
+        {% endif %}
+
+        <section class="hr-form-section">
+            <div class="hr-form-section__heading">
+                <span>YENİ ATAMA</span>
+                <h3>Organizasyon Değişikliği</h3>
+                <p>
+                    Eski atama, yeni geçerlilik tarihinden bir gün
+                    önce kapatılır ve çalışma geçmişinde korunur.
+                </p>
+            </div>
+
+            <div class="hr-form-grid">
+                {% for field in form %}
+                    <div
+                        class="
+                            hr-form-field
+                            {% if field.name == 'change_reason' %}
+                                hr-form-field--full
+                            {% endif %}
+                            {% if field.field.widget.input_type == 'checkbox' %}
+                                hr-form-field--checkbox
+                            {% endif %}
+                        "
+                    >
+                        {% if field.field.widget.input_type == "checkbox" %}
+                            <label class="hr-checkbox-label">
+                                {{ field }}
+                                <span>{{ field.label }}</span>
+                            </label>
+                        {% else %}
+                            <label for="{{ field.id_for_label }}">
+                                {{ field.label }}
+                            </label>
+                            {{ field }}
+                        {% endif %}
+
+                        {% if field.help_text %}
+                            <small>{{ field.help_text }}</small>
+                        {% endif %}
+
+                        {% for error in field.errors %}
+                            <span class="hr-form-field__error">
+                                {{ error }}
+                            </span>
+                        {% endfor %}
+                    </div>
+                {% endfor %}
+            </div>
+        </section>
+
+        <div class="hr-form-actions">
+            <a
+                href="{{ cancel_url }}"
+                class="hr-form-actions__cancel"
+            >
+                İptal
+            </a>
+
+            <button
+                type="submit"
+                class="hr-form-actions__submit"
+            >
+                Yeni Atamayı Oluştur
+            </button>
+        </div>
+    </form>
+</section>
+{% endblock %}

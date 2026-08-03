@@ -1,0 +1,153 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}
+{{ page_title }} | Glauria ERP
+{% endblock %}
+
+{% block extra_css %}
+<link
+    rel="stylesheet"
+    href="{% static 'css/hr.css' %}?v=hr-departments-v1"
+>
+{% endblock %}
+
+{% block content %}
+<section class="module-page hr-form-page">
+    {% if department %}
+        {% url "hr:department_detail" department.id as cancel_url %}
+    {% else %}
+        {% url "hr:department_list" as cancel_url %}
+    {% endif %}
+
+    {% include "components/page_header.html" with eyebrow="İNSAN KAYNAKLARI · ORGANİZASYON YÖNETİMİ" title=page_title description=page_description action_text="Departmanlar" action_url=cancel_url %}
+
+    <nav class="hr-subnav">
+        <a href="{% url 'hr:home' %}">
+            İK Ana Paneli
+        </a>
+
+        <a href="{% url 'hr:employee_list' %}">
+            Personel Dizini
+        </a>
+
+        <a
+            href="{% url 'hr:department_list' %}"
+            class="is-active"
+        >
+            Departmanlar
+        </a>
+
+
+            <a href="{% url 'hr:position_list' %}">
+            Pozisyonlar
+        </a>
+
+        <a href="{% url 'hr:absence_request_list' %}">
+            İzinler
+        </a>
+
+    </nav>
+
+    <form
+        method="post"
+        class="hr-record-form hr-record-form--compact"
+        novalidate
+    >
+        {% csrf_token %}
+
+        {% if form.non_field_errors %}
+            <div class="hr-form-errors">
+                {{ form.non_field_errors }}
+            </div>
+        {% endif %}
+
+        <section class="hr-form-section">
+            <div class="hr-form-section__heading">
+                <span>ORGANİZASYON BİRİMİ</span>
+
+                <h3>
+                    Departman Bilgileri
+                </h3>
+
+                <p>
+                    Departmanın bağlı olduğu şubeyi, benzersiz kodunu
+                    ve organizasyon hiyerarşisindeki yerini tanımlayın.
+                </p>
+            </div>
+
+            <div class="hr-form-grid">
+                {% for field in form %}
+                    <div
+                        class="
+                            hr-form-field
+                            {% if field.field.widget.input_type == 'checkbox' %}
+                                hr-form-field--checkbox
+                            {% endif %}
+                        "
+                    >
+                        {% if field.field.widget.input_type == "checkbox" %}
+                            <label class="hr-checkbox-label">
+                                {{ field }}
+                                <span>{{ field.label }}</span>
+                            </label>
+                        {% else %}
+                            <label for="{{ field.id_for_label }}">
+                                {{ field.label }}
+                            </label>
+
+                            {{ field }}
+                        {% endif %}
+
+                        {% if field.help_text %}
+                            <small>
+                                {{ field.help_text }}
+                            </small>
+                        {% endif %}
+
+                        {% for error in field.errors %}
+                            <span class="hr-form-field__error">
+                                {{ error }}
+                            </span>
+                        {% endfor %}
+                    </div>
+                {% endfor %}
+            </div>
+        </section>
+
+        <section class="hr-form-guidance">
+            <div class="hr-form-guidance__icon">
+                ORG
+            </div>
+
+            <div>
+                <strong>
+                    Organizasyon hiyerarşisi
+                </strong>
+
+                <p>
+                    Üst departman seçilmezse bu kayıt ana organizasyon
+                    birimi olarak değerlendirilir. Alt departman yalnızca
+                    aynı şubedeki başka bir departmana bağlanabilir.
+                </p>
+            </div>
+        </section>
+
+        <div class="hr-form-actions">
+            <a
+                href="{{ cancel_url }}"
+                class="hr-form-actions__cancel"
+            >
+                İptal
+            </a>
+
+            <button
+                type="submit"
+                class="hr-form-actions__submit"
+            >
+                {{ submit_label }}
+            </button>
+        </div>
+    </form>
+</section>
+{% endblock %}

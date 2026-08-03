@@ -2,138 +2,94 @@
 {% load static %}
 
 {% block title %}
-Bütçe Kontrol Hesapları | Glauria ERP
+Tedarikçiler | Glauria ERP
 {% endblock %}
 
 {% block extra_css %}
 <link
     rel="stylesheet"
-    href="{% static 'css/finance.css' %}?v=budget-accounts-v1"
+    href="{% static 'css/finance.css' %}?v=purchasing-suppliers-v1"
 >
 {% endblock %}
 
 {% block content %}
 <section class="module-page finance-dashboard">
-    <a
-        href="{% url 'finance:budget_reports' %}"
-        class="finance-back-link"
-    >
-        ← Bütçe ve Raporlara Dön
-    </a>
-
-    {% include "components/page_header.html" with eyebrow="BÜTÇE KONTROLÜ" title="Bütçe Kontrol Hesapları" description="Gelir ve gider planlarını gerçekleşen finans hareketleriyle aynı kontrol hesabı üzerinden ilişkilendirin." %}
+    {% include "components/page_header.html" with eyebrow="TEDARİKÇİ YÖNETİMİ" title="Tedarikçiler" description="Satın alma siparişlerinde kullanılacak tedarikçi ana verilerini ve ödeme koşullarını yönetin." %}
 
     <div class="finance-budget-accounts-layout">
         <section class="finance-panel">
             <div class="finance-panel__heading">
                 <div>
                     <span class="finance-panel__eyebrow">
-                        KONTROL HİYERARŞİSİ
+                        TEDARİKÇİ PORTFÖYÜ
                     </span>
 
                     <h3 class="finance-panel__title">
-                        Hesap Listesi
+                        Aktif ve Pasif Tedarikçiler
                     </h3>
                 </div>
 
                 <span class="finance-panel__count">
-                    {{ accounts|length }} hesap
+                    {{ suppliers|length }} tedarikçi
                 </span>
             </div>
 
-            {% if accounts %}
+            {% if suppliers %}
                 <div class="data-table-wrapper">
                     <table class="data-table">
                         <thead>
                             <tr>
-                                <th>Hesap kodu</th>
-                                <th>Hesap adı</th>
-                                <th>Tür</th>
-                                <th>Kullanım</th>
-                                <th>Planlanan</th>
-                                <th>Gerçekleşen</th>
-                                <th>Taahhüt</th>
-                                <th>Kullanılabilir</th>
+                                <th>Tedarikçi kodu</th>
+                                <th>Tedarikçi</th>
+                                <th>İletişim</th>
+                                <th>Ödeme vadesi</th>
                                 <th>Durum</th>
                             </tr>
                         </thead>
 
                         <tbody>
-                            {% for account in accounts %}
+                            {% for supplier in suppliers %}
                                 <tr>
                                     <td class="finance-table__balance">
-                                        {{ account.code }}
+                                        {{ supplier.code }}
                                     </td>
 
                                     <td>
                                         <div class="customer-cell">
-                                            <strong>{{ account.name }}</strong>
+                                            <strong>{{ supplier.name }}</strong>
                                             <span>
-                                                {{ account.description|default:"—" }}
+                                                {{ supplier.legal_name|default:"—" }}
                                             </span>
                                         </div>
                                     </td>
 
                                     <td>
-                                        <span
-                                            class="
-                                                finance-budget-account-type
-                                                finance-budget-account-type--{{ account.account_type }}
-                                            "
-                                        >
-                                            {{ account.get_account_type_display }}
-                                        </span>
-                                    </td>
-
-                                    <td>
-                                        <div class="finance-budget-account-usage">
+                                        <div class="customer-cell">
+                                            <strong>
+                                                {{ supplier.contact_name|default:"—" }}
+                                            </strong>
                                             <span>
-                                                {{ account.budget_line_count }}
-                                                plan satırı
-                                            </span>
-
-                                            <span>
-                                                {{ account.transaction_count }}
-                                                hareket
+                                                {{ supplier.email|default:supplier.phone|default:"—" }}
                                             </span>
                                         </div>
                                     </td>
-                                    <td class="finance-table__balance">
-    ₺{{ account.planned_amount|floatformat:2 }}
-</td>
 
-<td class="finance-table__balance">
-    ₺{{ account.actual_amount|floatformat:2 }}
-</td>
-
-<td class="finance-table__balance">
-    ₺{{ account.committed_amount|floatformat:2 }}
-</td>
-
-<td>
-    {% if account.remaining_amount < 0 %}
-        <span class="finance-amount--negative">
-            ₺{{ account.remaining_amount|floatformat:2 }}
-        </span>
-    {% else %}
-        <span class="finance-amount--positive">
-            ₺{{ account.remaining_amount|floatformat:2 }}
-        </span>
-    {% endif %}
-</td>
+                                    <td>
+                                        {{ supplier.payment_term_days }} gün
+                                    </td>
 
                                     <td>
                                         <span
                                             class="
                                                 finance-budget-account-status
-                                                {% if account.is_active %}
+                                                {% if supplier.is_active %}
                                                     finance-budget-account-status--active
                                                 {% else %}
                                                     finance-budget-account-status--passive
                                                 {% endif %}
                                             "
                                         >
-                                            {% if account.is_active %}
+                                            {% if supplier.is_active %}
                                                 Aktif
                                             {% else %}
                                                 Pasif
@@ -147,7 +103,8 @@ Bütçe Kontrol Hesapları | Glauria ERP
                 </div>
             {% else %}
                 <div class="finance-panel__empty">
-                    Henüz bütçe kontrol hesabı bulunmuyor.
+                    Henüz tedarikçi bulunmuyor. Sağdaki formdan ilk
+                    tedarikçiyi oluşturabilirsiniz.
                 </div>
             {% endif %}
         </section>
@@ -156,11 +113,11 @@ Bütçe Kontrol Hesapları | Glauria ERP
             <div class="finance-panel__heading">
                 <div>
                     <span class="finance-panel__eyebrow">
-                        YENİ KONTROL HESABI
+                        YENİ TEDARİKÇİ
                     </span>
 
                     <h3 class="finance-panel__title">
-                        Bütçe Hesabı Oluştur
+                        Tedarikçi Oluştur
                     </h3>
                 </div>
             </div>
@@ -198,7 +155,7 @@ Bütçe Kontrol Hesapları | Glauria ERP
                     type="submit"
                     class="finance-form__submit"
                 >
-                    Kontrol Hesabı Oluştur
+                    Tedarikçi Oluştur
                 </button>
             </form>
         </section>

@@ -28,6 +28,10 @@ Profil ve Güvenlik | Glauria ERP
         <div class="settings-feedback settings-feedback--success">
             Parolanız güncellendi.
         </div>
+    {% elif request.GET.updated == "workspace" %}
+        <div class="settings-feedback settings-feedback--success">
+            Aktif çalışma alanınız değiştirildi.
+        </div>
     {% endif %}
 
     <div class="profile-settings-grid">
@@ -108,6 +112,58 @@ Profil ve Güvenlik | Glauria ERP
                 </div>
             </dl>
         </article>
+                {% if memberships|length > 1 %}
+            <article class="settings-card">
+                <h3>Çalışma Alanı Değiştir</h3>
+
+                <p class="settings-page__description">
+                    Aktif çalışma alanı, Finans, Satın Alma ve diğer
+                    modüllerde gösterilen şirket verilerini belirler.
+                </p>
+
+                <div class="customer-detail__list">
+                    {% for workspace_membership in memberships %}
+                        <div>
+                            <dt>
+                                {{ workspace_membership.company.name }}
+                            </dt>
+
+                            <dd>
+                                {{ workspace_membership.branch.name }}
+                                /
+                                {{ workspace_membership.department.name }}
+
+                                {% if workspace_membership.is_primary %}
+                                    · Aktif
+                                {% endif %}
+                            </dd>
+                        </div>
+                    {% endfor %}
+                </div>
+
+                {% for workspace_membership in memberships %}
+                    {% if not workspace_membership.is_primary %}
+                        <form
+                            method="post"
+                            action="{% url 'accounts:workspace_switch' workspace_membership.id %}"
+                            class="customer-form"
+                        >
+                            {% csrf_token %}
+
+                            <div class="customer-form__actions">
+                                <button
+                                    type="submit"
+                                    class="customer-form__submit"
+                                >
+                                    {{ workspace_membership.company.name }}
+                                    alanına geç
+                                </button>
+                            </div>
+                        </form>
+                    {% endif %}
+                {% endfor %}
+            </article>
+        {% endif %}
 
         <article class="settings-card settings-card--wide">
             <h3>Parola Değiştir</h3>

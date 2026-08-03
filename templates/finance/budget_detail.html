@@ -202,6 +202,9 @@
                                 <th>Kategori</th>
                                 <th>Planlanan giriş</th>
                                 <th>Planlanan çıkış</th>
+                                <th>Gerçekleşen giriş</th>
+                                <th>Gerçekleşen çıkış</th>
+                                <th>Kalan limit</th>
                                 <th>Net plan</th>
                                 {% if budget.status == "draft" %}
     <th>Aksiyon</th>
@@ -226,6 +229,23 @@
                                     <td class="finance-amount--negative">
                                         ₺{{ line.planned_outflow|floatformat:2 }}
                                     </td>
+                                    <td class="finance-amount--positive">
+    ₺{{ line.actual_inflow|floatformat:2 }}
+</td>
+
+<td class="finance-amount--negative">
+    ₺{{ line.actual_outflow|floatformat:2 }}
+</td>
+
+<td class="finance-table__balance">
+    {% if line.planned_outflow > 0 %}
+        ₺{{ line.remaining_outflow|floatformat:2 }}
+    {% else %}
+        ₺{{ line.remaining_inflow|floatformat:2 }}
+    {% endif %}
+</td>
+
+
                                    <td class="finance-table__balance">
     ₺{{ line.planned_net|floatformat:2 }}
 </td>
