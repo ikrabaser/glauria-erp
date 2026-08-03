@@ -1,6 +1,9 @@
 from django import forms
 
-from apps.finance.models import FinanceBudgetAccount
+from apps.finance.models import (
+    FinanceBudgetAccount,
+    FinancialAccount,
+)
 
 from .models import (
     PurchaseOrder,
@@ -338,3 +341,53 @@ class SupplierInvoiceForm(forms.ModelForm):
 
     def clean_invoice_number(self):
         return self.cleaned_data["invoice_number"].strip().upper()
+class SupplierInvoicePaymentForm(forms.Form):
+    financial_account = forms.ModelChoiceField(
+        queryset=FinancialAccount.objects.none(),
+        label="Ödeme hesabı",
+        empty_label="Kasa veya banka hesabı seçin",
+    )
+
+    payment_date = forms.DateField(
+        label="Ödeme tarihi",
+        widget=forms.DateInput(
+            attrs={
+                "type": "date",
+            }
+        ),
+    )
+
+    reference_number = forms.CharField(
+        label="Referans numarası",
+        max_length=80,
+        required=False,
+        widget=forms.TextInput(
+            attrs={
+                "placeholder": "Dekont / EFT / işlem numarası",
+            }
+        ),
+    )
+
+    description = forms.CharField(
+        label="Ödeme açıklaması",
+        max_length=255,
+        widget=forms.TextInput(
+            attrs={
+                "placeholder": "Örn. Tedarikçi faturası ödemesi",
+            }
+        ),
+    )
+
+    def __init__(self, *args, company=None, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        if company:
+            self.fields["financial_account"].queryset = (
+                FinancialAccount.objects.filter(
+                    company=company,
+                    is_active=True,
+                ).order_by(
+                    "account_type",
+                    "name",
+                )
+            )

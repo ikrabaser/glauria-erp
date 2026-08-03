@@ -274,5 +274,136 @@
             {% endif %}
         </section>
     </div>
+     {% if payment_form %}
+        <div class="finance-dashboard__grid">
+            <section class="finance-panel">
+                <div class="finance-panel__heading">
+                    <div>
+                        <span class="finance-panel__eyebrow">
+                            FİNANSAL ÖDEME
+                        </span>
+
+                        <h3 class="finance-panel__title">
+                            Kasa / Bankadan Öde
+                        </h3>
+                    </div>
+
+                    <span class="finance-panel__count">
+                        ₺{{ total_amount|floatformat:2 }}
+                    </span>
+                </div>
+
+                <form
+                    method="post"
+                    action="{% url 'purchasing:supplier_invoice_payment_create' supplier_invoice.id %}"
+                    class="finance-form"
+                >
+                    {% csrf_token %}
+
+                    {% if payment_form.non_field_errors %}
+                        <div class="finance-form__errors">
+                            {{ payment_form.non_field_errors }}
+                        </div>
+                    {% endif %}
+
+                    {% for field in payment_form %}
+                        <div class="finance-form__field">
+                            <label for="{{ field.id_for_label }}">
+                                {{ field.label }}
+                            </label>
+
+                            {{ field }}
+                            {{ field.errors }}
+                        </div>
+                    {% endfor %}
+
+                    <button
+                        type="submit"
+                        class="finance-form__submit"
+                    >
+                        ₺{{ total_amount|floatformat:2 }} Ödemeyi Kaydet
+                    </button>
+                </form>
+            </section>
+
+            <section class="finance-panel">
+                <div class="finance-panel__heading">
+                    <div>
+                        <span class="finance-panel__eyebrow">
+                            ÖDEME DURUMU
+                        </span>
+
+                        <h3 class="finance-panel__title">
+                            Ödemeye Hazır
+                        </h3>
+                    </div>
+                </div>
+
+                <div class="finance-panel__empty">
+                    Bu fatura onaylandı. Ödeme kaydı oluşturulduğunda
+                    kasa/banka çıkışı ve bağlı bütçe taahhüdü eş zamanlı
+                    güncellenecek.
+                </div>
+            </section>
+        </div>
+    {% elif payments %}
+        <section class="finance-panel">
+            <div class="finance-panel__heading">
+                <div>
+                    <span class="finance-panel__eyebrow">
+                        ÖDEME GEÇMİŞİ
+                    </span>
+
+                    <h3 class="finance-panel__title">
+                        Kasa / Banka Ödemeleri
+                    </h3>
+                </div>
+
+                <span class="finance-panel__count">
+                    {{ payments|length }} ödeme
+                </span>
+            </div>
+
+            <div class="data-table-wrapper">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Ödeme tarihi</th>
+                            <th>Hesap</th>
+                            <th>Referans</th>
+                            <th>Tutar</th>
+                            <th>Kaydeden</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        {% for payment in payments %}
+                            <tr>
+                                <td>
+                                    {{ payment.payment_date|date:"d.m.Y" }}
+                                </td>
+
+                                <td>
+                                    {{ payment.financial_transaction.account.name }}
+                                </td>
+
+                                <td>
+                                    {{ payment.financial_transaction.reference_number|default:"—" }}
+                                </td>
+
+                                <td class="finance-table__balance">
+                                    −₺{{ payment.amount|floatformat:2 }}
+                                </td>
+
+                                <td>
+                                    {{ payment.created_by|default:"—" }}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    {% endif %}
 </section>
 {% endblock %}

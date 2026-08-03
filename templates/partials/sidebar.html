@@ -83,6 +83,12 @@
                     >
                         Tedarikçiler
                     </a>
+                    <a
+                        href="{% url 'purchasing:supplier_invoices' %}"
+                        class="sidebar-group__link{% if request.resolver_match.url_name == 'supplier_invoices' or request.resolver_match.url_name == 'supplier_invoice_detail' %} active{% endif %}"
+                    >
+                        Tedarikçi Faturaları
+                    </a>
                 </div>
             </details>
         {% endif %}

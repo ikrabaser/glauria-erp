@@ -13,6 +13,7 @@ from .views import (
     suppliers,
     supplier_invoices,
     supplier_invoice_status_update,
+    supplier_invoice_payment_create,
 )
 
 app_name = "purchasing"
@@ -33,6 +34,11 @@ urlpatterns = [
         "faturalar/<uuid:invoice_id>/durum/",
         supplier_invoice_status_update,
         name="supplier_invoice_status_update",
+    ),
+    path(
+        "faturalar/<uuid:invoice_id>/odeme-kaydet/",
+        supplier_invoice_payment_create,
+        name="supplier_invoice_payment_create",
     ),
     path(
         "faturalar/<uuid:invoice_id>/",

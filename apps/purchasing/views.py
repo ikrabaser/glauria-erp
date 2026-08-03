@@ -16,6 +16,7 @@ from .forms import (
     PurchaseOrderReceiptForm,
     SupplierForm,
     SupplierInvoiceForm,
+    SupplierInvoicePaymentForm,
 )
 from .models import (
     PurchaseBudgetCommitment,
@@ -27,6 +28,7 @@ from .models import (
     Supplier,
     SupplierInvoice,
     SupplierInvoiceLine,
+    SupplierInvoicePayment,
 )
 
 from apps.finance.models import (
@@ -996,6 +998,31 @@ def supplier_invoice_detail(request, invoice_id):
         "purchase_order_line__budget_account",
     ).order_by("created_at")
 
+    payments = supplier_invoice.payments.select_related(
+        "financial_transaction__account",
+        "created_by",
+    ).order_by(
+        "-payment_date",
+        "-created_at",
+    )
+
+    payment_form = None
+
+    if supplier_invoice.status == SupplierInvoice.Status.APPROVED:
+        payment_form = SupplierInvoicePaymentForm(
+            company=membership.company,
+            initial={
+                "payment_date": timezone.localdate(),
+                "reference_number": (
+                    supplier_invoice.invoice_number
+                ),
+                "description": (
+                    f"{supplier_invoice.supplier.name} "
+                    "tedarikçi faturası ödemesi"
+                ),
+            },
+        )
+
     return render(
         request,
         "purchasing/supplier_invoice_detail.html",
@@ -1004,6 +1031,8 @@ def supplier_invoice_detail(request, invoice_id):
             "supplier_invoice": supplier_invoice,
             "lines": lines,
             "total_amount": supplier_invoice.total_amount,
+            "payments": payments,
+            "payment_form": payment_form,
         },
     )
 @login_required
@@ -1095,6 +1124,172 @@ def supplier_invoice_status_update(request, invoice_id):
             request,
             "Bu fatura için seçilen aksiyon uygulanamadı.",
         )
+
+    return redirect(
+        "purchasing:supplier_invoice_detail",
+        invoice_id=supplier_invoice.id,
+    )
+@login_required
+@require_POST
+def supplier_invoice_payment_create(request, invoice_id):
+    membership = get_active_membership(request.user)
+
+    if not membership or not has_full_company_data_access(
+        membership
+    ):
+        return redirect("finance:home")
+
+    supplier_invoice = get_object_or_404(
+        SupplierInvoice.objects.select_related(
+            "supplier",
+            "purchase_order__purchase_request",
+        ).prefetch_related(
+            "lines__purchase_order_line__budget_account",
+        ),
+        id=invoice_id,
+        company=membership.company,
+    )
+
+    if supplier_invoice.status != SupplierInvoice.Status.APPROVED:
+        messages.error(
+            request,
+            "Yalnızca onaylanmış tedarikçi faturaları ödenebilir.",
+        )
+        return redirect(
+            "purchasing:supplier_invoice_detail",
+            invoice_id=supplier_invoice.id,
+        )
+
+    if supplier_invoice.payments.filter(
+        status=SupplierInvoicePayment.Status.ACTIVE,
+    ).exists():
+        messages.error(
+            request,
+            "Bu fatura için aktif bir ödeme kaydı zaten bulunuyor.",
+        )
+        return redirect(
+            "purchasing:supplier_invoice_detail",
+            invoice_id=supplier_invoice.id,
+        )
+
+    form = SupplierInvoicePaymentForm(
+        request.POST,
+        company=membership.company,
+    )
+
+    if not form.is_valid():
+        messages.error(
+            request,
+            "Ödeme kaydı için form alanlarını kontrol edin.",
+        )
+        return redirect(
+            "purchasing:supplier_invoice_detail",
+            invoice_id=supplier_invoice.id,
+        )
+
+    financial_account = form.cleaned_data["financial_account"]
+
+    if financial_account.currency != supplier_invoice.currency:
+        messages.error(
+            request,
+            (
+                "Ödeme hesabının para birimi, fatura para birimiyle "
+                "aynı olmalıdır."
+            ),
+        )
+        return redirect(
+            "purchasing:supplier_invoice_detail",
+            invoice_id=supplier_invoice.id,
+        )
+
+    budget_account_ids = {
+        line.purchase_order_line.budget_account_id
+        for line in supplier_invoice.lines.all()
+    }
+
+    if len(budget_account_ids) != 1:
+        messages.error(
+            request,
+            (
+                "Birden fazla bütçe hesabına bağlı faturalar için "
+                "ayrıştırılmış ödeme henüz desteklenmiyor."
+            ),
+        )
+        return redirect(
+            "purchasing:supplier_invoice_detail",
+            invoice_id=supplier_invoice.id,
+        )
+
+    budget_account_id = budget_account_ids.pop()
+    payment_amount = supplier_invoice.total_amount
+
+    if payment_amount <= Decimal("0.00"):
+        messages.error(
+            request,
+            "Ödenecek fatura tutarı sıfırdan büyük olmalıdır.",
+        )
+        return redirect(
+            "purchasing:supplier_invoice_detail",
+            invoice_id=supplier_invoice.id,
+        )
+
+    with transaction.atomic():
+        financial_transaction = (
+            FinancialAccountTransaction.objects.create(
+                account=financial_account,
+                company=membership.company,
+                budget_account_id=budget_account_id,
+                direction=FinancialAccountTransaction.Direction.OUT,
+                transaction_type=(
+                    FinancialAccountTransaction.TransactionType.PAYMENT
+                ),
+                transaction_date=form.cleaned_data["payment_date"],
+                amount=payment_amount,
+                description=form.cleaned_data["description"],
+                reference_number=(
+                    form.cleaned_data["reference_number"]
+                ),
+                created_by=request.user,
+            )
+        )
+
+        SupplierInvoicePayment.objects.create(
+            company=membership.company,
+            supplier_invoice=supplier_invoice,
+            financial_transaction=financial_transaction,
+            amount=payment_amount,
+            payment_date=form.cleaned_data["payment_date"],
+            created_by=request.user,
+        )
+
+        released_count = (
+            PurchaseBudgetCommitment.objects.filter(
+                company=membership.company,
+                purchase_request=(
+                    supplier_invoice.purchase_order.purchase_request
+                ),
+                status=PurchaseBudgetCommitment.Status.ACTIVE,
+            ).update(
+                status=PurchaseBudgetCommitment.Status.RELEASED,
+                updated_at=timezone.now(),
+            )
+        )
+
+        supplier_invoice.status = SupplierInvoice.Status.PAID
+        supplier_invoice.save(
+            update_fields=[
+                "status",
+                "updated_at",
+            ],
+        )
+
+    messages.success(
+        request,
+        (
+            f"₺{payment_amount:.2f} ödeme kaydedildi. "
+            f"{released_count} bütçe taahhüdü serbest bırakıldı."
+        ),
+    )
 
     return redirect(
         "purchasing:supplier_invoice_detail",

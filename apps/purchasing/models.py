@@ -914,3 +914,87 @@ class SupplierInvoiceLine(BaseModel):
     @property
     def line_total(self):
         return self.quantity * self.unit_price
+
+class SupplierInvoicePayment(BaseModel):
+    """
+    Onaylanmış tedarikçi faturasına ait kasa / banka ödeme kaydı.
+    """
+
+    class Status(models.TextChoices):
+        ACTIVE = "active", "Aktif"
+        REVERSED = "reversed", "Ters kayıt"
+        CANCELLED = "cancelled", "İptal"
+
+    company = models.ForeignKey(
+        Company,
+        on_delete=models.PROTECT,
+        related_name="supplier_invoice_payments",
+        verbose_name="Şirket",
+    )
+
+    supplier_invoice = models.ForeignKey(
+        SupplierInvoice,
+        on_delete=models.PROTECT,
+        related_name="payments",
+        verbose_name="Tedarikçi faturası",
+    )
+
+    financial_transaction = models.OneToOneField(
+        "finance.FinancialAccountTransaction",
+        on_delete=models.PROTECT,
+        related_name="supplier_invoice_payment",
+        verbose_name="Kasa / banka ödeme hareketi",
+    )
+
+    amount = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        verbose_name="Ödeme tutarı",
+    )
+
+    payment_date = models.DateField(
+        default=timezone.localdate,
+        verbose_name="Ödeme tarihi",
+    )
+
+    status = models.CharField(
+        max_length=12,
+        choices=Status.choices,
+        default=Status.ACTIVE,
+        verbose_name="Durum",
+    )
+
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="created_supplier_invoice_payments",
+        verbose_name="Ödemeyi kaydeden kullanıcı",
+    )
+
+    class Meta:
+        ordering = ["-payment_date", "-created_at"]
+        verbose_name = "Tedarikçi faturası ödemesi"
+        verbose_name_plural = "Tedarikçi faturası ödemeleri"
+        indexes = [
+            models.Index(
+                fields=[
+                    "company",
+                    "supplier_invoice",
+                    "status",
+                ],
+            ),
+        ]
+        constraints = [
+            models.CheckConstraint(
+                condition=Q(amount__gt=0),
+                name="supplier_invoice_payment_amount_positive",
+            ),
+        ]
+
+    def __str__(self):
+        return (
+            f"{self.supplier_invoice.invoice_number} "
+            f"· ₺{self.amount}"
+        )
