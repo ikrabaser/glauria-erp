@@ -7,16 +7,19 @@ from django.utils import timezone
 from django.contrib import messages
 from django.db import transaction
 from django.http import HttpResponseForbidden
+from django.core.exceptions import ValidationError
 
 from apps.accounts.models import OrganizationMembership
 from apps.organizations.models import Department
 
 from .models import Employee, EmploymentAssignment, Position
 from .forms import (
+    AssignmentChangeForm,
     EmployeeForm,
     InitialAssignmentForm,
     PositionForm,
 )
+from .services import change_employee_assignment
 
 
 def get_active_membership(user):
@@ -356,6 +359,22 @@ def employee_detail(request, employee_id):
             "employee__first_name",
         )
     )
+    assignment_events = (
+        employee.assignment_events
+        .select_related(
+            "previous_assignment",
+            "previous_assignment__position",
+            "previous_assignment__department",
+            "new_assignment",
+            "new_assignment__position",
+            "new_assignment__department",
+            "changed_by",
+        )
+        .order_by(
+            "-effective_date",
+            "-created_at",
+        )
+    )
 
     return render(
         request,
@@ -367,6 +386,7 @@ def employee_detail(request, employee_id):
             "assignment_history": assignment_history,
             "direct_reports": direct_reports,
             "can_manage_hr": can_manage_hr(membership),
+            "assignment_events": assignment_events,
         },
     )
 @login_required
@@ -641,5 +661,129 @@ def position_update(request, position_id):
             "current_membership": membership,
             "form": form,
             "position": position,
+        },
+    )
+@login_required
+def employee_assignment_change(request, employee_id):
+    membership = get_active_membership(request.user)
+
+    if not can_manage_hr(membership):
+        return hr_management_forbidden()
+
+    employee = get_object_or_404(
+        Employee,
+        id=employee_id,
+        company=membership.company,
+    )
+
+    current_assignment = (
+        employee.assignments
+        .select_related(
+            "branch",
+            "department",
+            "position",
+            "manager",
+        )
+        .filter(
+            is_primary=True,
+            end_date__isnull=True,
+        )
+        .first()
+    )
+
+    if not current_assignment:
+        messages.error(
+            request,
+            (
+                "Personelin değiştirilebilecek aktif "
+                "birincil ataması bulunmuyor."
+            ),
+        )
+
+        return redirect(
+            "hr:employee_detail",
+            employee_id=employee.id,
+        )
+
+    if request.method == "POST":
+        form = AssignmentChangeForm(
+            request.POST,
+            company=membership.company,
+            employee=employee,
+            current_assignment=current_assignment,
+        )
+
+        if form.is_valid():
+            try:
+                new_assignment = change_employee_assignment(
+                    employee=employee,
+                    branch=form.cleaned_data["branch"],
+                    department=form.cleaned_data["department"],
+                    position=form.cleaned_data["position"],
+                    manager=form.cleaned_data["manager"],
+                    employment_type=(
+                        form.cleaned_data["employment_type"]
+                    ),
+                    effective_date=(
+                        form.cleaned_data["effective_date"]
+                    ),
+                    is_department_manager=(
+                        form.cleaned_data[
+                            "is_department_manager"
+                        ]
+                    ),
+                    changed_by=request.user,
+                    change_reason=(
+                        form.cleaned_data["change_reason"]
+                    ),
+                )
+            except ValidationError as error:
+                form.add_error(
+                    None,
+                    error.messages,
+                )
+            else:
+                messages.success(
+                    request,
+                    (
+                        f"{employee.full_name} için "
+                        f"{new_assignment.position.title} "
+                        "ataması oluşturuldu. Önceki atama "
+                        "çalışma geçmişinde korundu."
+                    ),
+                )
+
+                return redirect(
+                    "hr:employee_detail",
+                    employee_id=employee.id,
+                )
+    else:
+        form = AssignmentChangeForm(
+            company=membership.company,
+            employee=employee,
+            current_assignment=current_assignment,
+            initial={
+                "branch": current_assignment.branch,
+                "department": current_assignment.department,
+                "position": current_assignment.position,
+                "manager": current_assignment.manager,
+                "employment_type": (
+                    current_assignment.employment_type
+                ),
+                "effective_date": timezone.localdate(),
+                "is_department_manager": (
+                    current_assignment.is_department_manager
+                ),
+            },
+        )
+
+    return render(
+        request,
+        "hr/assignment_change_form.html",
+        {
+            "current_membership": membership,
+            "employee": employee,
+            "current_assignment": current_assignment,
+            "form": form,
         },
     )

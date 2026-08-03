@@ -1,10 +1,10 @@
 from django import forms
+from django.utils import timezone
 
 from apps.accounts.models import User
 from apps.organizations.models import Branch, Department
 
 from .models import Employee, EmploymentAssignment, Position
-
 
 class HRBaseModelForm(forms.ModelForm):
     """
@@ -375,6 +375,187 @@ class InitialAssignmentForm(HRBaseModelForm):
         self.fields["manager"].empty_label = "Üst yönetici yok"
 
         self.apply_control_classes()
+
+    def clean(self):
+        cleaned_data = super().clean()
+
+        branch = cleaned_data.get("branch")
+        department = cleaned_data.get("department")
+        position = cleaned_data.get("position")
+        manager = cleaned_data.get("manager")
+
+        if branch and department:
+            if department.branch_id != branch.id:
+                self.add_error(
+                    "department",
+                    "Departman seçilen şubeye ait olmalıdır.",
+                )
+
+        if department and position:
+            if position.department_id != department.id:
+                self.add_error(
+                    "position",
+                    "Pozisyon seçilen departmana ait olmalıdır.",
+                )
+
+        if manager and self.company:
+            if manager.company_id != self.company.id:
+                self.add_error(
+                    "manager",
+                    "Yönetici aynı şirkete ait olmalıdır.",
+                )
+
+        return cleaned_data
+class AssignmentChangeForm(forms.Form):
+    branch = forms.ModelChoiceField(
+        queryset=Branch.objects.none(),
+        label="Şube",
+        empty_label="Şube seçin",
+    )
+
+    department = forms.ModelChoiceField(
+        queryset=Department.objects.none(),
+        label="Departman",
+        empty_label="Departman seçin",
+    )
+
+    position = forms.ModelChoiceField(
+        queryset=Position.objects.none(),
+        label="Pozisyon",
+        empty_label="Pozisyon seçin",
+    )
+
+    manager = forms.ModelChoiceField(
+        queryset=Employee.objects.none(),
+        label="Bağlı yönetici",
+        required=False,
+        empty_label="Üst yönetici yok",
+    )
+
+    employment_type = forms.ChoiceField(
+        choices=EmploymentAssignment.EmploymentType.choices,
+        label="Çalışma türü",
+    )
+
+    effective_date = forms.DateField(
+        label="Geçerlilik tarihi",
+        widget=forms.DateInput(
+            format="%Y-%m-%d",
+            attrs={
+                "type": "date",
+            },
+        ),
+    )
+
+    is_department_manager = forms.BooleanField(
+        label="Departman yöneticisi",
+        required=False,
+    )
+
+    change_reason = forms.CharField(
+        label="Değişiklik gerekçesi",
+        widget=forms.Textarea(
+            attrs={
+                "rows": 4,
+                "placeholder": (
+                    "Pozisyon, departman veya yönetici "
+                    "değişikliğinin gerekçesi"
+                ),
+            }
+        ),
+    )
+
+    def __init__(
+        self,
+        *args,
+        company=None,
+        employee=None,
+        current_assignment=None,
+        **kwargs,
+    ):
+        super().__init__(*args, **kwargs)
+
+        self.company = company
+        self.employee = employee
+        self.current_assignment = current_assignment
+
+        self.fields["branch"].queryset = (
+            Branch.objects.filter(
+                company=company,
+                is_active=True,
+            ).order_by("name")
+        )
+
+        self.fields["department"].queryset = (
+            Department.objects.filter(
+                branch__company=company,
+                is_active=True,
+            )
+            .select_related("branch")
+            .order_by(
+                "branch__name",
+                "name",
+            )
+        )
+
+        self.fields["position"].queryset = (
+            Position.objects.filter(
+                company=company,
+                is_active=True,
+            )
+            .select_related("department")
+            .order_by(
+                "department__name",
+                "title",
+            )
+        )
+
+        manager_queryset = Employee.objects.filter(
+            company=company,
+            is_active=True,
+            employment_status=Employee.EmploymentStatus.ACTIVE,
+        ).order_by(
+            "last_name",
+            "first_name",
+        )
+
+        if employee:
+            manager_queryset = manager_queryset.exclude(
+                pk=employee.pk,
+            )
+
+        self.fields["manager"].queryset = manager_queryset
+
+        for field in self.fields.values():
+            if isinstance(field.widget, forms.CheckboxInput):
+                field.widget.attrs["class"] = "hr-form__checkbox"
+            else:
+                field.widget.attrs["class"] = "hr-form__control"
+
+    def clean_effective_date(self):
+        effective_date = self.cleaned_data["effective_date"]
+
+        if effective_date > timezone.localdate():
+            raise forms.ValidationError(
+                (
+                    "Gelecek tarihli atamalar bu aşamada "
+                    "oluşturulamaz."
+                )
+            )
+
+        if (
+            self.current_assignment
+            and effective_date
+            <= self.current_assignment.start_date
+        ):
+            raise forms.ValidationError(
+                (
+                    "Yeni atamanın geçerlilik tarihi mevcut "
+                    "atamanın başlangıcından sonra olmalıdır."
+                )
+            )
+
+        return effective_date
 
     def clean(self):
         cleaned_data = super().clean()

@@ -9,6 +9,7 @@ from .views import (
     position_create,
     position_list,
     position_update,
+    employee_assignment_change,
 )
 
 app_name = "hr"
@@ -29,7 +30,12 @@ urlpatterns = [
         employee_detail,
         name="employee_detail",
     ),
-        path(
+    path(
+        "personeller/<uuid:employee_id>/atama-degistir/",
+        employee_assignment_change,
+        name="employee_assignment_change",
+    ),
+    path(
         "personeller/yeni/",
         employee_create,
         name="employee_create",

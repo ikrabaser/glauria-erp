@@ -1,6 +1,11 @@
 from django.contrib import admin
 
-from .models import Employee, EmploymentAssignment, Position
+from .models import (
+    Employee,
+    EmploymentAssignment,
+    EmploymentAssignmentEvent,
+    Position,
+)
 
 
 class EmploymentAssignmentInline(admin.TabularInline):
@@ -143,3 +148,66 @@ class EmploymentAssignmentAdmin(admin.ModelAdmin):
         "position",
         "manager",
     )
+
+@admin.register(EmploymentAssignmentEvent)
+class EmploymentAssignmentEventAdmin(admin.ModelAdmin):
+    list_display = (
+        "employee",
+        "event_type",
+        "effective_date",
+        "previous_assignment",
+        "new_assignment",
+        "changed_by",
+    )
+    list_filter = (
+        "company",
+        "event_type",
+        "effective_date",
+    )
+    search_fields = (
+        "employee__employee_number",
+        "employee__first_name",
+        "employee__last_name",
+        "reason",
+        "changed_by__username",
+    )
+    ordering = (
+        "-effective_date",
+        "-created_at",
+    )
+    list_select_related = (
+        "company",
+        "employee",
+        "previous_assignment",
+        "new_assignment",
+        "changed_by",
+    )
+    readonly_fields = (
+        "company",
+        "employee",
+        "previous_assignment",
+        "new_assignment",
+        "changed_by",
+        "event_type",
+        "effective_date",
+        "reason",
+        "created_at",
+        "updated_at",
+    )
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(
+        self,
+        request,
+        obj=None,
+    ):
+        return False
+
+    def has_delete_permission(
+        self,
+        request,
+        obj=None,
+    ):
+        return False

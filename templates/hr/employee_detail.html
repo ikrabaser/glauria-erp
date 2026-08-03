@@ -30,10 +30,18 @@
             Pozisyonlar
         </a>
 
-        {% if can_manage_hr %}
+                {% if can_manage_hr %}
+            {% if current_assignment %}
+                <a
+                    href="{% url 'hr:employee_assignment_change' employee.id %}"
+                    class="hr-subnav__primary"
+                >
+                    Atamayı Değiştir
+                </a>
+            {% endif %}
+
             <a
                 href="{% url 'hr:employee_update' employee.id %}"
-                class="hr-subnav__primary"
             >
                 Personel Kartını Düzenle
             </a>
@@ -379,6 +387,72 @@
         {% else %}
             <div class="hr-panel__empty">
                 Personel için çalışma geçmişi bulunmuyor.
+            </div>
+        {% endif %}
+    </section>
+        <section class="hr-panel hr-profile__section">
+        <div class="hr-panel__heading">
+            <div>
+                <span class="hr-panel__eyebrow">
+                    DENETİM İZİ
+                </span>
+
+                <h3 class="hr-panel__title">
+                    Atama Değişiklik Kayıtları
+                </h3>
+            </div>
+
+            <span class="hr-panel__count">
+                {{ assignment_events|length }} değişiklik
+            </span>
+        </div>
+
+        {% if assignment_events %}
+            <div class="hr-event-list">
+                {% for event in assignment_events %}
+                    <article class="hr-event">
+                        <span class="hr-event__date">
+                            {{ event.effective_date|date:"d.m.Y" }}
+                        </span>
+
+                        <div class="hr-event__change">
+                            <div>
+                                <small>Önceki</small>
+                                <strong>
+                                    {{ event.previous_assignment.position.title }}
+                                </strong>
+                                <span>
+                                    {{ event.previous_assignment.department.name }}
+                                </span>
+                            </div>
+
+                            <span class="hr-event__arrow">→</span>
+
+                            <div>
+                                <small>Yeni</small>
+                                <strong>
+                                    {{ event.new_assignment.position.title }}
+                                </strong>
+                                <span>
+                                    {{ event.new_assignment.department.name }}
+                                </span>
+                            </div>
+                        </div>
+
+                        <div class="hr-event__reason">
+                            <small>Gerekçe</small>
+                            <p>{{ event.reason }}</p>
+                            <span>
+                                Değiştiren:
+                                {{ event.changed_by|default:"Sistem" }}
+                            </span>
+                        </div>
+                    </article>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="hr-panel__empty">
+                Bu personel için kayıtlı atama değişikliği bulunmuyor.
             </div>
         {% endif %}
     </section>

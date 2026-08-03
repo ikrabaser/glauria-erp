@@ -401,3 +401,135 @@ class EmploymentAssignment(BaseModel):
             f"{self.employee.full_name} · "
             f"{self.position.title}"
         )
+
+
+class EmploymentAssignmentEvent(BaseModel):
+    """
+    Personel atama değişikliklerinin denetim kaydıdır.
+
+    Eski ve yeni atama arasındaki geçişi, işlemi yapan
+    kullanıcıyı, tarihi ve değişiklik gerekçesini saklar.
+    """
+
+    class EventType(models.TextChoices):
+        ASSIGNMENT_CHANGE = (
+            "assignment_change",
+            "Atama değişikliği",
+        )
+
+    company = models.ForeignKey(
+        Company,
+        on_delete=models.PROTECT,
+        related_name="employment_assignment_events",
+        verbose_name="Şirket",
+    )
+
+    employee = models.ForeignKey(
+        Employee,
+        on_delete=models.PROTECT,
+        related_name="assignment_events",
+        verbose_name="Personel",
+    )
+
+    previous_assignment = models.ForeignKey(
+        EmploymentAssignment,
+        on_delete=models.PROTECT,
+        related_name="outgoing_events",
+        verbose_name="Önceki atama",
+    )
+
+    new_assignment = models.OneToOneField(
+        EmploymentAssignment,
+        on_delete=models.PROTECT,
+        related_name="change_event",
+        verbose_name="Yeni atama",
+    )
+
+    changed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="hr_assignment_events",
+        verbose_name="Değişikliği yapan",
+    )
+
+    event_type = models.CharField(
+        max_length=30,
+        choices=EventType.choices,
+        default=EventType.ASSIGNMENT_CHANGE,
+        verbose_name="Olay türü",
+    )
+
+    effective_date = models.DateField(
+        verbose_name="Geçerlilik tarihi",
+    )
+
+    reason = models.TextField(
+        verbose_name="Değişiklik gerekçesi",
+    )
+
+    class Meta:
+        verbose_name = "Atama değişiklik kaydı"
+        verbose_name_plural = "Atama değişiklik kayıtları"
+        ordering = [
+            "-effective_date",
+            "-created_at",
+        ]
+        indexes = [
+            models.Index(
+                fields=["company", "effective_date"],
+            ),
+            models.Index(
+                fields=["employee", "effective_date"],
+            ),
+        ]
+
+    def clean(self):
+        errors = {}
+
+        if self.employee_id and self.company_id:
+            if self.employee.company_id != self.company_id:
+                errors["employee"] = (
+                    "Personel, denetim kaydındaki şirkete "
+                    "ait olmalıdır."
+                )
+
+        if self.previous_assignment_id and self.employee_id:
+            if (
+                self.previous_assignment.employee_id
+                != self.employee_id
+            ):
+                errors["previous_assignment"] = (
+                    "Önceki atama seçilen personele ait olmalıdır."
+                )
+
+        if self.new_assignment_id and self.employee_id:
+            if self.new_assignment.employee_id != self.employee_id:
+                errors["new_assignment"] = (
+                    "Yeni atama seçilen personele ait olmalıdır."
+                )
+
+        if (
+            self.previous_assignment_id
+            and self.new_assignment_id
+            and self.previous_assignment_id
+            == self.new_assignment_id
+        ):
+            errors["new_assignment"] = (
+                "Önceki ve yeni atama aynı kayıt olamaz."
+            )
+
+        if errors:
+            raise ValidationError(errors)
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return (
+            f"{self.employee.full_name} · "
+            f"{self.get_event_type_display()} · "
+            f"{self.effective_date:%d.%m.%Y}"
+        )

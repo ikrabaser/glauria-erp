@@ -7,8 +7,13 @@ from django.test import TestCase
 from apps.accounts.models import OrganizationMembership, User
 from apps.organizations.models import Branch, Company, Department
 
-from .models import Employee, EmploymentAssignment, Position
-
+from .models import (
+    Employee,
+    EmploymentAssignment,
+    EmploymentAssignmentEvent,
+    Position,
+)
+from .services import change_employee_assignment
 
 class HRModelTestCase(TestCase):
     def setUp(self):
@@ -603,3 +608,153 @@ class HRViewTestCase(TestCase):
                 response.status_code,
                 403,
             )
+    def test_assignment_change_preserves_history_and_creates_event(self):
+        operations_department = Department.objects.create(
+            branch=self.branch,
+            name="Operasyon",
+            code="OPS",
+        )
+
+        operations_position = Position.objects.create(
+            company=self.company,
+            department=operations_department,
+            code="OPS-MGR",
+            title="Operasyon Müdürü",
+        )
+
+        new_assignment = change_employee_assignment(
+            employee=self.employee,
+            branch=self.branch,
+            department=operations_department,
+            position=operations_position,
+            manager=None,
+            employment_type=(
+                EmploymentAssignment.EmploymentType.FULL_TIME
+            ),
+            effective_date=date(2026, 1, 1),
+            is_department_manager=True,
+            changed_by=self.admin_user,
+            change_reason="Organizasyon yapılanması değişikliği.",
+        )
+
+        self.assignment.refresh_from_db()
+
+        self.assertEqual(
+            self.assignment.end_date,
+            date(2025, 12, 31),
+        )
+        self.assertEqual(
+            new_assignment.start_date,
+            date(2026, 1, 1),
+        )
+        self.assertIsNone(new_assignment.end_date)
+        self.assertEqual(
+            new_assignment.department,
+            operations_department,
+        )
+
+        event = EmploymentAssignmentEvent.objects.get(
+            new_assignment=new_assignment,
+        )
+
+        self.assertEqual(
+            event.previous_assignment,
+            self.assignment,
+        )
+        self.assertEqual(
+            event.employee,
+            self.employee,
+        )
+        self.assertEqual(
+            event.changed_by,
+            self.admin_user,
+        )
+        self.assertEqual(
+            event.reason,
+            "Organizasyon yapılanması değişikliği.",
+        )
+
+    def test_hr_manager_can_change_assignment_from_view(self):
+        operations_department = Department.objects.create(
+            branch=self.branch,
+            name="Yeni Operasyon",
+            code="NEW-OPS",
+        )
+
+        operations_position = Position.objects.create(
+            company=self.company,
+            department=operations_department,
+            code="NEW-OPS-MGR",
+            title="Yeni Operasyon Müdürü",
+        )
+
+        self.client.force_login(self.admin_user)
+
+        response = self.client.post(
+            reverse(
+                "hr:employee_assignment_change",
+                kwargs={
+                    "employee_id": self.employee.id,
+                },
+            ),
+            {
+                "branch": str(self.branch.id),
+                "department": str(operations_department.id),
+                "position": str(operations_position.id),
+                "manager": "",
+                "employment_type": (
+                    EmploymentAssignment
+                    .EmploymentType
+                    .FULL_TIME
+                ),
+                "effective_date": "2026-01-01",
+                "is_department_manager": "on",
+                "change_reason": (
+                    "View üzerinden organizasyon değişikliği."
+                ),
+            },
+        )
+
+        self.assertRedirects(
+            response,
+            reverse(
+                "hr:employee_detail",
+                kwargs={
+                    "employee_id": self.employee.id,
+                },
+            ),
+        )
+
+        active_assignment = self.employee.assignments.get(
+            is_primary=True,
+            end_date__isnull=True,
+        )
+
+        self.assertEqual(
+            active_assignment.position,
+            operations_position,
+        )
+        self.assertTrue(
+            EmploymentAssignmentEvent.objects.filter(
+                employee=self.employee,
+                new_assignment=active_assignment,
+                changed_by=self.admin_user,
+            ).exists()
+        )
+
+    def test_hr_specialist_cannot_change_assignment(self):
+        self.client.force_login(self.hr_user)
+
+        response = self.client.get(
+            reverse(
+                "hr:employee_assignment_change",
+                kwargs={
+                    "employee_id": self.employee.id,
+                },
+            ),
+        )
+
+        self.assertEqual(
+            response.status_code,
+            403,
+        )
