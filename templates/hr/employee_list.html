@@ -1,0 +1,220 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}
+Personel Dizini | Glauria ERP
+{% endblock %}
+
+{% block extra_css %}
+<link
+    rel="stylesheet"
+    href="{% static 'css/hr.css' %}?v=hr-workforce-v1"
+>
+{% endblock %}
+
+{% block content %}
+<section class="module-page hr-directory">
+    {% url "hr:home" as hr_home_url %}
+
+    {% include "components/page_header.html" with eyebrow="İNSAN KAYNAKLARI · PERSONEL YÖNETİMİ" title="Personel Dizini" description="Personel kartlarını, güncel pozisyonları, departmanları ve bağlı yöneticileri görüntüleyin." action_text="İK Ana Paneli" action_url=hr_home_url %}
+
+    <form
+        method="get"
+        class="hr-toolbar"
+    >
+        <div class="hr-toolbar__search">
+            <label
+                for="hr-search"
+                class="sr-only"
+            >
+                Personel ara
+            </label>
+
+            <input
+                id="hr-search"
+                type="search"
+                name="q"
+                value="{{ search_query }}"
+                placeholder="Personel no, ad, pozisyon veya departman ara..."
+            >
+        </div>
+
+        <div class="hr-toolbar__field">
+            <label for="hr-department">
+                Departman
+            </label>
+
+            <select
+                id="hr-department"
+                name="department"
+            >
+                <option value="">Tüm departmanlar</option>
+
+                {% for department in departments %}
+                    <option
+                        value="{{ department.id }}"
+                        {% if selected_department == department.id|stringformat:"s" %}
+                            selected
+                        {% endif %}
+                    >
+                        {{ department.name }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="hr-toolbar__field">
+            <label for="hr-status">
+                Çalışma durumu
+            </label>
+
+            <select
+                id="hr-status"
+                name="status"
+            >
+                <option value="">Tüm durumlar</option>
+
+                {% for value, label in employment_status_choices %}
+                    <option
+                        value="{{ value }}"
+                        {% if selected_status == value %}
+                            selected
+                        {% endif %}
+                    >
+                        {{ label }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <button
+            type="submit"
+            class="hr-toolbar__submit"
+        >
+            Uygula
+        </button>
+
+        {% if search_query or selected_department or selected_status %}
+            <a
+                href="{% url 'hr:employee_list' %}"
+                class="hr-toolbar__clear"
+            >
+                Temizle
+            </a>
+        {% endif %}
+    </form>
+
+    <section class="hr-panel hr-directory__panel">
+        <div class="hr-panel__heading">
+            <div>
+                <span class="hr-panel__eyebrow">
+                    İŞ GÜCÜ KAYITLARI
+                </span>
+
+                <h3 class="hr-panel__title">
+                    Personel Kartları
+                </h3>
+            </div>
+
+            <span class="hr-panel__count">
+                {{ employees|length }} personel
+            </span>
+        </div>
+
+        {% if employees %}
+            <div class="data-table-wrapper">
+                <table class="data-table hr-directory-table">
+                    <thead>
+                        <tr>
+                            <th>Personel</th>
+                            <th>Personel No</th>
+                            <th>Departman</th>
+                            <th>Pozisyon</th>
+                            <th>Yönetici</th>
+                            <th>İşe Giriş</th>
+                            <th>Durum</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        {% for employee in employees %}
+                            {% with assignment=employee.current_assignments.0 %}
+                                <tr>
+                                    <td>
+                                        <a
+                                            href="{% url 'hr:employee_detail' employee.id %}"
+                                            class="hr-employee-cell"
+                                        >
+                                            <span class="hr-employee-cell__avatar">
+                                                {{ employee.first_name|first }}{{ employee.last_name|first }}
+                                            </span>
+
+                                            <span>
+                                                <strong>
+                                                    {{ employee.full_name }}
+                                                </strong>
+                                                <small>
+                                                    {{ employee.work_email|default:"E-posta tanımlanmamış" }}
+                                                </small>
+                                            </span>
+                                        </a>
+                                    </td>
+
+                                    <td class="hr-directory-table__number">
+                                        {{ employee.employee_number }}
+                                    </td>
+
+                                    <td>
+                                        {% if assignment %}
+                                            {{ assignment.department.name }}
+                                        {% else %}
+                                            —
+                                        {% endif %}
+                                    </td>
+
+                                    <td>
+                                        {% if assignment %}
+                                            {{ assignment.position.title }}
+                                        {% else %}
+                                            <span class="hr-muted">
+                                                Atama bulunmuyor
+                                            </span>
+                                        {% endif %}
+                                    </td>
+
+                                    <td>
+                                        {% if assignment.manager %}
+                                            {{ assignment.manager.full_name }}
+                                        {% else %}
+                                            —
+                                        {% endif %}
+                                    </td>
+
+                                    <td>
+                                        {{ employee.hire_date|date:"d.m.Y" }}
+                                    </td>
+
+                                    <td>
+                                        <span
+                                            class="
+                                                hr-status
+                                                hr-status--{{ employee.employment_status }}
+                                            "
+                                        >
+                                            {{ employee.get_employment_status_display }}
+                                        </span>
+                                    </td>
+                                </tr>
+                            {% endwith %}
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="hr-panel__empty">
+                Seçilen arama ve filtrelerle eşleşen personel bulunamadı.
+            </div>
+        {% endif %}
+    </section>
+</section>
+{% endblock %}

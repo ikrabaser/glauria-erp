@@ -1,9 +1,10 @@
 from datetime import date
+from django.urls import reverse
 
 from django.core.exceptions import ValidationError
 from django.test import TestCase
 
-from apps.accounts.models import User
+from apps.accounts.models import OrganizationMembership, User
 from apps.organizations.models import Branch, Company, Department
 
 from .models import Employee, EmploymentAssignment, Position
@@ -185,3 +186,235 @@ class HRModelTestCase(TestCase):
 
         with self.assertRaises(ValidationError):
             invalid_assignment.full_clean()
+class HRViewTestCase(TestCase):
+    def setUp(self):
+        self.company = Company.objects.create(
+            name="HR Ekran Test Şirketi",
+        )
+
+        self.branch = Branch.objects.create(
+            company=self.company,
+            name="Test Genel Merkez",
+            code="HR-VIEW-HQ",
+        )
+
+        self.department = Department.objects.create(
+            branch=self.branch,
+            name="İnsan Kaynakları",
+            code="HR",
+        )
+
+        self.position = Position.objects.create(
+            company=self.company,
+            department=self.department,
+            code="HR-MGR",
+            title="İnsan Kaynakları Müdürü",
+        )
+
+        self.admin_user = User.objects.create_user(
+            username="hr_admin",
+            email="hr_admin@example.com",
+            password="test-password",
+            user_type=User.UserType.INTERNAL,
+        )
+
+        OrganizationMembership.objects.create(
+            user=self.admin_user,
+            company=self.company,
+            branch=self.branch,
+            department=self.department,
+            job_title="İK Yöneticisi",
+            role=OrganizationMembership.Role.ADMIN,
+            is_primary=True,
+            is_active=True,
+        )
+
+        self.hr_user = User.objects.create_user(
+            username="hr_specialist",
+            email="hr_specialist@example.com",
+            password="test-password",
+            user_type=User.UserType.INTERNAL,
+        )
+
+        OrganizationMembership.objects.create(
+            user=self.hr_user,
+            company=self.company,
+            branch=self.branch,
+            department=self.department,
+            job_title="İK Uzmanı",
+            role=OrganizationMembership.Role.MEMBER,
+            permissions=[
+                OrganizationMembership.Permission.ACCESS_HR,
+            ],
+            is_primary=True,
+            is_active=True,
+        )
+
+        self.no_access_user = User.objects.create_user(
+            username="no_hr_access",
+            email="no_hr_access@example.com",
+            password="test-password",
+            user_type=User.UserType.INTERNAL,
+        )
+
+        OrganizationMembership.objects.create(
+            user=self.no_access_user,
+            company=self.company,
+            branch=self.branch,
+            department=self.department,
+            job_title="Standart Kullanıcı",
+            role=OrganizationMembership.Role.MEMBER,
+            permissions=[],
+            is_primary=True,
+            is_active=True,
+        )
+
+        self.employee = Employee.objects.create(
+            company=self.company,
+            user=self.hr_user,
+            employee_number="VIEW-0001",
+            first_name="Selin",
+            last_name="Aydın",
+            work_email="selin.aydin@example.com",
+            hire_date=date(2025, 1, 10),
+        )
+
+        self.assignment = EmploymentAssignment.objects.create(
+            employee=self.employee,
+            branch=self.branch,
+            department=self.department,
+            position=self.position,
+            start_date=date(2025, 1, 10),
+            is_primary=True,
+            is_department_manager=True,
+        )
+
+        self.other_company = Company.objects.create(
+            name="İzole HR Test Şirketi",
+        )
+
+        self.other_branch = Branch.objects.create(
+            company=self.other_company,
+            name="Diğer Genel Merkez",
+            code="OTHER-HQ",
+        )
+
+        self.other_department = Department.objects.create(
+            branch=self.other_branch,
+            name="Diğer İnsan Kaynakları",
+            code="OTHER-HR",
+        )
+
+        self.other_employee = Employee.objects.create(
+            company=self.other_company,
+            employee_number="OTHER-0001",
+            first_name="Başka",
+            last_name="Personel",
+            hire_date=date(2025, 2, 1),
+        )
+
+    def test_hr_dashboard_returns_company_metrics(self):
+        self.client.force_login(self.admin_user)
+
+        response = self.client.get(
+            reverse("hr:home"),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.context["can_access_hr"])
+        self.assertEqual(
+            response.context["total_employee_count"],
+            1,
+        )
+        self.assertEqual(
+            response.context["position_count"],
+            1,
+        )
+        self.assertEqual(
+            response.context["department_manager_count"],
+            1,
+        )
+
+    def test_explicit_hr_permission_can_access_employee_screens(self):
+        self.client.force_login(self.hr_user)
+
+        list_response = self.client.get(
+            reverse("hr:employee_list"),
+            {
+                "q": "Selin",
+                "status": Employee.EmploymentStatus.ACTIVE,
+            },
+        )
+
+        detail_response = self.client.get(
+            reverse(
+                "hr:employee_detail",
+                kwargs={
+                    "employee_id": self.employee.id,
+                },
+            ),
+        )
+
+        self.assertEqual(
+            list_response.status_code,
+            200,
+        )
+        self.assertContains(
+            list_response,
+            "Selin Aydın",
+        )
+
+        self.assertEqual(
+            detail_response.status_code,
+            200,
+        )
+        self.assertContains(
+            detail_response,
+            "İnsan Kaynakları Müdürü",
+        )
+    def test_user_without_hr_permission_receives_forbidden(self):
+        self.client.force_login(self.no_access_user)
+
+        dashboard_response = self.client.get(
+            reverse("hr:home"),
+        )
+
+        directory_response = self.client.get(
+            reverse("hr:employee_list"),
+        )
+
+        detail_response = self.client.get(
+            reverse(
+                "hr:employee_detail",
+                kwargs={
+                    "employee_id": self.employee.id,
+                },
+            ),
+        )
+
+        self.assertEqual(
+            dashboard_response.status_code,
+            403,
+        )
+        self.assertEqual(
+            directory_response.status_code,
+            403,
+        )
+        self.assertEqual(
+            detail_response.status_code,
+            403,
+        )
+
+    def test_employee_detail_is_isolated_by_company(self):
+        self.client.force_login(self.admin_user)
+
+        response = self.client.get(
+            reverse(
+                "hr:employee_detail",
+                kwargs={
+                    "employee_id": self.other_employee.id,
+                },
+            ),
+        )
+
+        self.assertEqual(response.status_code, 404)
