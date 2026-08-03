@@ -28,7 +28,32 @@
     {% else %}
         {% url "hr:employee_list" as employee_list_url %}
 
-        {% include "components/page_header.html" with eyebrow="ORACLE FUSION TARZI İŞ GÜCÜ YÖNETİMİ" title="İnsan Kaynakları" description="Personel kartlarını, pozisyonları, departman yöneticilerini ve organizasyon hiyerarşisini tek merkezden izleyin." action_text="Personel Dizini" action_url=employee_list_url %}
+        {% include "components/page_header.html" with title="İnsan Kaynakları" description="Personel kartlarını, pozisyonları, departman yöneticilerini ve organizasyon hiyerarşisini tek merkezden izleyin." action_text="Personel Dizini" action_url=employee_list_url %}
+                <nav class="hr-subnav">
+            <a
+                href="{% url 'hr:home' %}"
+                class="is-active"
+            >
+                İK Ana Paneli
+            </a>
+
+            <a href="{% url 'hr:employee_list' %}">
+                Personel Dizini
+            </a>
+
+            <a href="{% url 'hr:position_list' %}">
+                Pozisyonlar
+            </a>
+
+            {% if can_manage_hr %}
+                <a
+                    href="{% url 'hr:employee_create' %}"
+                    class="hr-subnav__primary"
+                >
+                    + Yeni Personel
+                </a>
+            {% endif %}
+        </nav>
 
         <div class="hr-metrics">
             <article class="hr-metric-card hr-metric-card--primary">

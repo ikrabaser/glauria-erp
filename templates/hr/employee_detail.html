@@ -17,6 +17,28 @@
     {% url "hr:employee_list" as employee_list_url %}
 
     {% include "components/page_header.html" with eyebrow="İNSAN KAYNAKLARI · PERSONEL KARTI" title=employee.full_name description="Personel kimliği, güncel çalışma ataması ve organizasyon ilişkileri." action_text="Personel Dizini" action_url=employee_list_url %}
+        <nav class="hr-subnav">
+        <a href="{% url 'hr:home' %}">
+            İK Ana Paneli
+        </a>
+
+        <a href="{% url 'hr:employee_list' %}">
+            Personel Dizini
+        </a>
+
+        <a href="{% url 'hr:position_list' %}">
+            Pozisyonlar
+        </a>
+
+        {% if can_manage_hr %}
+            <a
+                href="{% url 'hr:employee_update' employee.id %}"
+                class="hr-subnav__primary"
+            >
+                Personel Kartını Düzenle
+            </a>
+        {% endif %}
+    </nav>
 
     <section class="hr-profile-hero">
         <div class="hr-profile-hero__identity">

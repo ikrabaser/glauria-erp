@@ -17,6 +17,31 @@ Personel Dizini | Glauria ERP
     {% url "hr:home" as hr_home_url %}
 
     {% include "components/page_header.html" with eyebrow="İNSAN KAYNAKLARI · PERSONEL YÖNETİMİ" title="Personel Dizini" description="Personel kartlarını, güncel pozisyonları, departmanları ve bağlı yöneticileri görüntüleyin." action_text="İK Ana Paneli" action_url=hr_home_url %}
+        <nav class="hr-subnav">
+        <a href="{% url 'hr:home' %}">
+            İK Ana Paneli
+        </a>
+
+        <a
+            href="{% url 'hr:employee_list' %}"
+            class="is-active"
+        >
+            Personel Dizini
+        </a>
+
+        <a href="{% url 'hr:position_list' %}">
+            Pozisyonlar
+        </a>
+
+        {% if can_manage_hr %}
+            <a
+                href="{% url 'hr:employee_create' %}"
+                class="hr-subnav__primary"
+            >
+                + Yeni Personel
+            </a>
+        {% endif %}
+    </nav>
 
     <form
         method="get"

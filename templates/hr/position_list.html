@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}
+Pozisyon Yönetimi | Glauria ERP
+{% endblock %}
+
+{% block extra_css %}
+<link
+    rel="stylesheet"
+    href="{% static 'css/hr.css' %}?v=hr-management-v1"
+>
+{% endblock %}
+
+{% block content %}
+<section class="module-page hr-positions">
+    {% if can_manage_hr %}
+        {% url "hr:position_create" as action_url %}
+        {% include "components/page_header.html" with eyebrow="İNSAN KAYNAKLARI · ORGANİZASYON YÖNETİMİ" title="Pozisyonlar" description="Şirket pozisyonlarını, departman bağlantılarını ve aktif personel atamalarını yönetin." action_text="+ Yeni Pozisyon" action_url=action_url %}
+    {% else %}
+        {% include "components/page_header.html" with eyebrow="İNSAN KAYNAKLARI · ORGANİZASYON YÖNETİMİ" title="Pozisyonlar" description="Şirket pozisyonlarını, departman bağlantılarını ve aktif personel atamalarını görüntüleyin." %}
+    {% endif %}
+
+    <nav class="hr-subnav">
+        <a href="{% url 'hr:home' %}">
+            İK Ana Paneli
+        </a>
+        <a href="{% url 'hr:employee_list' %}">
+            Personel Dizini
+        </a>
+        <a
+            href="{% url 'hr:position_list' %}"
+            class="is-active"
+        >
+            Pozisyonlar
+        </a>
+    </nav>
+
+    <section class="hr-panel">
+        <div class="hr-panel__heading">
+            <div>
+                <span class="hr-panel__eyebrow">
+                    POZİSYON KATALOĞU
+                </span>
+                <h3 class="hr-panel__title">
+                    Organizasyon Pozisyonları
+                </h3>
+            </div>
+
+            <span class="hr-panel__count">
+                {{ positions|length }} pozisyon
+            </span>
+        </div>
+
+        {% if positions %}
+            <div class="data-table-wrapper">
+                <table class="data-table hr-position-table">
+                    <thead>
+                        <tr>
+                            <th>Kod</th>
+                            <th>Pozisyon</th>
+                            <th>Departman</th>
+                            <th>Şube</th>
+                            <th>Aktif Atama</th>
+                            <th>Durum</th>
+                            {% if can_manage_hr %}
+                                <th>İşlem</th>
+                            {% endif %}
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        {% for position in positions %}
+                            <tr>
+                                <td class="hr-directory-table__number">
+                                    {{ position.code }}
+                                </td>
+                                <td>
+                                    <div class="customer-cell">
+                                        <strong>{{ position.title }}</strong>
+                                        <span>
+                                            {{ position.description|default:"Açıklama bulunmuyor"|truncatechars:70 }}
+                                        </span>
+                                    </div>
+                                </td>
+                                <td>{{ position.department.name }}</td>
+                                <td>{{ position.department.branch.name }}</td>
+                                <td>
+                                    {{ position.active_assignment_count }}
+                                    personel
+                                </td>
+                                <td>
+                                    {% if position.is_active %}
+                                        <span class="hr-status hr-status--active">
+                                            Aktif
+                                        </span>
+                                    {% else %}
+                                        <span class="hr-status hr-status--terminated">
+                                            Pasif
+                                        </span>
+                                    {% endif %}
+                                </td>
+
+                                {% if can_manage_hr %}
+                                    <td>
+                                        <a
+                                            href="{% url 'hr:position_update' position.id %}"
+                                            class="hr-table-action"
+                                        >
+                                            Düzenle
+                                        </a>
+                                    </td>
+                                {% endif %}
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="hr-panel__empty">
+                Henüz pozisyon kaydı bulunmuyor.
+            </div>
+        {% endif %}
+    </section>
+</section>
+{% endblock %}

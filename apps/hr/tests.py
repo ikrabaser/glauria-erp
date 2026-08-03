@@ -418,3 +418,188 @@ class HRViewTestCase(TestCase):
         )
 
         self.assertEqual(response.status_code, 404)
+    def test_hr_manager_can_create_employee_with_initial_assignment(self):
+        self.client.force_login(self.admin_user)
+        response = self.client.post(
+            reverse("hr:employee_create"),
+            {
+                "employee-user": "",
+                "employee-employee_number": "VIEW-0002",
+                "employee-first_name": "Ece",
+                "employee-last_name": "Demir",
+                "employee-preferred_name": "",
+                "employee-work_email": "ece.demir@example.com",
+                "employee-personal_email": "",
+                "employee-phone": "",
+                "employee-birth_date": "",
+                "employee-hire_date": "2026-08-01",
+                "employee-termination_date": "",
+                "employee-employment_status": (
+                    Employee.EmploymentStatus.ACTIVE
+                ),
+                "employee-notes": "",
+                "employee-is_active": "on",
+                "assignment-branch": str(self.branch.id),
+                "assignment-department": str(
+                    self.department.id
+                ),
+                "assignment-position": str(self.position.id),
+                "assignment-manager": str(self.employee.id),
+                "assignment-employment_type": (
+                    EmploymentAssignment
+                    .EmploymentType
+                    .FULL_TIME
+                ),
+                "assignment-start_date": "2026-08-01",
+            },
+        )
+        created_employee = Employee.objects.get(
+            company=self.company,
+            employee_number="VIEW-0002",
+        )
+        self.assertRedirects(
+            response,
+            reverse(
+                "hr:employee_detail",
+                kwargs={
+                    "employee_id": created_employee.id,
+                },
+            ),
+        )
+        created_assignment = (
+            created_employee.assignments.get(
+                is_primary=True,
+                end_date__isnull=True,
+            )
+        )
+        self.assertEqual(
+            created_assignment.department,
+            self.department,
+        )
+        self.assertEqual(
+            created_assignment.position,
+            self.position,
+        )
+        self.assertEqual(
+            created_assignment.manager,
+            self.employee,
+        )
+
+    def test_hr_manager_can_update_employee_card(self):
+        self.client.force_login(self.admin_user)
+
+        response = self.client.post(
+            reverse(
+                "hr:employee_update",
+                kwargs={
+                    "employee_id": self.employee.id,
+                },
+            ),
+            {
+                "user": str(self.hr_user.id),
+                "employee_number": self.employee.employee_number,
+                "first_name": "Selin",
+                "last_name": "Aydın",
+                "preferred_name": "Selin",
+                "work_email": "selin.new@example.com",
+                "personal_email": "",
+                "phone": "+90 555 000 00 00",
+                "birth_date": "",
+                "hire_date": "2025-01-10",
+                "termination_date": "",
+                "employment_status": (
+                    Employee.EmploymentStatus.ACTIVE
+                ),
+                "notes": "Personel kartı güncellendi.",
+                "is_active": "on",
+            },
+        )
+
+        self.assertRedirects(
+            response,
+            reverse(
+                "hr:employee_detail",
+                kwargs={
+                    "employee_id": self.employee.id,
+                },
+            ),
+        )
+
+        self.employee.refresh_from_db()
+
+        self.assertEqual(
+            self.employee.preferred_name,
+            "Selin",
+        )
+        self.assertEqual(
+            self.employee.work_email,
+            "selin.new@example.com",
+        )
+        self.assertEqual(
+            self.employee.phone,
+            "+90 555 000 00 00",
+        )
+
+    def test_hr_manager_can_create_position(self):
+        self.client.force_login(self.admin_user)
+
+        response = self.client.post(
+            reverse("hr:position_create"),
+            {
+                "department": str(self.department.id),
+                "code": "HR-SNR",
+                "title": "Kıdemli İnsan Kaynakları Uzmanı",
+                "description": "Kıdemli İK uzmanı pozisyonu.",
+                "is_active": "on",
+            },
+        )
+
+        self.assertRedirects(
+            response,
+            reverse("hr:position_list"),
+        )
+
+        position = Position.objects.get(
+            company=self.company,
+            code="HR-SNR",
+        )
+
+        self.assertEqual(
+            position.department,
+            self.department,
+        )
+        self.assertTrue(position.is_active)
+
+    def test_hr_specialist_cannot_manage_hr_records(self):
+        self.client.force_login(self.hr_user)
+
+        responses = [
+            self.client.get(
+                reverse("hr:employee_create"),
+            ),
+            self.client.get(
+                reverse(
+                    "hr:employee_update",
+                    kwargs={
+                        "employee_id": self.employee.id,
+                    },
+                ),
+            ),
+            self.client.get(
+                reverse("hr:position_create"),
+            ),
+            self.client.get(
+                reverse(
+                    "hr:position_update",
+                    kwargs={
+                        "position_id": self.position.id,
+                    },
+                ),
+            ),
+        ]
+
+        for response in responses:
+            self.assertEqual(
+                response.status_code,
+                403,
+            )

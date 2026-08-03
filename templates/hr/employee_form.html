@@ -1,0 +1,165 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}
+{% if is_create %}Yeni Personel{% else %}Personel Kartını Düzenle{% endif %}
+| Glauria ERP
+{% endblock %}
+
+{% block extra_css %}
+<link
+    rel="stylesheet"
+    href="{% static 'css/hr.css' %}?v=hr-management-v1"
+>
+{% endblock %}
+
+{% block content %}
+<section class="module-page hr-form-page">
+    {% if is_create %}
+        {% url "hr:employee_list" as cancel_url %}
+        {% include "components/page_header.html" with eyebrow="İNSAN KAYNAKLARI · PERSONEL YÖNETİMİ" title="Yeni Personel" description="Personel kartını ve ilk organizasyon atamasını birlikte oluşturun." action_text="Personel Dizini" action_url=cancel_url %}
+    {% else %}
+        {% url "hr:employee_detail" employee.id as cancel_url %}
+        {% include "components/page_header.html" with eyebrow="İNSAN KAYNAKLARI · PERSONEL KARTI" title="Personel Kartını Düzenle" description=employee.full_name action_text="Personel Kartı" action_url=cancel_url %}
+    {% endif %}
+
+    <form
+        method="post"
+        class="hr-record-form"
+        novalidate
+    >
+        {% csrf_token %}
+
+        {% if employee_form.non_field_errors %}
+            <div class="hr-form-errors">
+                {{ employee_form.non_field_errors }}
+            </div>
+        {% endif %}
+
+        <section class="hr-form-section">
+            <div class="hr-form-section__heading">
+                <span>PERSONEL KİMLİĞİ</span>
+                <h3>Temel Bilgiler</h3>
+                <p>
+                    Personelin kurumsal kimliğini ve iletişim
+                    bilgilerini tanımlayın.
+                </p>
+            </div>
+
+            <div class="hr-form-grid">
+                {% for field in employee_form %}
+                    <div
+                        class="
+                            hr-form-field
+                            {% if field.name == 'notes' %}
+                                hr-form-field--full
+                            {% endif %}
+                            {% if field.field.widget.input_type == 'checkbox' %}
+                                hr-form-field--checkbox
+                            {% endif %}
+                        "
+                    >
+                        {% if field.field.widget.input_type == "checkbox" %}
+                            <label class="hr-checkbox-label">
+                                {{ field }}
+                                <span>{{ field.label }}</span>
+                            </label>
+                        {% else %}
+                            <label for="{{ field.id_for_label }}">
+                                {{ field.label }}
+                            </label>
+
+                            {{ field }}
+                        {% endif %}
+
+                        {% if field.help_text %}
+                            <small>{{ field.help_text }}</small>
+                        {% endif %}
+
+                        {% for error in field.errors %}
+                            <span class="hr-form-field__error">
+                                {{ error }}
+                            </span>
+                        {% endfor %}
+                    </div>
+                {% endfor %}
+            </div>
+        </section>
+
+        {% if assignment_form %}
+            <section class="hr-form-section">
+                <div class="hr-form-section__heading">
+                    <span>İLK ÇALIŞMA ATAMASI</span>
+                    <h3>Organizasyon Bilgileri</h3>
+                    <p>
+                        Personelin şube, departman, pozisyon ve
+                        raporlama hattını belirleyin.
+                    </p>
+                </div>
+
+                {% if assignment_form.non_field_errors %}
+                    <div class="hr-form-errors">
+                        {{ assignment_form.non_field_errors }}
+                    </div>
+                {% endif %}
+
+                <div class="hr-form-grid">
+                    {% for field in assignment_form %}
+                        <div
+                            class="
+                                hr-form-field
+                                {% if field.field.widget.input_type == 'checkbox' %}
+                                    hr-form-field--checkbox
+                                {% endif %}
+                            "
+                        >
+                            {% if field.field.widget.input_type == "checkbox" %}
+                                <label class="hr-checkbox-label">
+                                    {{ field }}
+                                    <span>{{ field.label }}</span>
+                                </label>
+                            {% else %}
+                                <label for="{{ field.id_for_label }}">
+                                    {{ field.label }}
+                                </label>
+
+                                {{ field }}
+                            {% endif %}
+
+                            {% if field.help_text %}
+                                <small>{{ field.help_text }}</small>
+                            {% endif %}
+
+                            {% for error in field.errors %}
+                                <span class="hr-form-field__error">
+                                    {{ error }}
+                                </span>
+                            {% endfor %}
+                        </div>
+                    {% endfor %}
+                </div>
+            </section>
+        {% endif %}
+
+        <div class="hr-form-actions">
+            <a
+                href="{{ cancel_url }}"
+                class="hr-form-actions__cancel"
+            >
+                İptal
+            </a>
+
+            <button
+                type="submit"
+                class="hr-form-actions__submit"
+            >
+                {% if is_create %}
+                    Personel ve Atama Oluştur
+                {% else %}
+                    Değişiklikleri Kaydet
+                {% endif %}
+            </button>
+        </div>
+    </form>
+</section>
+{% endblock %}

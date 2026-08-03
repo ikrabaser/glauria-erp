@@ -4,11 +4,19 @@ from django.contrib.auth.decorators import login_required
 from django.db.models import Count, Prefetch, Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
+from django.contrib import messages
+from django.db import transaction
+from django.http import HttpResponseForbidden
 
 from apps.accounts.models import OrganizationMembership
 from apps.organizations.models import Department
 
 from .models import Employee, EmploymentAssignment, Position
+from .forms import (
+    EmployeeForm,
+    InitialAssignmentForm,
+    PositionForm,
+)
 
 
 def get_active_membership(user):
@@ -31,6 +39,17 @@ def has_hr_access(membership):
         and membership.has_module_access(
             OrganizationMembership.Module.HR
         )
+    )
+def can_manage_hr(membership):
+    return (
+        has_hr_access(membership)
+        and membership.can_manage_members
+    )
+
+
+def hr_management_forbidden():
+    return HttpResponseForbidden(
+        "İK kayıtlarını yönetme yetkiniz bulunmuyor."
     )
 
 
@@ -167,6 +186,7 @@ def home(request):
             ),
             "departments": departments,
             "recent_employees": recent_employees,
+            "can_manage_hr": can_manage_hr(membership),
         },
     )
 
@@ -265,6 +285,7 @@ def employee_list(request):
             "search_query": search_query,
             "selected_department": department_id,
             "selected_status": status,
+            "can_manage_hr": can_manage_hr(membership),
         },
     )
 
@@ -345,5 +366,280 @@ def employee_detail(request, employee_id):
             "current_assignment": current_assignment,
             "assignment_history": assignment_history,
             "direct_reports": direct_reports,
+            "can_manage_hr": can_manage_hr(membership),
+        },
+    )
+@login_required
+def employee_create(request):
+    membership = get_active_membership(request.user)
+
+    if not can_manage_hr(membership):
+        return hr_management_forbidden()
+
+    company = membership.company
+
+    if request.method == "POST":
+        employee_form = EmployeeForm(
+            request.POST,
+            company=company,
+            prefix="employee",
+        )
+        assignment_form = InitialAssignmentForm(
+            request.POST,
+            company=company,
+            prefix="assignment",
+        )
+
+        if (
+            employee_form.is_valid()
+            and assignment_form.is_valid()
+        ):
+            with transaction.atomic():
+                employee = employee_form.save(commit=False)
+                employee.company = company
+                employee.save()
+
+                assignment = assignment_form.save(commit=False)
+                assignment.employee = employee
+                assignment.is_primary = True
+                assignment.end_date = None
+                assignment.save()
+
+            messages.success(
+                request,
+                (
+                    f"{employee.full_name} için personel kartı "
+                    "ve ilk çalışma ataması oluşturuldu."
+                ),
+            )
+
+            return redirect(
+                "hr:employee_detail",
+                employee_id=employee.id,
+            )
+    else:
+        employee_form = EmployeeForm(
+            company=company,
+            prefix="employee",
+        )
+        assignment_form = InitialAssignmentForm(
+            company=company,
+            prefix="assignment",
+            initial={
+                "branch": membership.branch,
+                "department": membership.department,
+                "start_date": timezone.localdate(),
+            },
+        )
+
+    return render(
+        request,
+        "hr/employee_form.html",
+        {
+            "current_membership": membership,
+            "employee_form": employee_form,
+            "assignment_form": assignment_form,
+            "is_create": True,
+        },
+    )
+
+
+@login_required
+def employee_update(request, employee_id):
+    membership = get_active_membership(request.user)
+
+    if not can_manage_hr(membership):
+        return hr_management_forbidden()
+
+    employee = get_object_or_404(
+        Employee,
+        id=employee_id,
+        company=membership.company,
+    )
+
+    if request.method == "POST":
+        form = EmployeeForm(
+            request.POST,
+            instance=employee,
+            company=membership.company,
+        )
+
+        if form.is_valid():
+            with transaction.atomic():
+                employee = form.save()
+
+                if (
+                    employee.employment_status
+                    == Employee.EmploymentStatus.TERMINATED
+                    and employee.termination_date
+                ):
+                    active_assignments = (
+                        employee.assignments.filter(
+                            end_date__isnull=True,
+                        )
+                    )
+
+                    for assignment in active_assignments:
+                        assignment.end_date = (
+                            employee.termination_date
+                        )
+                        assignment.save()
+
+            messages.success(
+                request,
+                (
+                    f"{employee.full_name} personel kartı "
+                    "güncellendi."
+                ),
+            )
+
+            return redirect(
+                "hr:employee_detail",
+                employee_id=employee.id,
+            )
+    else:
+        form = EmployeeForm(
+            instance=employee,
+            company=membership.company,
+        )
+
+    return render(
+        request,
+        "hr/employee_form.html",
+        {
+            "current_membership": membership,
+            "employee": employee,
+            "employee_form": form,
+            "assignment_form": None,
+            "is_create": False,
+        },
+    )
+
+
+@login_required
+def position_list(request):
+    membership = get_active_membership(request.user)
+
+    if not has_hr_access(membership):
+        return redirect("hr:home")
+
+    positions = (
+        Position.objects.filter(
+            company=membership.company,
+        )
+        .select_related(
+            "department",
+            "department__branch",
+        )
+        .annotate(
+            active_assignment_count=Count(
+                "employee_assignments",
+                filter=Q(
+                    employee_assignments__end_date__isnull=True,
+                ),
+                distinct=True,
+            ),
+        )
+        .order_by(
+            "department__name",
+            "title",
+        )
+    )
+
+    return render(
+        request,
+        "hr/position_list.html",
+        {
+            "current_membership": membership,
+            "positions": positions,
+            "can_manage_hr": can_manage_hr(membership),
+        },
+    )
+
+
+@login_required
+def position_create(request):
+    membership = get_active_membership(request.user)
+
+    if not can_manage_hr(membership):
+        return hr_management_forbidden()
+
+    if request.method == "POST":
+        form = PositionForm(
+            request.POST,
+            company=membership.company,
+        )
+
+        if form.is_valid():
+            position = form.save(commit=False)
+            position.company = membership.company
+            position.save()
+
+            messages.success(
+                request,
+                (
+                    f"{position.title} pozisyonu oluşturuldu."
+                ),
+            )
+
+            return redirect("hr:position_list")
+    else:
+        form = PositionForm(
+            company=membership.company,
+        )
+
+    return render(
+        request,
+        "hr/position_form.html",
+        {
+            "current_membership": membership,
+            "form": form,
+            "position": None,
+        },
+    )
+
+
+@login_required
+def position_update(request, position_id):
+    membership = get_active_membership(request.user)
+
+    if not can_manage_hr(membership):
+        return hr_management_forbidden()
+
+    position = get_object_or_404(
+        Position,
+        id=position_id,
+        company=membership.company,
+    )
+
+    if request.method == "POST":
+        form = PositionForm(
+            request.POST,
+            instance=position,
+            company=membership.company,
+        )
+
+        if form.is_valid():
+            position = form.save()
+
+            messages.success(
+                request,
+                f"{position.title} pozisyonu güncellendi.",
+            )
+
+            return redirect("hr:position_list")
+    else:
+        form = PositionForm(
+            instance=position,
+            company=membership.company,
+        )
+
+    return render(
+        request,
+        "hr/position_form.html",
+        {
+            "current_membership": membership,
+            "form": form,
+            "position": position,
         },
     )

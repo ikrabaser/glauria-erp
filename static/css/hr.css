@@ -801,3 +801,298 @@ html[data-theme="light"] .hr-report-card {
         border-bottom: 1px solid rgba(255, 255, 255, 0.07);
     }
 }
+.hr-subnav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 24px 0 20px;
+}
+
+.hr-subnav a,
+.hr-table-action {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 38px;
+    padding: 0 14px;
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    border-radius: 12px;
+    color: rgba(255, 255, 255, 0.64);
+    background: rgba(255, 255, 255, 0.025);
+    font-size: 0.76rem;
+    font-weight: 700;
+    text-decoration: none;
+    transition:
+        border-color 0.2s ease,
+        color 0.2s ease,
+        transform 0.2s ease;
+}
+
+.hr-subnav a:hover,
+.hr-table-action:hover {
+    transform: translateY(-2px);
+    border-color: rgba(215, 164, 143, 0.32);
+    color: var(--color-rose-gold-light);
+}
+
+.hr-subnav a.is-active {
+    border-color: rgba(215, 164, 143, 0.3);
+    color: var(--color-rose-gold-light);
+    background: rgba(215, 164, 143, 0.09);
+}
+
+.hr-subnav a.hr-subnav__primary {
+    margin-left: auto;
+    border-color: rgba(215, 164, 143, 0.34);
+    color: #1a1012;
+    background: var(--color-rose-gold);
+}
+
+.hr-record-form {
+    display: grid;
+    gap: 20px;
+    margin-top: 28px;
+}
+
+.hr-record-form--compact {
+    max-width: 980px;
+}
+
+.hr-form-section {
+    display: grid;
+    grid-template-columns: minmax(220px, 0.36fr) minmax(0, 1fr);
+    gap: 28px;
+    padding: 26px;
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    border-radius: 22px;
+    background:
+        linear-gradient(
+            145deg,
+            rgba(255, 255, 255, 0.05),
+            rgba(255, 255, 255, 0.018)
+        );
+    box-shadow: var(--shadow-card);
+}
+
+.hr-form-section__heading span {
+    display: block;
+    margin-bottom: 8px;
+    color: var(--color-rose-gold-light);
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+}
+
+.hr-form-section__heading h3 {
+    margin: 0;
+    color: #fff;
+    font-size: 1.12rem;
+}
+
+.hr-form-section__heading p {
+    margin: 10px 0 0;
+    color: rgba(255, 255, 255, 0.46);
+    font-size: 0.8rem;
+    line-height: 1.65;
+}
+
+.hr-form-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px;
+}
+
+.hr-form-field {
+    display: grid;
+    align-content: start;
+    gap: 8px;
+    min-width: 0;
+}
+
+.hr-form-field--full {
+    grid-column: 1 / -1;
+}
+
+.hr-form-field > label {
+    color: rgba(255, 255, 255, 0.56);
+    font-size: 0.74rem;
+    font-weight: 800;
+}
+
+.hr-form__control {
+    width: 100%;
+    min-height: 46px;
+    padding: 0 13px;
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    border-radius: 13px;
+    outline: none;
+    color: #fff;
+    background: rgba(255, 255, 255, 0.035);
+    font: inherit;
+    box-sizing: border-box;
+    transition:
+        border-color 0.2s ease,
+        box-shadow 0.2s ease;
+}
+
+textarea.hr-form__control {
+    min-height: 112px;
+    padding-top: 12px;
+    resize: vertical;
+}
+
+select.hr-form__control option {
+    color: #24161d;
+    background: #fff;
+}
+
+.hr-form__control:focus {
+    border-color: rgba(215, 164, 143, 0.48);
+    box-shadow: 0 0 0 4px rgba(215, 164, 143, 0.08);
+}
+
+.hr-form-field small {
+    color: rgba(255, 255, 255, 0.4);
+    font-size: 0.7rem;
+    line-height: 1.45;
+}
+
+.hr-form-field__error {
+    color: #ff9eaa;
+    font-size: 0.72rem;
+    line-height: 1.4;
+}
+
+.hr-form-field--checkbox {
+    display: flex;
+    min-height: 46px;
+    align-items: center;
+}
+
+.hr-checkbox-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    color: rgba(255, 255, 255, 0.72);
+    font-size: 0.8rem;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.hr-form__checkbox {
+    width: 18px;
+    height: 18px;
+    accent-color: var(--color-rose-gold);
+}
+
+.hr-form-errors {
+    grid-column: 1 / -1;
+    padding: 14px 16px;
+    border: 1px solid rgba(255, 110, 130, 0.22);
+    border-radius: 13px;
+    color: #ffabb5;
+    background: rgba(255, 110, 130, 0.07);
+    font-size: 0.78rem;
+}
+
+.hr-form-errors ul {
+    margin: 0;
+    padding-left: 18px;
+}
+
+.hr-form-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 12px;
+    padding: 20px 0 4px;
+}
+
+.hr-form-actions__cancel,
+.hr-form-actions__submit {
+    display: inline-flex;
+    min-height: 46px;
+    align-items: center;
+    justify-content: center;
+    padding: 0 18px;
+    border-radius: 13px;
+    font-size: 0.8rem;
+    font-weight: 800;
+    text-decoration: none;
+}
+
+.hr-form-actions__cancel {
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.65);
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.hr-form-actions__submit {
+    border: 0;
+    color: #1a1012;
+    background: var(--color-rose-gold);
+    cursor: pointer;
+}
+
+.hr-position-table {
+    min-width: 980px;
+}
+
+html[data-theme="light"] .hr-subnav a,
+html[data-theme="light"] .hr-table-action,
+html[data-theme="light"] .hr-form-actions__cancel {
+    border-color: rgba(74, 43, 57, 0.12);
+    color: rgba(55, 35, 44, 0.68);
+    background: rgba(255, 255, 255, 0.58);
+}
+
+html[data-theme="light"] .hr-form-section {
+    border-color: rgba(74, 43, 57, 0.1);
+    background: rgba(255, 255, 255, 0.72);
+}
+
+html[data-theme="light"] .hr-form-section__heading h3 {
+    color: #3b2530;
+}
+
+html[data-theme="light"] .hr-form-section__heading p,
+html[data-theme="light"] .hr-form-field > label,
+html[data-theme="light"] .hr-form-field small {
+    color: rgba(55, 35, 44, 0.58);
+}
+
+html[data-theme="light"] .hr-form__control {
+    border-color: rgba(74, 43, 57, 0.12);
+    color: #3b2530;
+    background: rgba(255, 255, 255, 0.82);
+}
+
+html[data-theme="light"] .hr-checkbox-label {
+    color: #3b2530;
+}
+
+@media (max-width: 900px) {
+    .hr-form-section {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 640px) {
+    .hr-form-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .hr-form-field--full {
+        grid-column: auto;
+    }
+
+    .hr-subnav a.hr-subnav__primary {
+        width: 100%;
+        margin-left: 0;
+    }
+
+    .hr-form-actions {
+        align-items: stretch;
+        flex-direction: column-reverse;
+    }
+}
