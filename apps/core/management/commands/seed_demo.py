@@ -19,6 +19,10 @@ from apps.hr.models import (
     Position,
     WorkSchedule,
     WorkScheduleDay,
+    EmployeeGoal,
+    PerformanceReview,
+    PerformanceReviewCycle,
+    PerformanceReviewEvent,
 )
 from apps.hr.services import (
     approve_attendance_record,
@@ -585,6 +589,213 @@ DEMO_ATTENDANCE_RECORDS = [
         "note": "Pazar günü çalışma dışı kayıt.",
     },
 ]
+
+DEMO_PERFORMANCE_CYCLE = {
+    "code": "PERF-2026",
+    "name": "2026 Yıllık Performans Dönemi",
+    "description": (
+        "Glauria Demo A.Ş. çalışanları için yıllık hedef ve "
+        "performans değerlendirme dönemi."
+    ),
+    "start_date": date(2026, 1, 1),
+    "end_date": date(2026, 12, 31),
+    "self_review_deadline": date(2026, 11, 30),
+    "manager_review_deadline": date(2026, 12, 15),
+}
+
+
+DEMO_EMPLOYEE_GOALS = [
+    {
+        "employee_username": "demo.ceo",
+        "title": "Kurumsal büyüme planını gerçekleştirmek",
+        "description": (
+            "Şirketin yıllık büyüme ve kârlılık hedeflerini "
+            "stratejik olarak yönetmek."
+        ),
+        "weight": Decimal("40.00"),
+        "target_value": Decimal("20.00"),
+        "current_value": Decimal("14.00"),
+        "unit": "yüzde",
+        "progress_percentage": Decimal("70.00"),
+        "status": EmployeeGoal.Status.IN_PROGRESS,
+    },
+    {
+        "employee_username": "demo.hr.manager",
+        "title": "Çalışan bağlılığını artırmak",
+        "description": (
+            "Çalışan bağlılığı ve memnuniyet skorunu artırmak."
+        ),
+        "weight": Decimal("30.00"),
+        "target_value": Decimal("90.00"),
+        "current_value": Decimal("86.00"),
+        "unit": "puan",
+        "progress_percentage": Decimal("80.00"),
+        "status": EmployeeGoal.Status.IN_PROGRESS,
+    },
+    {
+        "employee_username": "demo.hr.specialist",
+        "title": "İK operasyon süresini azaltmak",
+        "description": (
+            "Personel ve izin operasyonlarının tamamlanma süresini "
+            "iyileştirmek."
+        ),
+        "weight": Decimal("25.00"),
+        "target_value": Decimal("30.00"),
+        "current_value": Decimal("21.00"),
+        "unit": "yüzde",
+        "progress_percentage": Decimal("70.00"),
+        "status": EmployeeGoal.Status.IN_PROGRESS,
+    },
+    {
+        "employee_username": "demo.finance.manager",
+        "title": "Finansal raporlama doğruluğunu artırmak",
+        "description": (
+            "Aylık finansal raporların doğruluk ve zamanında "
+            "tamamlanma oranını yükseltmek."
+        ),
+        "weight": Decimal("35.00"),
+        "target_value": Decimal("99.00"),
+        "current_value": Decimal("97.50"),
+        "unit": "yüzde",
+        "progress_percentage": Decimal("85.00"),
+        "status": EmployeeGoal.Status.IN_PROGRESS,
+    },
+    {
+        "employee_username": "demo.purchasing.manager",
+        "title": "Tedarik maliyetlerini optimize etmek",
+        "description": (
+            "Stratejik tedarikçi anlaşmalarıyla satın alma "
+            "maliyetlerini azaltmak."
+        ),
+        "weight": Decimal("35.00"),
+        "target_value": Decimal("12.00"),
+        "current_value": Decimal("4.00"),
+        "unit": "yüzde",
+        "progress_percentage": Decimal("35.00"),
+        "status": EmployeeGoal.Status.IN_PROGRESS,
+    },
+    {
+        "employee_username": "demo.sales.manager",
+        "title": "Yeni müşteri kazanımını artırmak",
+        "description": (
+            "Yıl boyunca elli yeni kurumsal müşteri kazanmak."
+        ),
+        "weight": Decimal("40.00"),
+        "target_value": Decimal("50.00"),
+        "current_value": Decimal("52.00"),
+        "unit": "müşteri",
+        "progress_percentage": Decimal("100.00"),
+        "status": EmployeeGoal.Status.COMPLETED,
+        "completion_note": (
+            "Yıllık yeni müşteri hedefi planlanandan önce tamamlandı."
+        ),
+    },
+    {
+        "employee_username": "demo.operations.manager",
+        "title": "Operasyon verimliliğini artırmak",
+        "description": (
+            "Operasyon süreçlerinde çevrim süresini ve hata oranını "
+            "iyileştirmek."
+        ),
+        "weight": Decimal("30.00"),
+        "target_value": Decimal("15.00"),
+        "current_value": Decimal("11.00"),
+        "unit": "yüzde",
+        "progress_percentage": Decimal("75.00"),
+        "status": EmployeeGoal.Status.IN_PROGRESS,
+    },
+]
+
+
+DEMO_PERFORMANCE_REVIEWS = [
+    {
+        "employee_username": "demo.hr.manager",
+        "manager_username": "demo.ceo",
+        "status": PerformanceReview.Status.COMPLETED,
+        "employee_rating": Decimal("4.20"),
+        "manager_rating": Decimal("4.50"),
+        "overall_rating": Decimal("4.40"),
+        "employee_comment": (
+            "İK süreçlerinin dijitalleşmesi ve çalışan deneyimi "
+            "hedeflerinde ilerleme sağlandı."
+        ),
+        "manager_comment": (
+            "Yıl boyunca insan kaynakları süreçlerinde güçlü liderlik "
+            "gösterildi."
+        ),
+        "development_plan": (
+            "Organizasyonel gelişim ve yetenek yönetimi programlarına "
+            "katılım."
+        ),
+    },
+    {
+        "employee_username": "demo.hr.specialist",
+        "manager_username": "demo.hr.manager",
+        "status": PerformanceReview.Status.MANAGER_REVIEW,
+        "employee_rating": Decimal("4.10"),
+        "manager_rating": None,
+        "overall_rating": None,
+        "employee_comment": (
+            "Personel operasyonları ve izin süreçlerinde belirlenen "
+            "hedeflerin çoğu tamamlandı."
+        ),
+        "manager_comment": "",
+        "development_plan": "",
+    },
+    {
+        "employee_username": "demo.finance.manager",
+        "manager_username": "demo.ceo",
+        "status": PerformanceReview.Status.SELF_REVIEW,
+        "employee_rating": None,
+        "manager_rating": None,
+        "overall_rating": None,
+        "employee_comment": "",
+        "manager_comment": "",
+        "development_plan": "",
+    },
+    {
+        "employee_username": "demo.purchasing.manager",
+        "manager_username": "demo.ceo",
+        "status": PerformanceReview.Status.DRAFT,
+        "employee_rating": None,
+        "manager_rating": None,
+        "overall_rating": None,
+        "employee_comment": "",
+        "manager_comment": "",
+        "development_plan": "",
+    },
+    {
+        "employee_username": "demo.sales.manager",
+        "manager_username": "demo.ceo",
+        "status": PerformanceReview.Status.COMPLETED,
+        "employee_rating": Decimal("4.60"),
+        "manager_rating": Decimal("4.80"),
+        "overall_rating": Decimal("4.70"),
+        "employee_comment": (
+            "Yeni müşteri kazanımı ve satış büyümesi hedefleri "
+            "başarıyla tamamlandı."
+        ),
+        "manager_comment": (
+            "Satış performansı ve ekip liderliği beklentilerin "
+            "üzerindedir."
+        ),
+        "development_plan": (
+            "Stratejik satış yönetimi ve uluslararası pazar geliştirme."
+        ),
+    },
+    {
+        "employee_username": "demo.operations.manager",
+        "manager_username": "demo.ceo",
+        "status": PerformanceReview.Status.CANCELLED,
+        "employee_rating": None,
+        "manager_rating": None,
+        "overall_rating": None,
+        "employee_comment": "",
+        "manager_comment": "",
+        "development_plan": "",
+    },
+]
+
 
 class Command(BaseCommand):
     help = (
@@ -1238,6 +1449,272 @@ class Command(BaseCommand):
             ).count()
             - attendance_event_count_before
         )
+        performance_cycle, performance_cycle_created = (
+            PerformanceReviewCycle.objects.update_or_create(
+                company=company,
+                code=DEMO_PERFORMANCE_CYCLE["code"],
+                defaults={
+                    "name": DEMO_PERFORMANCE_CYCLE["name"],
+                    "description": (
+                        DEMO_PERFORMANCE_CYCLE["description"]
+                    ),
+                    "start_date": (
+                        DEMO_PERFORMANCE_CYCLE["start_date"]
+                    ),
+                    "end_date": DEMO_PERFORMANCE_CYCLE["end_date"],
+                    "self_review_deadline": (
+                        DEMO_PERFORMANCE_CYCLE[
+                            "self_review_deadline"
+                        ]
+                    ),
+                    "manager_review_deadline": (
+                        DEMO_PERFORMANCE_CYCLE[
+                            "manager_review_deadline"
+                        ]
+                    ),
+                    "status": (
+                        PerformanceReviewCycle.Status.OPEN
+                    ),
+                    "is_active": True,
+                },
+            )
+        )
+
+        created_performance_cycle_count = int(
+            performance_cycle_created
+        )
+        created_employee_goal_count = 0
+        created_performance_review_count = 0
+        created_performance_event_count = 0
+
+        for goal_data in DEMO_EMPLOYEE_GOALS:
+            employee = hr_employees[
+                goal_data["employee_username"]
+            ]
+
+            _, goal_created = EmployeeGoal.objects.update_or_create(
+                cycle=performance_cycle,
+                employee=employee,
+                title=goal_data["title"],
+                defaults={
+                    "company": company,
+                    "description": goal_data["description"],
+                    "weight": goal_data["weight"],
+                    "target_value": goal_data["target_value"],
+                    "current_value": goal_data["current_value"],
+                    "unit": goal_data["unit"],
+                    "start_date": performance_cycle.start_date,
+                    "due_date": date(2026, 12, 15),
+                    "progress_percentage": (
+                        goal_data["progress_percentage"]
+                    ),
+                    "status": goal_data["status"],
+                    "completion_note": goal_data.get(
+                        "completion_note",
+                        "",
+                    ),
+                },
+            )
+
+            if goal_created:
+                created_employee_goal_count += 1
+
+        for review_data in DEMO_PERFORMANCE_REVIEWS:
+            employee = hr_employees[
+                review_data["employee_username"]
+            ]
+            manager = hr_employees[
+                review_data["manager_username"]
+            ]
+            employee_user = hr_users[
+                review_data["employee_username"]
+            ]
+            manager_user = hr_users[
+                review_data["manager_username"]
+            ]
+
+            target_status = review_data["status"]
+
+            submitted_at = None
+            completed_at = None
+            completed_by = None
+
+            if target_status in {
+                PerformanceReview.Status.MANAGER_REVIEW,
+                PerformanceReview.Status.COMPLETED,
+            }:
+                submitted_at = timezone.make_aware(
+                    datetime(2026, 11, 25, 10, 0)
+                )
+
+            if target_status == PerformanceReview.Status.COMPLETED:
+                completed_at = timezone.make_aware(
+                    datetime(2026, 12, 10, 15, 30)
+                )
+                completed_by = manager_user
+
+            performance_review, review_created = (
+                PerformanceReview.objects.update_or_create(
+                    company=company,
+                    cycle=performance_cycle,
+                    employee=employee,
+                    defaults={
+                        "manager": manager,
+                        "status": target_status,
+                        "employee_rating": (
+                            review_data["employee_rating"]
+                        ),
+                        "manager_rating": (
+                            review_data["manager_rating"]
+                        ),
+                        "overall_rating": (
+                            review_data["overall_rating"]
+                        ),
+                        "employee_comment": (
+                            review_data["employee_comment"]
+                        ),
+                        "manager_comment": (
+                            review_data["manager_comment"]
+                        ),
+                        "development_plan": (
+                            review_data["development_plan"]
+                        ),
+                        "submitted_at": submitted_at,
+                        "completed_at": completed_at,
+                        "completed_by": completed_by,
+                    },
+                )
+            )
+
+            if review_created:
+                created_performance_review_count += 1
+
+            event_definitions = [
+                {
+                    "event_type": (
+                        PerformanceReviewEvent.EventType.CREATED
+                    ),
+                    "previous_status": "",
+                    "new_status": PerformanceReview.Status.DRAFT,
+                    "changed_by": manager_user,
+                    "note": (
+                        "Demo performans değerlendirmesi oluşturuldu."
+                    ),
+                },
+            ]
+
+            if target_status in {
+                PerformanceReview.Status.SELF_REVIEW,
+                PerformanceReview.Status.MANAGER_REVIEW,
+                PerformanceReview.Status.COMPLETED,
+            }:
+                event_definitions.append(
+                    {
+                        "event_type": (
+                            PerformanceReviewEvent
+                            .EventType
+                            .SELF_REVIEW_STARTED
+                        ),
+                        "previous_status": (
+                            PerformanceReview.Status.DRAFT
+                        ),
+                        "new_status": (
+                            PerformanceReview.Status.SELF_REVIEW
+                        ),
+                        "changed_by": employee_user,
+                        "note": "Demo öz değerlendirme süreci başladı.",
+                    }
+                )
+
+            if target_status in {
+                PerformanceReview.Status.MANAGER_REVIEW,
+                PerformanceReview.Status.COMPLETED,
+            }:
+                event_definitions.append(
+                    {
+                        "event_type": (
+                            PerformanceReviewEvent
+                            .EventType
+                            .SELF_REVIEW_SUBMITTED
+                        ),
+                        "previous_status": (
+                            PerformanceReview.Status.SELF_REVIEW
+                        ),
+                        "new_status": (
+                            PerformanceReview.Status.MANAGER_REVIEW
+                        ),
+                        "changed_by": employee_user,
+                        "note": (
+                            "Demo öz değerlendirme yöneticiye "
+                            "gönderildi."
+                        ),
+                    }
+                )
+
+            if target_status == PerformanceReview.Status.COMPLETED:
+                event_definitions.append(
+                    {
+                        "event_type": (
+                            PerformanceReviewEvent
+                            .EventType
+                            .COMPLETED
+                        ),
+                        "previous_status": (
+                            PerformanceReview.Status.MANAGER_REVIEW
+                        ),
+                        "new_status": (
+                            PerformanceReview.Status.COMPLETED
+                        ),
+                        "changed_by": manager_user,
+                        "note": (
+                            "Demo performans değerlendirmesi "
+                            "tamamlandı."
+                        ),
+                    }
+                )
+
+            if target_status == PerformanceReview.Status.CANCELLED:
+                event_definitions.append(
+                    {
+                        "event_type": (
+                            PerformanceReviewEvent
+                            .EventType
+                            .CANCELLED
+                        ),
+                        "previous_status": (
+                            PerformanceReview.Status.DRAFT
+                        ),
+                        "new_status": (
+                            PerformanceReview.Status.CANCELLED
+                        ),
+                        "changed_by": manager_user,
+                        "note": (
+                            "Organizasyon değişikliği nedeniyle demo "
+                            "değerlendirme iptal edildi."
+                        ),
+                    }
+                )
+
+            for event_data in event_definitions:
+                _, event_created = (
+                    PerformanceReviewEvent.objects.get_or_create(
+                        review=performance_review,
+                        event_type=event_data["event_type"],
+                        previous_status=(
+                            event_data["previous_status"]
+                        ),
+                        new_status=event_data["new_status"],
+                        defaults={
+                            "company": company,
+                            "changed_by": event_data["changed_by"],
+                            "note": event_data["note"],
+                        },
+                    )
+                )
+
+                if event_created:
+                    created_performance_event_count += 1
+
         financial_account, financial_account_created = (
             FinancialAccount.objects.get_or_create(
                 company=company,
@@ -1504,6 +1981,22 @@ class Command(BaseCommand):
         self.stdout.write(
             "Yeni devam işlem kaydı sayısı: "
             f"{created_attendance_event_count}"
+        )
+        self.stdout.write(
+            "Yeni performans dönemi sayısı: "
+            f"{created_performance_cycle_count}"
+        )
+        self.stdout.write(
+            "Yeni personel hedefi sayısı: "
+            f"{created_employee_goal_count}"
+        )
+        self.stdout.write(
+            "Yeni performans değerlendirmesi sayısı: "
+            f"{created_performance_review_count}"
+        )
+        self.stdout.write(
+            "Yeni performans işlem kaydı sayısı: "
+            f"{created_performance_event_count}"
         )
         self.stdout.write(
             "Kasa / banka hesabı: "

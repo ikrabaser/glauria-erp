@@ -1,4 +1,5 @@
 from io import StringIO
+from decimal import Decimal
 
 from django.core.management import call_command
 from django.test import TestCase
@@ -17,6 +18,10 @@ from apps.hr.models import (
     Position,
     WorkSchedule,
     WorkScheduleDay,
+    EmployeeGoal,
+    PerformanceReview,
+    PerformanceReviewCycle,
+    PerformanceReviewEvent,
 )
 from apps.organizations.models import Company
 
@@ -489,3 +494,139 @@ class SeedDemoCommandTests(TestCase):
             "Yeni devam işlem kaydı sayısı: 0",
             output_text,
         )
+
+    def test_seed_demo_creates_performance_management_data(self):
+        self.assertEqual(
+            PerformanceReviewCycle.objects.filter(
+                company=self.company,
+            ).count(),
+            1,
+        )
+
+        self.assertEqual(
+            EmployeeGoal.objects.filter(
+                company=self.company,
+            ).count(),
+            7,
+        )
+
+        self.assertEqual(
+            PerformanceReview.objects.filter(
+                company=self.company,
+            ).count(),
+            6,
+        )
+
+        self.assertEqual(
+            PerformanceReviewEvent.objects.filter(
+                company=self.company,
+            ).count(),
+            16,
+        )
+
+        self.assertEqual(
+            PerformanceReview.objects.filter(
+                company=self.company,
+                status=PerformanceReview.Status.COMPLETED,
+            ).count(),
+            2,
+        )
+
+        self.assertEqual(
+            PerformanceReview.objects.filter(
+                company=self.company,
+                status=PerformanceReview.Status.MANAGER_REVIEW,
+            ).count(),
+            1,
+        )
+
+        completed_review = PerformanceReview.objects.get(
+            company=self.company,
+            employee__user__username="demo.sales.manager",
+        )
+
+        self.assertEqual(
+            completed_review.status,
+            PerformanceReview.Status.COMPLETED,
+        )
+        self.assertEqual(
+            completed_review.overall_rating,
+            Decimal("4.70"),
+        )
+        self.assertIsNotNone(completed_review.completed_at)
+        self.assertEqual(
+            completed_review.completed_by.username,
+            "demo.ceo",
+        )
+        self.assertEqual(
+            completed_review.events.count(),
+            4,
+        )
+
+        sales_goal = EmployeeGoal.objects.get(
+            company=self.company,
+            employee__user__username="demo.sales.manager",
+        )
+
+        self.assertEqual(
+            sales_goal.status,
+            EmployeeGoal.Status.COMPLETED,
+        )
+        self.assertEqual(
+            sales_goal.progress_percentage,
+            Decimal("100.00"),
+        )
+
+    def test_seed_demo_is_idempotent_for_performance_data(self):
+        second_output = StringIO()
+
+        call_command(
+            "seed_demo",
+            owner=self.owner.username,
+            stdout=second_output,
+        )
+
+        self.assertEqual(
+            PerformanceReviewCycle.objects.filter(
+                company=self.company,
+            ).count(),
+            1,
+        )
+        self.assertEqual(
+            EmployeeGoal.objects.filter(
+                company=self.company,
+            ).count(),
+            7,
+        )
+        self.assertEqual(
+            PerformanceReview.objects.filter(
+                company=self.company,
+            ).count(),
+            6,
+        )
+        self.assertEqual(
+            PerformanceReviewEvent.objects.filter(
+                company=self.company,
+            ).count(),
+            16,
+        )
+
+        output_text = second_output.getvalue()
+
+        self.assertIn(
+            "Yeni performans dönemi sayısı: 0",
+            output_text,
+        )
+        self.assertIn(
+            "Yeni personel hedefi sayısı: 0",
+            output_text,
+        )
+        self.assertIn(
+            "Yeni performans değerlendirmesi sayısı: 0",
+            output_text,
+        )
+        self.assertIn(
+            "Yeni performans işlem kaydı sayısı: 0",
+            output_text,
+        )
+
