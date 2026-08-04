@@ -24,6 +24,7 @@ from .models import (
     EmployeeScheduleAssignment,
     WorkSchedule,
     WorkScheduleDay,
+    AttendanceRecordEvent,
 )
 from .services import (
     approve_absence_request,
@@ -31,6 +32,12 @@ from .services import (
     change_employee_assignment,
     reject_absence_request,
     submit_absence_request,
+    approve_attendance_record,
+    clock_in_attendance,
+    clock_out_attendance,
+    generate_attendance_record,
+    reject_attendance_record,
+    submit_attendance_record,
 )
 class HRModelTestCase(TestCase):
     def setUp(self):
@@ -1613,3 +1620,311 @@ class TimeAndAttendanceModelTestCase(TestCase):
                     .APPROVED
                 ),
             )
+class TimeAndAttendanceWorkflowTestCase(TestCase):
+    def setUp(self):
+        self.work_date = date(2026, 8, 3)
+
+        self.company = Company.objects.create(
+            name="Devam Workflow Test Şirketi",
+        )
+
+        self.employee = Employee.objects.create(
+            company=self.company,
+            employee_number="FLOW-0001",
+            first_name="Ece",
+            last_name="Demir",
+            work_email="ece.workflow@example.com",
+            hire_date=date(2025, 1, 1),
+        )
+
+        self.manager_user = User.objects.create_user(
+            username="attendance_manager",
+            email="attendance.manager@example.com",
+            password="test-password",
+            user_type=User.UserType.INTERNAL,
+        )
+
+        self.schedule = WorkSchedule.objects.create(
+            company=self.company,
+            code="FLOW-40",
+            name="Workflow Standart Takvim",
+            weekly_hours="40.00",
+        )
+
+        WorkScheduleDay.objects.create(
+            work_schedule=self.schedule,
+            weekday=self.work_date.weekday(),
+            is_working_day=True,
+            start_time=time(9, 0),
+            end_time=time(18, 0),
+            break_minutes=60,
+        )
+
+        self.non_working_date = date(2026, 8, 9)
+
+        WorkScheduleDay.objects.create(
+            work_schedule=self.schedule,
+            weekday=self.non_working_date.weekday(),
+            is_working_day=False,
+        )
+
+        self.assignment = (
+            EmployeeScheduleAssignment.objects.create(
+                company=self.company,
+                employee=self.employee,
+                work_schedule=self.schedule,
+                start_date=date(2026, 1, 1),
+                is_primary=True,
+            )
+        )
+
+    def aware_datetime(self, year, month, day, hour, minute=0):
+        return timezone.make_aware(
+            datetime(
+                year,
+                month,
+                day,
+                hour,
+                minute,
+            )
+        )
+
+    def create_completed_record(self):
+        record, _ = generate_attendance_record(
+            employee=self.employee,
+            work_date=self.work_date,
+            changed_by=self.manager_user,
+        )
+
+        record = clock_in_attendance(
+            attendance_record=record,
+            changed_by=self.employee.user,
+            clock_in_at=self.aware_datetime(
+                2026,
+                8,
+                3,
+                9,
+                0,
+            ),
+        )
+
+        record = clock_out_attendance(
+            attendance_record=record,
+            changed_by=self.employee.user,
+            clock_out_at=self.aware_datetime(
+                2026,
+                8,
+                3,
+                18,
+                0,
+            ),
+        )
+
+        return record
+
+    def test_generate_attendance_record_is_idempotent(self):
+        first_record, first_created = generate_attendance_record(
+            employee=self.employee,
+            work_date=self.work_date,
+            changed_by=self.manager_user,
+        )
+
+        second_record, second_created = generate_attendance_record(
+            employee=self.employee,
+            work_date=self.work_date,
+            changed_by=self.manager_user,
+        )
+
+        self.assertTrue(first_created)
+        self.assertFalse(second_created)
+        self.assertEqual(first_record, second_record)
+        self.assertEqual(
+            AttendanceRecord.objects.filter(
+                company=self.company,
+                employee=self.employee,
+                work_date=self.work_date,
+            ).count(),
+            1,
+        )
+        self.assertEqual(first_record.events.count(), 1)
+
+    def test_non_working_day_is_generated_correctly(self):
+        record, created = generate_attendance_record(
+            employee=self.employee,
+            work_date=self.non_working_date,
+            changed_by=self.manager_user,
+        )
+
+        self.assertTrue(created)
+        self.assertEqual(
+            record.status,
+            AttendanceRecord.Status.NON_WORKING_DAY,
+        )
+        self.assertIsNone(record.scheduled_start_time)
+        self.assertIsNone(record.scheduled_end_time)
+
+    def test_approved_absence_generates_on_leave_record(self):
+        absence_type = AbsenceType.objects.create(
+            company=self.company,
+            code="ANNUAL",
+            name="Yıllık İzin",
+            is_paid=True,
+            requires_approval=True,
+            deducts_balance=True,
+            default_entitlement_days="14.00",
+        )
+
+        AbsenceRequest.objects.create(
+            company=self.company,
+            employee=self.employee,
+            absence_type=absence_type,
+            start_date=self.work_date,
+            end_date=self.work_date,
+            reason="Onaylı yıllık izin.",
+            status=AbsenceRequest.Status.APPROVED,
+        )
+
+        record, _ = generate_attendance_record(
+            employee=self.employee,
+            work_date=self.work_date,
+            changed_by=self.manager_user,
+        )
+
+        self.assertEqual(
+            record.status,
+            AttendanceRecord.Status.ON_LEAVE,
+        )
+
+    def test_clock_in_calculates_late_minutes(self):
+        record, _ = generate_attendance_record(
+            employee=self.employee,
+            work_date=self.work_date,
+            changed_by=self.manager_user,
+        )
+
+        record = clock_in_attendance(
+            attendance_record=record,
+            changed_by=self.manager_user,
+            clock_in_at=self.aware_datetime(
+                2026,
+                8,
+                3,
+                9,
+                15,
+            ),
+        )
+
+        self.assertEqual(
+            record.status,
+            AttendanceRecord.Status.LATE,
+        )
+        self.assertEqual(record.late_minutes, 15)
+        self.assertTrue(
+            record.events.filter(
+                event_type=(
+                    AttendanceRecordEvent
+                    .EventType
+                    .CLOCK_IN
+                ),
+            ).exists()
+        )
+
+    def test_clock_out_calculates_worked_and_overtime_minutes(self):
+        record, _ = generate_attendance_record(
+            employee=self.employee,
+            work_date=self.work_date,
+            changed_by=self.manager_user,
+        )
+
+        record = clock_in_attendance(
+            attendance_record=record,
+            changed_by=self.manager_user,
+            clock_in_at=self.aware_datetime(
+                2026,
+                8,
+                3,
+                9,
+                0,
+            ),
+        )
+
+        record = clock_out_attendance(
+            attendance_record=record,
+            changed_by=self.manager_user,
+            clock_out_at=self.aware_datetime(
+                2026,
+                8,
+                3,
+                19,
+                0,
+            ),
+        )
+
+        self.assertEqual(record.worked_minutes, 540)
+        self.assertEqual(record.overtime_minutes, 60)
+
+    def test_completed_record_can_be_submitted_and_approved(self):
+        record = self.create_completed_record()
+
+        record = submit_attendance_record(
+            attendance_record=record,
+            changed_by=self.manager_user,
+            note="Günlük kayıt onaya gönderildi.",
+        )
+
+        self.assertEqual(
+            record.approval_status,
+            AttendanceRecord.ApprovalStatus.SUBMITTED,
+        )
+
+        record = approve_attendance_record(
+            attendance_record=record,
+            changed_by=self.manager_user,
+            note="Günlük çalışma kaydı uygundur.",
+        )
+
+        self.assertEqual(
+            record.approval_status,
+            AttendanceRecord.ApprovalStatus.APPROVED,
+        )
+        self.assertEqual(
+            record.approved_by,
+            self.manager_user,
+        )
+        self.assertIsNotNone(record.approved_at)
+        self.assertEqual(record.events.count(), 5)
+
+    def test_incomplete_working_record_cannot_be_submitted(self):
+        record, _ = generate_attendance_record(
+            employee=self.employee,
+            work_date=self.work_date,
+            changed_by=self.manager_user,
+        )
+
+        with self.assertRaises(ValidationError):
+            submit_attendance_record(
+                attendance_record=record,
+                changed_by=self.manager_user,
+            )
+
+    def test_rejection_requires_note(self):
+        record = self.create_completed_record()
+
+        record = submit_attendance_record(
+            attendance_record=record,
+            changed_by=self.manager_user,
+        )
+
+        with self.assertRaises(ValidationError):
+            reject_attendance_record(
+                attendance_record=record,
+                changed_by=self.manager_user,
+                rejection_note="",
+            )
+
+        record.refresh_from_db()
+
+        self.assertEqual(
+            record.approval_status,
+            AttendanceRecord.ApprovalStatus.SUBMITTED,
+        )

@@ -9,9 +9,14 @@ from apps.hr.models import (
     AbsenceRequest,
     AbsenceRequestEvent,
     AbsenceType,
+    AttendanceRecord,
+    AttendanceRecordEvent,
     Employee,
+    EmployeeScheduleAssignment,
     EmploymentAssignment,
     Position,
+    WorkSchedule,
+    WorkScheduleDay,
 )
 from apps.organizations.models import Company
 
@@ -314,4 +319,173 @@ class SeedDemoCommandTests(TestCase):
         self.assertEqual(
             approved_request.requested_days,
             3,
+        )
+    def test_seed_demo_creates_time_and_attendance_data(self):
+        self.assertEqual(
+          WorkSchedule.objects.filter(
+              company=self.company,
+          ).count(),
+          1,
+        )
+
+        self.assertEqual(
+          WorkScheduleDay.objects.filter(
+              work_schedule__company=self.company,
+          ).count(),
+          7,
+        )
+
+        self.assertEqual(
+          EmployeeScheduleAssignment.objects.filter(
+              company=self.company,
+              is_primary=True,
+              end_date__isnull=True,
+          ).count(),
+          7,
+        )
+
+        self.assertEqual(
+          AttendanceRecord.objects.filter(
+              company=self.company,
+          ).count(),
+          7,
+        )
+
+        self.assertEqual(
+          AttendanceRecordEvent.objects.filter(
+              company=self.company,
+          ).count(),
+          25,
+        )
+
+        leave_record = AttendanceRecord.objects.get(
+          company=self.company,
+          employee__user__username="demo.finance.manager",
+          work_date="2026-07-20",
+        )
+
+        self.assertEqual(
+          leave_record.status,
+          AttendanceRecord.Status.ON_LEAVE,
+        )
+        self.assertEqual(
+          leave_record.approval_status,
+          AttendanceRecord.ApprovalStatus.APPROVED,
+        )
+
+        late_record = AttendanceRecord.objects.get(
+          company=self.company,
+          employee__user__username="demo.hr.manager",
+          work_date="2026-08-03",
+        )
+
+        self.assertEqual(
+          late_record.status,
+          AttendanceRecord.Status.LATE,
+        )
+        self.assertEqual(
+          late_record.late_minutes,
+          12,
+        )
+        self.assertEqual(
+          late_record.worked_minutes,
+          468,
+        )
+        self.assertEqual(
+          late_record.approval_status,
+          AttendanceRecord.ApprovalStatus.SUBMITTED,
+        )
+
+        remote_record = AttendanceRecord.objects.get(
+          company=self.company,
+          employee__user__username="demo.purchasing.manager",
+          work_date="2026-08-03",
+        )
+
+        self.assertEqual(
+          remote_record.status,
+          AttendanceRecord.Status.REMOTE,
+        )
+
+        overtime_record = AttendanceRecord.objects.get(
+          company=self.company,
+          employee__user__username="demo.sales.manager",
+          work_date="2026-08-03",
+        )
+
+        self.assertEqual(
+          overtime_record.overtime_minutes,
+          120,
+        )
+        self.assertEqual(
+          overtime_record.approval_status,
+          AttendanceRecord.ApprovalStatus.APPROVED,
+        )
+
+
+    def test_seed_demo_is_idempotent_for_time_and_attendance_data(
+        self,
+    ):
+        second_output = StringIO()
+
+        call_command(
+            "seed_demo",
+            owner=self.owner.username,
+            stdout=second_output,
+        )
+
+        self.assertEqual(
+            WorkSchedule.objects.filter(
+                company=self.company,
+            ).count(),
+            1,
+        )
+        self.assertEqual(
+            WorkScheduleDay.objects.filter(
+                work_schedule__company=self.company,
+            ).count(),
+            7,
+        )
+        self.assertEqual(
+            EmployeeScheduleAssignment.objects.filter(
+                company=self.company,
+                is_primary=True,
+                end_date__isnull=True,
+            ).count(),
+            7,
+        )
+        self.assertEqual(
+            AttendanceRecord.objects.filter(
+                company=self.company,
+            ).count(),
+            7,
+        )
+        self.assertEqual(
+            AttendanceRecordEvent.objects.filter(
+                company=self.company,
+            ).count(),
+            25,
+        )
+
+        output_text = second_output.getvalue()
+
+        self.assertIn(
+            "Yeni çalışma takvimi sayısı: 0",
+            output_text,
+        )
+        self.assertIn(
+            "Yeni çalışma takvimi günü sayısı: 0",
+            output_text,
+        )
+        self.assertIn(
+            "Yeni personel takvim ataması sayısı: 0",
+            output_text,
+        )
+        self.assertIn(
+            "Yeni devam kaydı sayısı: 0",
+            output_text,
+        )
+        self.assertIn(
+            "Yeni devam işlem kaydı sayısı: 0",
+            output_text,
         )

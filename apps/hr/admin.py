@@ -13,6 +13,7 @@ from .models import (
     Position,
     WorkSchedule,
     WorkScheduleDay,
+    AttendanceRecordEvent,
 )
 
 
@@ -553,3 +554,65 @@ class AttendanceRecordAdmin(admin.ModelAdmin):
         "created_at",
         "updated_at",
     )
+@admin.register(AttendanceRecordEvent)
+class AttendanceRecordEventAdmin(admin.ModelAdmin):
+    list_display = (
+        "record",
+        "event_type",
+        "previous_approval_status",
+        "new_approval_status",
+        "changed_by",
+        "occurred_at",
+    )
+    list_filter = (
+        "company",
+        "event_type",
+        "new_approval_status",
+        "occurred_at",
+    )
+    search_fields = (
+        "record__employee__employee_number",
+        "record__employee__first_name",
+        "record__employee__last_name",
+        "note",
+        "changed_by__username",
+    )
+    ordering = (
+        "-occurred_at",
+        "-created_at",
+    )
+    list_select_related = (
+        "record",
+        "record__employee",
+        "company",
+        "changed_by",
+    )
+    readonly_fields = (
+        "record",
+        "company",
+        "event_type",
+        "previous_approval_status",
+        "new_approval_status",
+        "changed_by",
+        "note",
+        "occurred_at",
+        "created_at",
+        "updated_at",
+    )
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(
+        self,
+        request,
+        obj=None,
+    ):
+        return False
+
+    def has_delete_permission(
+        self,
+        request,
+        obj=None,
+    ):
+        return False

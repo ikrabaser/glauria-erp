@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime, time
 from decimal import Decimal
 
 from django.core.management.base import BaseCommand, CommandError
@@ -11,9 +11,21 @@ from apps.hr.models import (
     AbsenceRequest,
     AbsenceRequestEvent,
     AbsenceType,
+    AttendanceRecord,
+    AttendanceRecordEvent,
     Employee,
+    EmployeeScheduleAssignment,
     EmploymentAssignment,
     Position,
+    WorkSchedule,
+    WorkScheduleDay,
+)
+from apps.hr.services import (
+    approve_attendance_record,
+    clock_in_attendance,
+    clock_out_attendance,
+    generate_attendance_record,
+    submit_attendance_record,
 )
 from apps.finance.models import (
     FinanceBudget,
@@ -453,6 +465,126 @@ DEMO_ABSENCE_REQUESTS = [
         "decision_note": "",
     },
 ]
+DEMO_WORK_SCHEDULE_CODE = "STD-40"
+
+DEMO_WORK_SCHEDULE_DAYS = [
+    {
+        "weekday": WorkScheduleDay.Weekday.MONDAY,
+        "is_working_day": True,
+        "start_time": time(9, 0),
+        "end_time": time(18, 0),
+        "break_minutes": 60,
+    },
+    {
+        "weekday": WorkScheduleDay.Weekday.TUESDAY,
+        "is_working_day": True,
+        "start_time": time(9, 0),
+        "end_time": time(18, 0),
+        "break_minutes": 60,
+    },
+    {
+        "weekday": WorkScheduleDay.Weekday.WEDNESDAY,
+        "is_working_day": True,
+        "start_time": time(9, 0),
+        "end_time": time(18, 0),
+        "break_minutes": 60,
+    },
+    {
+        "weekday": WorkScheduleDay.Weekday.THURSDAY,
+        "is_working_day": True,
+        "start_time": time(9, 0),
+        "end_time": time(18, 0),
+        "break_minutes": 60,
+    },
+    {
+        "weekday": WorkScheduleDay.Weekday.FRIDAY,
+        "is_working_day": True,
+        "start_time": time(9, 0),
+        "end_time": time(18, 0),
+        "break_minutes": 60,
+    },
+    {
+        "weekday": WorkScheduleDay.Weekday.SATURDAY,
+        "is_working_day": False,
+        "start_time": None,
+        "end_time": None,
+        "break_minutes": 0,
+    },
+    {
+        "weekday": WorkScheduleDay.Weekday.SUNDAY,
+        "is_working_day": False,
+        "start_time": None,
+        "end_time": None,
+        "break_minutes": 0,
+    },
+]
+
+
+DEMO_ATTENDANCE_RECORDS = [
+    {
+        "employee_username": "demo.ceo",
+        "work_date": date(2026, 8, 3),
+        "clock_in_time": time(9, 0),
+        "clock_out_time": time(18, 0),
+        "status": AttendanceRecord.Status.PRESENT,
+        "approval_status": AttendanceRecord.ApprovalStatus.APPROVED,
+        "note": "Standart zamanında çalışma kaydı.",
+    },
+    {
+        "employee_username": "demo.hr.manager",
+        "work_date": date(2026, 8, 3),
+        "clock_in_time": time(9, 12),
+        "clock_out_time": time(18, 0),
+        "status": AttendanceRecord.Status.LATE,
+        "approval_status": AttendanceRecord.ApprovalStatus.SUBMITTED,
+        "note": "On iki dakika geç giriş yapılan demo kayıt.",
+    },
+    {
+        "employee_username": "demo.hr.specialist",
+        "work_date": date(2026, 8, 3),
+        "clock_in_time": time(8, 58),
+        "clock_out_time": time(18, 0),
+        "status": AttendanceRecord.Status.PRESENT,
+        "approval_status": AttendanceRecord.ApprovalStatus.DRAFT,
+        "note": "Tamamlanmış taslak devam kaydı.",
+    },
+    {
+        "employee_username": "demo.finance.manager",
+        "work_date": date(2026, 7, 20),
+        "clock_in_time": None,
+        "clock_out_time": None,
+        "status": AttendanceRecord.Status.ON_LEAVE,
+        "approval_status": AttendanceRecord.ApprovalStatus.APPROVED,
+        "note": "Onaylı yıllık izin ile otomatik oluşan kayıt.",
+    },
+    {
+        "employee_username": "demo.purchasing.manager",
+        "work_date": date(2026, 8, 3),
+        "clock_in_time": time(9, 0),
+        "clock_out_time": time(18, 0),
+        "status": AttendanceRecord.Status.REMOTE,
+        "approval_status": AttendanceRecord.ApprovalStatus.SUBMITTED,
+        "note": "Uzaktan çalışma demo kaydı.",
+    },
+    {
+        "employee_username": "demo.sales.manager",
+        "work_date": date(2026, 8, 3),
+        "clock_in_time": time(9, 0),
+        "clock_out_time": time(20, 0),
+        "status": AttendanceRecord.Status.PRESENT,
+        "approval_status": AttendanceRecord.ApprovalStatus.APPROVED,
+        "note": "Fazla mesai içeren demo kayıt.",
+    },
+    {
+        "employee_username": "demo.operations.manager",
+        "work_date": date(2026, 8, 2),
+        "clock_in_time": None,
+        "clock_out_time": None,
+        "status": AttendanceRecord.Status.NON_WORKING_DAY,
+        "approval_status": AttendanceRecord.ApprovalStatus.DRAFT,
+        "note": "Pazar günü çalışma dışı kayıt.",
+    },
+]
 
 class Command(BaseCommand):
     help = (
@@ -884,7 +1016,228 @@ class Command(BaseCommand):
 
                 if approved_event_created:
                     created_absence_event_count += 1
+                work_schedule, work_schedule_created = (
+            WorkSchedule.objects.update_or_create(
+                company=company,
+                code=DEMO_WORK_SCHEDULE_CODE,
+                defaults={
+                    "name": "Standart 40 Saat",
+                    "weekly_hours": Decimal("40.00"),
+                    "timezone_name": "Europe/Istanbul",
+                    "description": (
+                        "Pazartesi-Cuma 09:00-18:00 standart "
+                        "demo çalışma takvimi."
+                    ),
+                    "is_active": True,
+                },
+            )
+        )
 
+        created_work_schedule_count = int(
+            work_schedule_created
+        )
+        created_work_schedule_day_count = 0
+        created_schedule_assignment_count = 0
+        created_attendance_record_count = 0
+
+        attendance_event_count_before = (
+            AttendanceRecordEvent.objects.filter(
+                company=company,
+            ).count()
+        )
+
+        for schedule_day_data in DEMO_WORK_SCHEDULE_DAYS:
+            _, schedule_day_created = (
+                WorkScheduleDay.objects.update_or_create(
+                    work_schedule=work_schedule,
+                    weekday=schedule_day_data["weekday"],
+                    defaults={
+                        "is_working_day": (
+                            schedule_day_data[
+                                "is_working_day"
+                            ]
+                        ),
+                        "start_time": (
+                            schedule_day_data["start_time"]
+                        ),
+                        "end_time": (
+                            schedule_day_data["end_time"]
+                        ),
+                        "break_minutes": (
+                            schedule_day_data[
+                                "break_minutes"
+                            ]
+                        ),
+                        "crosses_midnight": False,
+                    },
+                )
+            )
+
+            if schedule_day_created:
+                created_work_schedule_day_count += 1
+
+        for employee in hr_employees.values():
+            _, schedule_assignment_created = (
+                EmployeeScheduleAssignment.objects.update_or_create(
+                    company=company,
+                    employee=employee,
+                    is_primary=True,
+                    end_date=None,
+                    defaults={
+                        "work_schedule": work_schedule,
+                        "start_date": date(2026, 1, 1),
+                        "assignment_note": (
+                            "Demo standart çalışma takvimi ataması."
+                        ),
+                    },
+                )
+            )
+
+            if schedule_assignment_created:
+                created_schedule_assignment_count += 1
+
+        attendance_approver = hr_users["demo.hr.manager"]
+
+        for attendance_data in DEMO_ATTENDANCE_RECORDS:
+            employee = hr_employees[
+                attendance_data["employee_username"]
+            ]
+
+            attendance_record, attendance_record_created = (
+                generate_attendance_record(
+                    employee=employee,
+                    work_date=attendance_data["work_date"],
+                    changed_by=attendance_approver,
+                )
+            )
+
+            if attendance_record_created:
+                created_attendance_record_count += 1
+
+            attendance_record.refresh_from_db()
+
+            if (
+                attendance_data["status"]
+                == AttendanceRecord.Status.REMOTE
+                and not attendance_record.clock_in_at
+                and attendance_record.approval_status
+                in {
+                    AttendanceRecord.ApprovalStatus.DRAFT,
+                    AttendanceRecord.ApprovalStatus.REJECTED,
+                }
+            ):
+                attendance_record.status = (
+                    AttendanceRecord.Status.REMOTE
+                )
+                attendance_record.save(
+                    update_fields=[
+                        "status",
+                        "worked_minutes",
+                        "updated_at",
+                    ]
+                )
+
+            clock_in_time = attendance_data[
+                "clock_in_time"
+            ]
+
+            if (
+                clock_in_time
+                and not attendance_record.clock_in_at
+            ):
+                clock_in_at = timezone.make_aware(
+                    datetime.combine(
+                        attendance_data["work_date"],
+                        clock_in_time,
+                    ),
+                    timezone.get_current_timezone(),
+                )
+
+                attendance_record = clock_in_attendance(
+                    attendance_record=attendance_record,
+                    changed_by=employee.user,
+                    clock_in_at=clock_in_at,
+                )
+
+            attendance_record.refresh_from_db()
+
+            clock_out_time = attendance_data[
+                "clock_out_time"
+            ]
+
+            if (
+                clock_out_time
+                and attendance_record.clock_in_at
+                and not attendance_record.clock_out_at
+            ):
+                clock_out_at = timezone.make_aware(
+                    datetime.combine(
+                        attendance_data["work_date"],
+                        clock_out_time,
+                    ),
+                    timezone.get_current_timezone(),
+                )
+
+                attendance_record = clock_out_attendance(
+                    attendance_record=attendance_record,
+                    changed_by=employee.user,
+                    clock_out_at=clock_out_at,
+                )
+
+            attendance_record.refresh_from_db()
+
+            if attendance_record.note != attendance_data["note"]:
+                attendance_record.note = attendance_data["note"]
+                attendance_record.save(
+                    update_fields=[
+                        "note",
+                        "worked_minutes",
+                        "updated_at",
+                    ]
+                )
+
+            target_approval_status = attendance_data[
+                "approval_status"
+            ]
+
+            if (
+                target_approval_status
+                in {
+                    AttendanceRecord.ApprovalStatus.SUBMITTED,
+                    AttendanceRecord.ApprovalStatus.APPROVED,
+                }
+                and attendance_record.approval_status
+                in {
+                    AttendanceRecord.ApprovalStatus.DRAFT,
+                    AttendanceRecord.ApprovalStatus.REJECTED,
+                }
+            ):
+                attendance_record = submit_attendance_record(
+                    attendance_record=attendance_record,
+                    changed_by=employee.user,
+                    note="Demo devam kaydı onaya gönderildi.",
+                )
+
+            attendance_record.refresh_from_db()
+
+            if (
+                target_approval_status
+                == AttendanceRecord.ApprovalStatus.APPROVED
+                and attendance_record.approval_status
+                == AttendanceRecord.ApprovalStatus.SUBMITTED
+            ):
+                approve_attendance_record(
+                    attendance_record=attendance_record,
+                    changed_by=attendance_approver,
+                    note="Demo devam kaydı onaylandı.",
+                )
+
+        created_attendance_event_count = (
+            AttendanceRecordEvent.objects.filter(
+                company=company,
+            ).count()
+            - attendance_event_count_before
+        )
         financial_account, financial_account_created = (
             FinancialAccount.objects.get_or_create(
                 company=company,
@@ -1131,6 +1484,26 @@ class Command(BaseCommand):
         self.stdout.write(
             "Yeni izin işlem kaydı sayısı: "
             f"{created_absence_event_count}"
+        )
+        self.stdout.write(
+            "Yeni çalışma takvimi sayısı: "
+            f"{created_work_schedule_count}"
+        )
+        self.stdout.write(
+            "Yeni çalışma takvimi günü sayısı: "
+            f"{created_work_schedule_day_count}"
+        )
+        self.stdout.write(
+            "Yeni personel takvim ataması sayısı: "
+            f"{created_schedule_assignment_count}"
+        )
+        self.stdout.write(
+            "Yeni devam kaydı sayısı: "
+            f"{created_attendance_record_count}"
+        )
+        self.stdout.write(
+            "Yeni devam işlem kaydı sayısı: "
+            f"{created_attendance_event_count}"
         )
         self.stdout.write(
             "Kasa / banka hesabı: "

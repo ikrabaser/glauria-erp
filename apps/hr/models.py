@@ -2,6 +2,7 @@ from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models import Q
+from django.utils import timezone
 
 from apps.core.models import BaseModel, MasterDataModel
 from apps.organizations.models import Branch, Company, Department
@@ -1734,4 +1735,138 @@ class AttendanceRecord(BaseModel):
         return (
             f"{self.employee.full_name} · "
             f"{self.work_date:%d.%m.%Y}"
+        )
+class AttendanceRecordEvent(BaseModel):
+    """
+    Zaman ve devam kaydındaki işlemlerin değiştirilemez denetim kaydıdır.
+    """
+
+    class EventType(models.TextChoices):
+        GENERATED = "generated", "Kayıt üretildi"
+        CLOCK_IN = "clock_in", "Giriş yapıldı"
+        CLOCK_OUT = "clock_out", "Çıkış yapıldı"
+        SUBMITTED = "submitted", "Onaya gönderildi"
+        APPROVED = "approved", "Onaylandı"
+        REJECTED = "rejected", "Reddedildi"
+        UPDATED = "updated", "Güncellendi"
+
+    record = models.ForeignKey(
+        AttendanceRecord,
+        on_delete=models.CASCADE,
+        related_name="events",
+        verbose_name="Zaman ve devam kaydı",
+    )
+
+    company = models.ForeignKey(
+        Company,
+        on_delete=models.PROTECT,
+        related_name="attendance_record_events",
+        verbose_name="Şirket",
+    )
+
+    event_type = models.CharField(
+        max_length=30,
+        choices=EventType.choices,
+        verbose_name="İşlem türü",
+    )
+
+    previous_approval_status = models.CharField(
+        max_length=20,
+        choices=AttendanceRecord.ApprovalStatus.choices,
+        blank=True,
+        verbose_name="Önceki onay durumu",
+    )
+
+    new_approval_status = models.CharField(
+        max_length=20,
+        choices=AttendanceRecord.ApprovalStatus.choices,
+        verbose_name="Yeni onay durumu",
+    )
+
+    changed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="attendance_record_events",
+        verbose_name="İşlemi yapan kullanıcı",
+    )
+
+    note = models.TextField(
+        blank=True,
+        verbose_name="İşlem notu",
+    )
+
+    occurred_at = models.DateTimeField(
+        default=timezone.now,
+        verbose_name="İşlem zamanı",
+    )
+
+    class Meta:
+        verbose_name = "Zaman ve devam işlem kaydı"
+        verbose_name_plural = "Zaman ve devam işlem kayıtları"
+        ordering = [
+            "-occurred_at",
+            "-created_at",
+        ]
+        indexes = [
+            models.Index(
+                fields=[
+                    "company",
+                    "occurred_at",
+                ],
+            ),
+            models.Index(
+                fields=[
+                    "record",
+                    "occurred_at",
+                ],
+            ),
+            models.Index(
+                fields=[
+                    "event_type",
+                    "occurred_at",
+                ],
+            ),
+        ]
+
+    def clean(self):
+        errors = {}
+
+        if self.record_id and self.company_id:
+            if self.record.company_id != self.company_id:
+                errors["record"] = (
+                    "Devam işlem kaydı devam kaydıyla aynı "
+                    "şirkete ait olmalıdır."
+                )
+
+        if (
+            self.event_type
+            in {
+                self.EventType.SUBMITTED,
+                self.EventType.APPROVED,
+                self.EventType.REJECTED,
+            }
+            and (
+                not self.previous_approval_status
+                or self.previous_approval_status
+                == self.new_approval_status
+            )
+        ):
+            errors["new_approval_status"] = (
+                "Onay işlemlerinde yeni durum önceki durumdan "
+                "farklı olmalıdır."
+            )
+
+        if errors:
+            raise ValidationError(errors)
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return (
+            f"{self.record.employee.full_name} · "
+            f"{self.get_event_type_display()}"
         )
