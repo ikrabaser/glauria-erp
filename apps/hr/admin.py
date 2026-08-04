@@ -5,10 +5,23 @@ from .models import (
     AbsenceRequest,
     AbsenceRequestEvent,
     AbsenceType,
+    AttendanceRecord,
     Employee,
+    EmployeeScheduleAssignment,
     EmploymentAssignment,
     EmploymentAssignmentEvent,
     Position,
+    WorkSchedule,
+    WorkScheduleDay,
+    AttendanceRecordEvent,
+    EmployeeGoal,
+    PerformanceReview,
+    PerformanceReviewCycle,
+    PerformanceReviewEvent,
+    Candidate,
+    JobApplication,
+    JobRequisition,
+    RecruitmentEvent,
 )
 
 
@@ -390,3 +403,647 @@ class AbsenceRequestEventAdmin(admin.ModelAdmin):
         obj=None,
     ):
         return False
+class WorkScheduleDayInline(admin.TabularInline):
+    model = WorkScheduleDay
+    extra = 0
+    fields = (
+        "weekday",
+        "is_working_day",
+        "start_time",
+        "end_time",
+        "break_minutes",
+        "crosses_midnight",
+    )
+    ordering = (
+        "weekday",
+    )
+
+
+@admin.register(WorkSchedule)
+class WorkScheduleAdmin(admin.ModelAdmin):
+    list_display = (
+        "code",
+        "name",
+        "company",
+        "weekly_hours",
+        "timezone_name",
+        "is_active",
+    )
+    list_filter = (
+        "company",
+        "is_active",
+    )
+    search_fields = (
+        "code",
+        "name",
+        "company__name",
+    )
+    ordering = (
+        "company__name",
+        "name",
+    )
+    list_select_related = (
+        "company",
+    )
+    inlines = (
+        WorkScheduleDayInline,
+    )
+
+
+@admin.register(WorkScheduleDay)
+class WorkScheduleDayAdmin(admin.ModelAdmin):
+    list_display = (
+        "work_schedule",
+        "weekday",
+        "is_working_day",
+        "start_time",
+        "end_time",
+        "break_minutes",
+        "crosses_midnight",
+    )
+    list_filter = (
+        "work_schedule__company",
+        "work_schedule",
+        "is_working_day",
+        "weekday",
+    )
+    search_fields = (
+        "work_schedule__code",
+        "work_schedule__name",
+        "work_schedule__company__name",
+    )
+    ordering = (
+        "work_schedule__company__name",
+        "work_schedule__name",
+        "weekday",
+    )
+    list_select_related = (
+        "work_schedule",
+        "work_schedule__company",
+    )
+
+
+@admin.register(EmployeeScheduleAssignment)
+class EmployeeScheduleAssignmentAdmin(admin.ModelAdmin):
+    list_display = (
+        "employee",
+        "work_schedule",
+        "company",
+        "start_date",
+        "end_date",
+        "is_primary",
+    )
+    list_filter = (
+        "company",
+        "work_schedule",
+        "is_primary",
+        "start_date",
+        "end_date",
+    )
+    search_fields = (
+        "employee__employee_number",
+        "employee__first_name",
+        "employee__last_name",
+        "work_schedule__code",
+        "work_schedule__name",
+    )
+    ordering = (
+        "-start_date",
+        "employee__last_name",
+        "employee__first_name",
+    )
+    list_select_related = (
+        "company",
+        "employee",
+        "work_schedule",
+    )
+
+
+@admin.register(AttendanceRecord)
+class AttendanceRecordAdmin(admin.ModelAdmin):
+    list_display = (
+        "employee",
+        "work_date",
+        "status",
+        "clock_in_at",
+        "clock_out_at",
+        "worked_minutes",
+        "late_minutes",
+        "overtime_minutes",
+        "approval_status",
+    )
+    list_filter = (
+        "company",
+        "status",
+        "approval_status",
+        "source",
+        "work_date",
+    )
+    search_fields = (
+        "employee__employee_number",
+        "employee__first_name",
+        "employee__last_name",
+        "note",
+    )
+    ordering = (
+        "-work_date",
+        "employee__last_name",
+        "employee__first_name",
+    )
+    list_select_related = (
+        "company",
+        "employee",
+        "schedule_assignment",
+        "approved_by",
+    )
+    readonly_fields = (
+        "worked_minutes",
+        "approved_at",
+        "created_at",
+        "updated_at",
+    )
+@admin.register(AttendanceRecordEvent)
+class AttendanceRecordEventAdmin(admin.ModelAdmin):
+    list_display = (
+        "record",
+        "event_type",
+        "previous_approval_status",
+        "new_approval_status",
+        "changed_by",
+        "occurred_at",
+    )
+    list_filter = (
+        "company",
+        "event_type",
+        "new_approval_status",
+        "occurred_at",
+    )
+    search_fields = (
+        "record__employee__employee_number",
+        "record__employee__first_name",
+        "record__employee__last_name",
+        "note",
+        "changed_by__username",
+    )
+    ordering = (
+        "-occurred_at",
+        "-created_at",
+    )
+    list_select_related = (
+        "record",
+        "record__employee",
+        "company",
+        "changed_by",
+    )
+    readonly_fields = (
+        "record",
+        "company",
+        "event_type",
+        "previous_approval_status",
+        "new_approval_status",
+        "changed_by",
+        "note",
+        "occurred_at",
+        "created_at",
+        "updated_at",
+    )
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(
+        self,
+        request,
+        obj=None,
+    ):
+        return False
+
+    def has_delete_permission(
+        self,
+        request,
+        obj=None,
+    ):
+        return False
+
+
+@admin.register(PerformanceReviewCycle)
+class PerformanceReviewCycleAdmin(admin.ModelAdmin):
+    list_display = (
+        "code",
+        "name",
+        "company",
+        "start_date",
+        "end_date",
+        "status",
+        "is_active",
+    )
+    list_filter = (
+        "company",
+        "status",
+        "is_active",
+        "start_date",
+        "end_date",
+    )
+    search_fields = (
+        "code",
+        "name",
+        "description",
+        "company__name",
+    )
+    ordering = (
+        "-start_date",
+        "company__name",
+        "name",
+    )
+    list_select_related = (
+        "company",
+    )
+    readonly_fields = (
+        "created_at",
+        "updated_at",
+        "deleted_at",
+    )
+
+
+@admin.register(EmployeeGoal)
+class EmployeeGoalAdmin(admin.ModelAdmin):
+    list_display = (
+        "title",
+        "employee",
+        "cycle",
+        "company",
+        "weight",
+        "progress_percentage",
+        "status",
+        "due_date",
+    )
+    list_filter = (
+        "company",
+        "cycle",
+        "status",
+        "start_date",
+        "due_date",
+    )
+    search_fields = (
+        "title",
+        "description",
+        "employee__employee_number",
+        "employee__first_name",
+        "employee__last_name",
+        "cycle__code",
+        "cycle__name",
+    )
+    ordering = (
+        "due_date",
+        "employee__last_name",
+        "employee__first_name",
+        "title",
+    )
+    list_select_related = (
+        "company",
+        "cycle",
+        "employee",
+    )
+    readonly_fields = (
+        "created_at",
+        "updated_at",
+    )
+
+
+@admin.register(PerformanceReview)
+class PerformanceReviewAdmin(admin.ModelAdmin):
+    list_display = (
+        "employee",
+        "manager",
+        "cycle",
+        "company",
+        "status",
+        "employee_rating",
+        "manager_rating",
+        "overall_rating",
+        "completed_at",
+    )
+    list_filter = (
+        "company",
+        "cycle",
+        "status",
+        "submitted_at",
+        "completed_at",
+    )
+    search_fields = (
+        "employee__employee_number",
+        "employee__first_name",
+        "employee__last_name",
+        "manager__employee_number",
+        "manager__first_name",
+        "manager__last_name",
+        "cycle__code",
+        "cycle__name",
+        "employee_comment",
+        "manager_comment",
+        "development_plan",
+    )
+    ordering = (
+        "-cycle__start_date",
+        "employee__last_name",
+        "employee__first_name",
+    )
+    list_select_related = (
+        "company",
+        "cycle",
+        "employee",
+        "manager",
+        "completed_by",
+    )
+    readonly_fields = (
+        "submitted_at",
+        "completed_at",
+        "completed_by",
+        "created_at",
+        "updated_at",
+    )
+
+
+@admin.register(PerformanceReviewEvent)
+class PerformanceReviewEventAdmin(admin.ModelAdmin):
+    list_display = (
+        "review",
+        "event_type",
+        "previous_status",
+        "new_status",
+        "changed_by",
+        "occurred_at",
+    )
+    list_filter = (
+        "company",
+        "event_type",
+        "new_status",
+        "occurred_at",
+    )
+    search_fields = (
+        "review__employee__employee_number",
+        "review__employee__first_name",
+        "review__employee__last_name",
+        "review__cycle__code",
+        "review__cycle__name",
+        "changed_by__username",
+        "note",
+    )
+    ordering = (
+        "-occurred_at",
+        "-created_at",
+    )
+    list_select_related = (
+        "review",
+        "review__employee",
+        "review__cycle",
+        "company",
+        "changed_by",
+    )
+    readonly_fields = (
+        "review",
+        "company",
+        "event_type",
+        "previous_status",
+        "new_status",
+        "changed_by",
+        "note",
+        "occurred_at",
+        "created_at",
+        "updated_at",
+    )
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(
+        self,
+        request,
+        obj=None,
+    ):
+        return False
+
+    def has_delete_permission(
+        self,
+        request,
+        obj=None,
+    ):
+        return False
+
+
+@admin.register(JobRequisition)
+class JobRequisitionAdmin(admin.ModelAdmin):
+    list_display = (
+        "requisition_number",
+        "title",
+        "company",
+        "department",
+        "position",
+        "status",
+        "headcount",
+        "filled_headcount",
+        "application_deadline",
+    )
+    list_filter = (
+        "company",
+        "department",
+        "status",
+        "employment_type",
+        "opening_reason",
+        "application_deadline",
+    )
+    search_fields = (
+        "requisition_number",
+        "title",
+        "description",
+        "requirements",
+        "department__name",
+        "position__title",
+        "hiring_manager__first_name",
+        "hiring_manager__last_name",
+        "recruiter__first_name",
+        "recruiter__last_name",
+    )
+    ordering = (
+        "-created_at",
+        "requisition_number",
+    )
+    list_select_related = (
+        "company",
+        "department",
+        "position",
+        "hiring_manager",
+        "recruiter",
+        "created_by",
+    )
+    readonly_fields = (
+        "opened_at",
+        "closed_at",
+        "created_at",
+        "updated_at",
+    )
+
+
+@admin.register(Candidate)
+class CandidateAdmin(admin.ModelAdmin):
+    list_display = (
+        "full_name_display",
+        "email",
+        "company",
+        "current_title",
+        "source",
+        "years_of_experience",
+        "consent_given",
+    )
+    list_filter = (
+        "company",
+        "source",
+        "consent_given",
+        "created_at",
+    )
+    search_fields = (
+        "first_name",
+        "last_name",
+        "email",
+        "phone",
+        "current_title",
+        "current_company",
+        "linkedin_url",
+        "portfolio_url",
+    )
+    ordering = (
+        "last_name",
+        "first_name",
+    )
+    list_select_related = (
+        "company",
+        "created_by",
+    )
+    readonly_fields = (
+        "created_at",
+        "updated_at",
+    )
+
+    @admin.display(description="Aday")
+    def full_name_display(self, obj):
+        return obj.full_name
+
+
+@admin.register(JobApplication)
+class JobApplicationAdmin(admin.ModelAdmin):
+    list_display = (
+        "candidate",
+        "requisition",
+        "company",
+        "stage",
+        "status",
+        "screening_score",
+        "assigned_recruiter",
+        "applied_at",
+    )
+    list_filter = (
+        "company",
+        "requisition",
+        "stage",
+        "status",
+        "assigned_recruiter",
+        "applied_at",
+    )
+    search_fields = (
+        "candidate__first_name",
+        "candidate__last_name",
+        "candidate__email",
+        "requisition__requisition_number",
+        "requisition__title",
+        "source_note",
+        "rejection_reason",
+        "withdrawn_reason",
+    )
+    ordering = (
+        "-applied_at",
+        "-created_at",
+    )
+    list_select_related = (
+        "company",
+        "candidate",
+        "requisition",
+        "assigned_recruiter",
+    )
+    readonly_fields = (
+        "applied_at",
+        "created_at",
+        "updated_at",
+    )
+
+
+@admin.register(RecruitmentEvent)
+class RecruitmentEventAdmin(admin.ModelAdmin):
+    list_display = (
+        "application",
+        "event_type",
+        "previous_stage",
+        "new_stage",
+        "previous_status",
+        "new_status",
+        "changed_by",
+        "occurred_at",
+    )
+    list_filter = (
+        "company",
+        "event_type",
+        "new_stage",
+        "new_status",
+        "occurred_at",
+    )
+    search_fields = (
+        "application__candidate__first_name",
+        "application__candidate__last_name",
+        "application__candidate__email",
+        "application__requisition__requisition_number",
+        "application__requisition__title",
+        "changed_by__username",
+        "note",
+    )
+    ordering = (
+        "-occurred_at",
+        "-created_at",
+    )
+    list_select_related = (
+        "application",
+        "application__candidate",
+        "application__requisition",
+        "company",
+        "changed_by",
+    )
+    readonly_fields = (
+        "application",
+        "company",
+        "event_type",
+        "previous_stage",
+        "new_stage",
+        "previous_status",
+        "new_status",
+        "changed_by",
+        "note",
+        "occurred_at",
+        "created_at",
+        "updated_at",
+    )
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(
+        self,
+        request,
+        obj=None,
+    ):
+        return False
+
+    def has_delete_permission(
+        self,
+        request,
+        obj=None,
+    ):
+        return False
+

@@ -2206,3 +2206,560 @@ html[data-theme="light"] .hr-absence-timeline__content {
         grid-template-columns: 1fr;
     }
 }
+
+/* =========================================================
+   Performance Management
+   ========================================================= */
+
+.performance-cycle-name {
+    display: block;
+    margin-top: 0.65rem;
+    color: #fff;
+    font-size: clamp(1.15rem, 2vw, 1.65rem);
+    line-height: 1.25;
+}
+
+.performance-status-grid {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 0.85rem;
+    margin-bottom: 1.25rem;
+}
+
+.performance-status-grid article {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1rem 1.1rem;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.035);
+}
+
+.performance-status-grid span {
+    color: rgba(255, 255, 255, 0.62);
+    font-size: 0.78rem;
+    font-weight: 700;
+}
+
+.performance-status-grid strong {
+    color: #fff;
+    font-size: 1.25rem;
+}
+
+.performance-dashboard__grid {
+    grid-template-columns: minmax(0, 1.55fr) minmax(280px, 0.75fr);
+    margin-bottom: 1.25rem;
+}
+
+.performance-goal-list {
+    display: grid;
+    gap: 0.8rem;
+}
+
+.performance-goal {
+    padding: 1rem;
+    border: 1px solid rgba(255, 255, 255, 0.075);
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.025);
+}
+
+.performance-goal__heading,
+.performance-goal__meta {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.performance-goal__heading strong,
+.performance-goal__heading span {
+    display: block;
+}
+
+.performance-goal__heading strong {
+    color: #fff;
+    font-size: 0.9rem;
+}
+
+.performance-goal__heading span,
+.performance-goal__meta {
+    margin-top: 0.25rem;
+    color: rgba(255, 255, 255, 0.54);
+    font-size: 0.75rem;
+}
+
+.performance-goal__heading b {
+    color: #e4a8a1;
+    font-size: 0.95rem;
+}
+
+.performance-progress {
+    height: 7px;
+    margin: 0.85rem 0 0.65rem;
+    overflow: hidden;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.performance-progress span {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(
+        90deg,
+        #b96f78,
+        #e5a7a1
+    );
+}
+
+.performance-summary-list {
+    display: grid;
+    gap: 0.7rem;
+}
+
+.performance-summary-list div {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.9rem 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.075);
+}
+
+.performance-summary-list div:last-child {
+    border-bottom: 0;
+}
+
+.performance-summary-list span {
+    color: rgba(255, 255, 255, 0.62);
+    font-size: 0.82rem;
+}
+
+.performance-summary-list strong {
+    color: #fff;
+    font-size: 1.05rem;
+}
+
+.performance-toolbar {
+    margin-bottom: 1.25rem;
+}
+
+.performance-status {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.38rem 0.65rem;
+    border-radius: 999px;
+    font-size: 0.7rem;
+    font-weight: 800;
+    white-space: nowrap;
+}
+
+.performance-status--draft {
+    color: #d1d5db;
+    background: rgba(148, 163, 184, 0.14);
+}
+
+.performance-status--self_review {
+    color: #f7c76c;
+    background: rgba(245, 184, 70, 0.13);
+}
+
+.performance-status--manager_review {
+    color: #93c5fd;
+    background: rgba(96, 165, 250, 0.13);
+}
+
+.performance-status--completed {
+    color: #86efac;
+    background: rgba(74, 222, 128, 0.13);
+}
+
+.performance-status--cancelled {
+    color: #fca5a5;
+    background: rgba(248, 113, 113, 0.13);
+}
+
+.performance-rating {
+    color: #e7aaa3;
+    font-size: 1rem;
+}
+
+html[data-theme="light"] .performance-cycle-name,
+html[data-theme="light"] .performance-status-grid strong,
+html[data-theme="light"] .performance-goal__heading strong,
+html[data-theme="light"] .performance-summary-list strong {
+    color: #231f2c;
+}
+
+html[data-theme="light"] .performance-status-grid article,
+html[data-theme="light"] .performance-goal {
+    border-color: rgba(42, 34, 49, 0.08);
+    background: rgba(255, 255, 255, 0.72);
+}
+
+html[data-theme="light"] .performance-status-grid span,
+html[data-theme="light"] .performance-goal__heading span,
+html[data-theme="light"] .performance-goal__meta,
+html[data-theme="light"] .performance-summary-list span {
+    color: rgba(43, 36, 50, 0.62);
+}
+
+html[data-theme="light"] .performance-progress {
+    background: rgba(42, 34, 49, 0.09);
+}
+
+html[data-theme="light"] .performance-summary-list div {
+    border-color: rgba(42, 34, 49, 0.08);
+}
+
+@media (max-width: 1100px) {
+    .performance-status-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .performance-dashboard__grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 720px) {
+    .performance-status-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .performance-goal__heading,
+    .performance-goal__meta {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+}
+
+
+/* =========================================================
+   Recruitment Management
+   ========================================================= */
+
+.recruitment-pipeline {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 0.75rem;
+    margin-bottom: 1.25rem;
+}
+
+.recruitment-pipeline article {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    min-height: 72px;
+    padding: 0.9rem;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.035);
+}
+
+.recruitment-pipeline span {
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 0.72rem;
+    font-weight: 700;
+}
+
+.recruitment-pipeline strong {
+    color: #fff;
+    font-size: 1.15rem;
+}
+
+.recruitment-dashboard__grid {
+    grid-template-columns: minmax(0, 1.5fr) minmax(280px, 0.75fr);
+    margin-bottom: 1.25rem;
+}
+
+.recruitment-requisition-list {
+    display: grid;
+    gap: 0.8rem;
+}
+
+.recruitment-requisition {
+    padding: 1rem;
+    border: 1px solid rgba(255, 255, 255, 0.075);
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.025);
+}
+
+.recruitment-requisition__heading,
+.recruitment-requisition__meta {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.recruitment-requisition__heading strong,
+.recruitment-requisition__heading span {
+    display: block;
+}
+
+.recruitment-requisition__heading strong {
+    color: #fff;
+    font-size: 0.9rem;
+}
+
+.recruitment-requisition__heading span,
+.recruitment-requisition__meta {
+    margin-top: 0.25rem;
+    color: rgba(255, 255, 255, 0.54);
+    font-size: 0.75rem;
+}
+
+.recruitment-requisition__heading b {
+    color: #e4a8a1;
+    font-size: 0.95rem;
+}
+
+.recruitment-toolbar {
+    margin-bottom: 1.25rem;
+}
+
+.recruitment-stage {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.38rem 0.65rem;
+    border-radius: 999px;
+    font-size: 0.7rem;
+    font-weight: 800;
+    white-space: nowrap;
+    color: #d1d5db;
+    background: rgba(148, 163, 184, 0.14);
+}
+
+.recruitment-stage--screening,
+.recruitment-stage--phone_screen {
+    color: #f7c76c;
+    background: rgba(245, 184, 70, 0.13);
+}
+
+.recruitment-stage--interview,
+.recruitment-stage--assessment {
+    color: #93c5fd;
+    background: rgba(96, 165, 250, 0.13);
+}
+
+.recruitment-stage--offer {
+    color: #d8b4fe;
+    background: rgba(192, 132, 252, 0.13);
+}
+
+.recruitment-stage--hired {
+    color: #86efac;
+    background: rgba(74, 222, 128, 0.13);
+}
+
+.recruitment-stage--rejected,
+.recruitment-stage--withdrawn {
+    color: #fca5a5;
+    background: rgba(248, 113, 113, 0.13);
+}
+
+html[data-theme="light"] .recruitment-pipeline strong,
+html[data-theme="light"] .recruitment-requisition__heading strong {
+    color: #231f2c;
+}
+
+html[data-theme="light"] .recruitment-pipeline article,
+html[data-theme="light"] .recruitment-requisition {
+    border-color: rgba(42, 34, 49, 0.08);
+    background: rgba(255, 255, 255, 0.72);
+}
+
+html[data-theme="light"] .recruitment-pipeline span,
+html[data-theme="light"] .recruitment-requisition__heading span,
+html[data-theme="light"] .recruitment-requisition__meta {
+    color: rgba(43, 36, 50, 0.62);
+}
+
+@media (max-width: 1200px) {
+    .recruitment-pipeline {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+
+    .recruitment-dashboard__grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 720px) {
+    .recruitment-pipeline {
+        grid-template-columns: 1fr;
+    }
+
+    .recruitment-requisition__heading,
+    .recruitment-requisition__meta {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+}
+
+
+/* Job requisition screens */
+
+.requisition-action-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1.25rem;
+    padding: 1rem 1.2rem;
+    border: 1px solid rgba(229, 167, 161, 0.25);
+    border-radius: 16px;
+    background: rgba(185, 111, 120, 0.09);
+}
+
+.requisition-action-bar strong,
+.requisition-action-bar span {
+    display: block;
+}
+
+.requisition-action-bar strong {
+    color: #fff;
+    font-size: 0.9rem;
+}
+
+.requisition-action-bar span {
+    margin-top: 0.2rem;
+    color: rgba(255, 255, 255, 0.58);
+    font-size: 0.76rem;
+}
+
+.requisition-description {
+    color: rgba(255, 255, 255, 0.68);
+    font-size: 0.86rem;
+    line-height: 1.75;
+}
+
+.hr-panel > h4 {
+    margin: 1.3rem 0 0.6rem;
+    color: #fff;
+    font-size: 0.9rem;
+}
+
+html[data-theme="light"] .requisition-action-bar strong,
+html[data-theme="light"] .hr-panel > h4 {
+    color: #231f2c;
+}
+
+html[data-theme="light"] .requisition-action-bar span,
+html[data-theme="light"] .requisition-description {
+    color: rgba(43, 36, 50, 0.64);
+}
+
+@media (max-width: 720px) {
+    .requisition-action-bar {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+}
+
+
+/* Candidate Management */
+
+.candidate-file-state {
+    display: inline-flex;
+    padding: 0.32rem 0.58rem;
+    border-radius: 999px;
+    color: rgba(255, 255, 255, 0.58);
+    background: rgba(148, 163, 184, 0.12);
+    font-size: 0.69rem;
+    font-weight: 800;
+}
+
+.candidate-file-state--ready {
+    color: #86efac;
+    background: rgba(74, 222, 128, 0.13);
+}
+
+.candidate-profile-hero {
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+    margin-bottom: 1.25rem;
+    padding: 1.4rem;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 20px;
+    background:
+        radial-gradient(
+            circle at top right,
+            rgba(229, 167, 161, 0.16),
+            transparent 42%
+        ),
+        rgba(255, 255, 255, 0.035);
+}
+
+.candidate-profile-hero__avatar {
+    display: grid;
+    flex: 0 0 74px;
+    width: 74px;
+    height: 74px;
+    place-items: center;
+    border: 1px solid rgba(229, 167, 161, 0.24);
+    border-radius: 22px;
+    color: #fff;
+    background: rgba(185, 111, 120, 0.16);
+    font-size: 1.35rem;
+    font-weight: 800;
+}
+
+.candidate-profile-hero__identity {
+    flex: 1;
+    min-width: 0;
+}
+
+.candidate-profile-hero__identity h3 {
+    margin: 0.3rem 0 0;
+    color: #fff;
+    font-size: 1.45rem;
+}
+
+.candidate-profile-hero__identity p {
+    margin: 0.35rem 0 0;
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 0.84rem;
+}
+
+.candidate-profile-hero__actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 0.6rem;
+}
+
+html[data-theme="light"] .candidate-profile-hero {
+    border-color: rgba(42, 34, 49, 0.08);
+    background:
+        radial-gradient(
+            circle at top right,
+            rgba(229, 167, 161, 0.2),
+            transparent 42%
+        ),
+        rgba(255, 255, 255, 0.74);
+}
+
+html[data-theme="light"] .candidate-profile-hero__identity h3,
+html[data-theme="light"] .candidate-profile-hero__avatar {
+    color: #231f2c;
+}
+
+html[data-theme="light"] .candidate-profile-hero__identity p {
+    color: rgba(43, 36, 50, 0.62);
+}
+
+@media (max-width: 760px) {
+    .candidate-profile-hero {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .candidate-profile-hero__actions {
+        justify-content: flex-start;
+        width: 100%;
+    }
+}

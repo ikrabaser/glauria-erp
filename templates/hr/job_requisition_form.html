@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}
+{{ page_title }} | Glauria ERP
+{% endblock %}
+
+{% block extra_css %}
+<link
+    rel="stylesheet"
+    href="{% static 'css/hr.css' %}?v=hr-requisition-form-v1"
+>
+{% endblock %}
+
+{% block content %}
+<section class="module-page">
+    {% include "components/page_header.html" with eyebrow="İNSAN KAYNAKLARI · İŞE ALIM" title=page_title description=page_description %}
+
+    <form
+        method="post"
+        class="hr-record-form"
+        novalidate
+    >
+        {% csrf_token %}
+
+        {% if form.non_field_errors %}
+            <div class="form-errors">
+                {{ form.non_field_errors }}
+            </div>
+        {% endif %}
+
+        <section class="hr-form-section">
+            <div class="hr-form-section__heading">
+                <span>01</span>
+                <div>
+                    <h3>Talep Bilgileri</h3>
+                    <p>İlanın temel bilgilerini ve organizasyon ilişkisini tanımlayın.</p>
+                </div>
+            </div>
+
+            <div class="hr-form-grid">
+                {% for field in form %}
+                    <div class="hr-form-field {% if field.name == 'description' or field.name == 'requirements' %}hr-form-field--full{% endif %}">
+                        <label for="{{ field.id_for_label }}">
+                            {{ field.label }}
+                        </label>
+
+                        {{ field }}
+
+                        {% if field.help_text %}
+                            <small>{{ field.help_text }}</small>
+                        {% endif %}
+
+                        {% for error in field.errors %}
+                            <span class="field-error">{{ error }}</span>
+                        {% endfor %}
+                    </div>
+                {% endfor %}
+            </div>
+        </section>
+
+        <div class="form-actions">
+            <a href="{{ cancel_url }}" class="btn-secondary">
+                Vazgeç
+            </a>
+
+            <button type="submit" class="btn-primary">
+                {{ submit_text }}
+            </button>
+        </div>
+    </form>
+</section>
+{% endblock %}

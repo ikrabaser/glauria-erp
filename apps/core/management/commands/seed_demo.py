@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime, time
 from decimal import Decimal
 
 from django.core.management.base import BaseCommand, CommandError
@@ -11,9 +11,29 @@ from apps.hr.models import (
     AbsenceRequest,
     AbsenceRequestEvent,
     AbsenceType,
+    AttendanceRecord,
+    AttendanceRecordEvent,
     Employee,
+    EmployeeScheduleAssignment,
     EmploymentAssignment,
     Position,
+    WorkSchedule,
+    WorkScheduleDay,
+    EmployeeGoal,
+    PerformanceReview,
+    PerformanceReviewCycle,
+    PerformanceReviewEvent,
+    Candidate,
+    JobApplication,
+    JobRequisition,
+    RecruitmentEvent,
+)
+from apps.hr.services import (
+    approve_attendance_record,
+    clock_in_attendance,
+    clock_out_attendance,
+    generate_attendance_record,
+    submit_attendance_record,
 )
 from apps.finance.models import (
     FinanceBudget,
@@ -453,6 +473,607 @@ DEMO_ABSENCE_REQUESTS = [
         "decision_note": "",
     },
 ]
+DEMO_WORK_SCHEDULE_CODE = "STD-40"
+
+DEMO_WORK_SCHEDULE_DAYS = [
+    {
+        "weekday": WorkScheduleDay.Weekday.MONDAY,
+        "is_working_day": True,
+        "start_time": time(9, 0),
+        "end_time": time(18, 0),
+        "break_minutes": 60,
+    },
+    {
+        "weekday": WorkScheduleDay.Weekday.TUESDAY,
+        "is_working_day": True,
+        "start_time": time(9, 0),
+        "end_time": time(18, 0),
+        "break_minutes": 60,
+    },
+    {
+        "weekday": WorkScheduleDay.Weekday.WEDNESDAY,
+        "is_working_day": True,
+        "start_time": time(9, 0),
+        "end_time": time(18, 0),
+        "break_minutes": 60,
+    },
+    {
+        "weekday": WorkScheduleDay.Weekday.THURSDAY,
+        "is_working_day": True,
+        "start_time": time(9, 0),
+        "end_time": time(18, 0),
+        "break_minutes": 60,
+    },
+    {
+        "weekday": WorkScheduleDay.Weekday.FRIDAY,
+        "is_working_day": True,
+        "start_time": time(9, 0),
+        "end_time": time(18, 0),
+        "break_minutes": 60,
+    },
+    {
+        "weekday": WorkScheduleDay.Weekday.SATURDAY,
+        "is_working_day": False,
+        "start_time": None,
+        "end_time": None,
+        "break_minutes": 0,
+    },
+    {
+        "weekday": WorkScheduleDay.Weekday.SUNDAY,
+        "is_working_day": False,
+        "start_time": None,
+        "end_time": None,
+        "break_minutes": 0,
+    },
+]
+
+
+DEMO_ATTENDANCE_RECORDS = [
+    {
+        "employee_username": "demo.ceo",
+        "work_date": date(2026, 8, 3),
+        "clock_in_time": time(9, 0),
+        "clock_out_time": time(18, 0),
+        "status": AttendanceRecord.Status.PRESENT,
+        "approval_status": AttendanceRecord.ApprovalStatus.APPROVED,
+        "note": "Standart zamanında çalışma kaydı.",
+    },
+    {
+        "employee_username": "demo.hr.manager",
+        "work_date": date(2026, 8, 3),
+        "clock_in_time": time(9, 12),
+        "clock_out_time": time(18, 0),
+        "status": AttendanceRecord.Status.LATE,
+        "approval_status": AttendanceRecord.ApprovalStatus.SUBMITTED,
+        "note": "On iki dakika geç giriş yapılan demo kayıt.",
+    },
+    {
+        "employee_username": "demo.hr.specialist",
+        "work_date": date(2026, 8, 3),
+        "clock_in_time": time(8, 58),
+        "clock_out_time": time(18, 0),
+        "status": AttendanceRecord.Status.PRESENT,
+        "approval_status": AttendanceRecord.ApprovalStatus.DRAFT,
+        "note": "Tamamlanmış taslak devam kaydı.",
+    },
+    {
+        "employee_username": "demo.finance.manager",
+        "work_date": date(2026, 7, 20),
+        "clock_in_time": None,
+        "clock_out_time": None,
+        "status": AttendanceRecord.Status.ON_LEAVE,
+        "approval_status": AttendanceRecord.ApprovalStatus.APPROVED,
+        "note": "Onaylı yıllık izin ile otomatik oluşan kayıt.",
+    },
+    {
+        "employee_username": "demo.purchasing.manager",
+        "work_date": date(2026, 8, 3),
+        "clock_in_time": time(9, 0),
+        "clock_out_time": time(18, 0),
+        "status": AttendanceRecord.Status.REMOTE,
+        "approval_status": AttendanceRecord.ApprovalStatus.SUBMITTED,
+        "note": "Uzaktan çalışma demo kaydı.",
+    },
+    {
+        "employee_username": "demo.sales.manager",
+        "work_date": date(2026, 8, 3),
+        "clock_in_time": time(9, 0),
+        "clock_out_time": time(20, 0),
+        "status": AttendanceRecord.Status.PRESENT,
+        "approval_status": AttendanceRecord.ApprovalStatus.APPROVED,
+        "note": "Fazla mesai içeren demo kayıt.",
+    },
+    {
+        "employee_username": "demo.operations.manager",
+        "work_date": date(2026, 8, 2),
+        "clock_in_time": None,
+        "clock_out_time": None,
+        "status": AttendanceRecord.Status.NON_WORKING_DAY,
+        "approval_status": AttendanceRecord.ApprovalStatus.DRAFT,
+        "note": "Pazar günü çalışma dışı kayıt.",
+    },
+]
+
+DEMO_PERFORMANCE_CYCLE = {
+    "code": "PERF-2026",
+    "name": "2026 Yıllık Performans Dönemi",
+    "description": (
+        "Glauria Demo A.Ş. çalışanları için yıllık hedef ve "
+        "performans değerlendirme dönemi."
+    ),
+    "start_date": date(2026, 1, 1),
+    "end_date": date(2026, 12, 31),
+    "self_review_deadline": date(2026, 11, 30),
+    "manager_review_deadline": date(2026, 12, 15),
+}
+
+
+DEMO_EMPLOYEE_GOALS = [
+    {
+        "employee_username": "demo.ceo",
+        "title": "Kurumsal büyüme planını gerçekleştirmek",
+        "description": (
+            "Şirketin yıllık büyüme ve kârlılık hedeflerini "
+            "stratejik olarak yönetmek."
+        ),
+        "weight": Decimal("40.00"),
+        "target_value": Decimal("20.00"),
+        "current_value": Decimal("14.00"),
+        "unit": "yüzde",
+        "progress_percentage": Decimal("70.00"),
+        "status": EmployeeGoal.Status.IN_PROGRESS,
+    },
+    {
+        "employee_username": "demo.hr.manager",
+        "title": "Çalışan bağlılığını artırmak",
+        "description": (
+            "Çalışan bağlılığı ve memnuniyet skorunu artırmak."
+        ),
+        "weight": Decimal("30.00"),
+        "target_value": Decimal("90.00"),
+        "current_value": Decimal("86.00"),
+        "unit": "puan",
+        "progress_percentage": Decimal("80.00"),
+        "status": EmployeeGoal.Status.IN_PROGRESS,
+    },
+    {
+        "employee_username": "demo.hr.specialist",
+        "title": "İK operasyon süresini azaltmak",
+        "description": (
+            "Personel ve izin operasyonlarının tamamlanma süresini "
+            "iyileştirmek."
+        ),
+        "weight": Decimal("25.00"),
+        "target_value": Decimal("30.00"),
+        "current_value": Decimal("21.00"),
+        "unit": "yüzde",
+        "progress_percentage": Decimal("70.00"),
+        "status": EmployeeGoal.Status.IN_PROGRESS,
+    },
+    {
+        "employee_username": "demo.finance.manager",
+        "title": "Finansal raporlama doğruluğunu artırmak",
+        "description": (
+            "Aylık finansal raporların doğruluk ve zamanında "
+            "tamamlanma oranını yükseltmek."
+        ),
+        "weight": Decimal("35.00"),
+        "target_value": Decimal("99.00"),
+        "current_value": Decimal("97.50"),
+        "unit": "yüzde",
+        "progress_percentage": Decimal("85.00"),
+        "status": EmployeeGoal.Status.IN_PROGRESS,
+    },
+    {
+        "employee_username": "demo.purchasing.manager",
+        "title": "Tedarik maliyetlerini optimize etmek",
+        "description": (
+            "Stratejik tedarikçi anlaşmalarıyla satın alma "
+            "maliyetlerini azaltmak."
+        ),
+        "weight": Decimal("35.00"),
+        "target_value": Decimal("12.00"),
+        "current_value": Decimal("4.00"),
+        "unit": "yüzde",
+        "progress_percentage": Decimal("35.00"),
+        "status": EmployeeGoal.Status.IN_PROGRESS,
+    },
+    {
+        "employee_username": "demo.sales.manager",
+        "title": "Yeni müşteri kazanımını artırmak",
+        "description": (
+            "Yıl boyunca elli yeni kurumsal müşteri kazanmak."
+        ),
+        "weight": Decimal("40.00"),
+        "target_value": Decimal("50.00"),
+        "current_value": Decimal("52.00"),
+        "unit": "müşteri",
+        "progress_percentage": Decimal("100.00"),
+        "status": EmployeeGoal.Status.COMPLETED,
+        "completion_note": (
+            "Yıllık yeni müşteri hedefi planlanandan önce tamamlandı."
+        ),
+    },
+    {
+        "employee_username": "demo.operations.manager",
+        "title": "Operasyon verimliliğini artırmak",
+        "description": (
+            "Operasyon süreçlerinde çevrim süresini ve hata oranını "
+            "iyileştirmek."
+        ),
+        "weight": Decimal("30.00"),
+        "target_value": Decimal("15.00"),
+        "current_value": Decimal("11.00"),
+        "unit": "yüzde",
+        "progress_percentage": Decimal("75.00"),
+        "status": EmployeeGoal.Status.IN_PROGRESS,
+    },
+]
+
+
+DEMO_PERFORMANCE_REVIEWS = [
+    {
+        "employee_username": "demo.hr.manager",
+        "manager_username": "demo.ceo",
+        "status": PerformanceReview.Status.COMPLETED,
+        "employee_rating": Decimal("4.20"),
+        "manager_rating": Decimal("4.50"),
+        "overall_rating": Decimal("4.40"),
+        "employee_comment": (
+            "İK süreçlerinin dijitalleşmesi ve çalışan deneyimi "
+            "hedeflerinde ilerleme sağlandı."
+        ),
+        "manager_comment": (
+            "Yıl boyunca insan kaynakları süreçlerinde güçlü liderlik "
+            "gösterildi."
+        ),
+        "development_plan": (
+            "Organizasyonel gelişim ve yetenek yönetimi programlarına "
+            "katılım."
+        ),
+    },
+    {
+        "employee_username": "demo.hr.specialist",
+        "manager_username": "demo.hr.manager",
+        "status": PerformanceReview.Status.MANAGER_REVIEW,
+        "employee_rating": Decimal("4.10"),
+        "manager_rating": None,
+        "overall_rating": None,
+        "employee_comment": (
+            "Personel operasyonları ve izin süreçlerinde belirlenen "
+            "hedeflerin çoğu tamamlandı."
+        ),
+        "manager_comment": "",
+        "development_plan": "",
+    },
+    {
+        "employee_username": "demo.finance.manager",
+        "manager_username": "demo.ceo",
+        "status": PerformanceReview.Status.SELF_REVIEW,
+        "employee_rating": None,
+        "manager_rating": None,
+        "overall_rating": None,
+        "employee_comment": "",
+        "manager_comment": "",
+        "development_plan": "",
+    },
+    {
+        "employee_username": "demo.purchasing.manager",
+        "manager_username": "demo.ceo",
+        "status": PerformanceReview.Status.DRAFT,
+        "employee_rating": None,
+        "manager_rating": None,
+        "overall_rating": None,
+        "employee_comment": "",
+        "manager_comment": "",
+        "development_plan": "",
+    },
+    {
+        "employee_username": "demo.sales.manager",
+        "manager_username": "demo.ceo",
+        "status": PerformanceReview.Status.COMPLETED,
+        "employee_rating": Decimal("4.60"),
+        "manager_rating": Decimal("4.80"),
+        "overall_rating": Decimal("4.70"),
+        "employee_comment": (
+            "Yeni müşteri kazanımı ve satış büyümesi hedefleri "
+            "başarıyla tamamlandı."
+        ),
+        "manager_comment": (
+            "Satış performansı ve ekip liderliği beklentilerin "
+            "üzerindedir."
+        ),
+        "development_plan": (
+            "Stratejik satış yönetimi ve uluslararası pazar geliştirme."
+        ),
+    },
+    {
+        "employee_username": "demo.operations.manager",
+        "manager_username": "demo.ceo",
+        "status": PerformanceReview.Status.CANCELLED,
+        "employee_rating": None,
+        "manager_rating": None,
+        "overall_rating": None,
+        "employee_comment": "",
+        "manager_comment": "",
+        "development_plan": "",
+    },
+]
+
+
+DEMO_JOB_REQUISITIONS = [
+    {
+        "requisition_number": "REQ-2026-001",
+        "title": "Backend Developer",
+        "department_code": "OPS",
+        "position_code": "OPS-MGR",
+        "hiring_manager_username": "demo.operations.manager",
+        "recruiter_username": "demo.hr.specialist",
+        "description": (
+            "Django, PostgreSQL ve kurumsal ERP geliştirme "
+            "süreçlerinde görev alacak backend geliştirici."
+        ),
+        "requirements": (
+            "Python, Django, REST servisleri, PostgreSQL ve "
+            "Git bilgisi."
+        ),
+        "employment_type": (
+            JobRequisition.EmploymentType.FULL_TIME
+        ),
+        "opening_reason": JobRequisition.OpeningReason.GROWTH,
+        "headcount": 2,
+        "status": JobRequisition.Status.OPEN,
+        "target_start_date": date(2026, 10, 1),
+        "application_deadline": date(2026, 9, 15),
+    },
+    {
+        "requisition_number": "REQ-2026-002",
+        "title": "Finans Uzmanı",
+        "department_code": "FIN",
+        "position_code": "FIN-MGR",
+        "hiring_manager_username": "demo.finance.manager",
+        "recruiter_username": "demo.hr.specialist",
+        "description": (
+            "Finansal raporlama, bütçe kontrolü ve cari hesap "
+            "süreçlerinde görev alacak finans uzmanı."
+        ),
+        "requirements": (
+            "Finans, muhasebe, bütçeleme ve raporlama bilgisi."
+        ),
+        "employment_type": (
+            JobRequisition.EmploymentType.FULL_TIME
+        ),
+        "opening_reason": (
+            JobRequisition.OpeningReason.NEW_POSITION
+        ),
+        "headcount": 1,
+        "status": JobRequisition.Status.OPEN,
+        "target_start_date": date(2026, 10, 15),
+        "application_deadline": date(2026, 9, 25),
+    },
+    {
+        "requisition_number": "REQ-2026-003",
+        "title": "Satış Operasyon Uzmanı",
+        "department_code": "SAL",
+        "position_code": "SAL-MGR",
+        "hiring_manager_username": "demo.sales.manager",
+        "recruiter_username": "demo.hr.specialist",
+        "description": (
+            "Satış pipeline, teklif ve müşteri operasyonlarını "
+            "destekleyecek satış operasyon uzmanı."
+        ),
+        "requirements": (
+            "CRM, satış operasyonları ve müşteri iletişimi deneyimi."
+        ),
+        "employment_type": (
+            JobRequisition.EmploymentType.FULL_TIME
+        ),
+        "opening_reason": JobRequisition.OpeningReason.GROWTH,
+        "headcount": 2,
+        "status": JobRequisition.Status.OPEN,
+        "target_start_date": date(2026, 11, 1),
+        "application_deadline": date(2026, 10, 10),
+    },
+    {
+        "requisition_number": "REQ-2026-004",
+        "title": "İnsan Kaynakları Stajyeri",
+        "department_code": "HR",
+        "position_code": "HR-SPC",
+        "hiring_manager_username": "demo.hr.manager",
+        "recruiter_username": "demo.hr.specialist",
+        "description": (
+            "İK operasyonları, aday yönetimi ve personel süreçlerine "
+            "destek olacak uzun dönem stajyer."
+        ),
+        "requirements": (
+            "İnsan kaynakları veya ilgili bölümlerde öğrenci olmak."
+        ),
+        "employment_type": (
+            JobRequisition.EmploymentType.INTERN
+        ),
+        "opening_reason": (
+            JobRequisition.OpeningReason.TEMPORARY_NEED
+        ),
+        "headcount": 1,
+        "status": JobRequisition.Status.DRAFT,
+        "target_start_date": date(2026, 10, 1),
+        "application_deadline": date(2026, 9, 20),
+    },
+]
+
+
+DEMO_CANDIDATES = [
+    {
+        "key": "ahmet-demir",
+        "first_name": "Ahmet",
+        "last_name": "Demir",
+        "email": "ahmet.demir@candidate.glauria.local",
+        "phone": "+90 555 100 00 01",
+        "source": Candidate.Source.LINKEDIN,
+        "current_title": "Backend Developer",
+        "current_company": "Nova Teknoloji",
+        "years_of_experience": Decimal("3.5"),
+    },
+    {
+        "key": "ayse-kaya",
+        "first_name": "Ayşe",
+        "last_name": "Kaya",
+        "email": "ayse.kaya@candidate.glauria.local",
+        "phone": "+90 555 100 00 02",
+        "source": Candidate.Source.CAREER_SITE,
+        "current_title": "Python Developer",
+        "current_company": "Atlas Yazılım",
+        "years_of_experience": Decimal("2.0"),
+    },
+    {
+        "key": "burak-arslan",
+        "first_name": "Burak",
+        "last_name": "Arslan",
+        "email": "burak.arslan@candidate.glauria.local",
+        "phone": "+90 555 100 00 03",
+        "source": Candidate.Source.REFERRAL,
+        "current_title": "Software Engineer",
+        "current_company": "Pera Digital",
+        "years_of_experience": Decimal("4.0"),
+    },
+    {
+        "key": "deniz-ozkan",
+        "first_name": "Deniz",
+        "last_name": "Özkan",
+        "email": "deniz.ozkan@candidate.glauria.local",
+        "phone": "+90 555 100 00 04",
+        "source": Candidate.Source.LINKEDIN,
+        "current_title": "Finans Uzmanı",
+        "current_company": "Vega Finans",
+        "years_of_experience": Decimal("3.0"),
+    },
+    {
+        "key": "elif-akin",
+        "first_name": "Elif",
+        "last_name": "Akın",
+        "email": "elif.akin@candidate.glauria.local",
+        "phone": "+90 555 100 00 05",
+        "source": Candidate.Source.CAREER_SITE,
+        "current_title": "Muhasebe Uzmanı",
+        "current_company": "Mira Holding",
+        "years_of_experience": Decimal("2.5"),
+    },
+    {
+        "key": "can-yildiz",
+        "first_name": "Can",
+        "last_name": "Yıldız",
+        "email": "can.yildiz@candidate.glauria.local",
+        "phone": "+90 555 100 00 06",
+        "source": Candidate.Source.AGENCY,
+        "current_title": "Satış Operasyon Uzmanı",
+        "current_company": "Delta Ticaret",
+        "years_of_experience": Decimal("4.5"),
+    },
+    {
+        "key": "selin-gunes",
+        "first_name": "Selin",
+        "last_name": "Güneş",
+        "email": "selin.gunes@candidate.glauria.local",
+        "phone": "+90 555 100 00 07",
+        "source": Candidate.Source.UNIVERSITY,
+        "current_title": "Yeni Mezun",
+        "current_company": "",
+        "years_of_experience": Decimal("0.5"),
+    },
+    {
+        "key": "mert-celik",
+        "first_name": "Mert",
+        "last_name": "Çelik",
+        "email": "mert.celik@candidate.glauria.local",
+        "phone": "+90 555 100 00 08",
+        "source": Candidate.Source.REFERRAL,
+        "current_title": "Müşteri Temsilcisi",
+        "current_company": "Orion Hizmet",
+        "years_of_experience": Decimal("2.0"),
+    },
+]
+
+
+DEMO_JOB_APPLICATIONS = [
+    {
+        "candidate_key": "ahmet-demir",
+        "requisition_number": "REQ-2026-001",
+        "stage": JobApplication.Stage.OFFER,
+        "status": JobApplication.Status.ACTIVE,
+        "screening_score": Decimal("91.00"),
+    },
+    {
+        "candidate_key": "ayse-kaya",
+        "requisition_number": "REQ-2026-001",
+        "stage": JobApplication.Stage.INTERVIEW,
+        "status": JobApplication.Status.ACTIVE,
+        "screening_score": Decimal("86.00"),
+    },
+    {
+        "candidate_key": "burak-arslan",
+        "requisition_number": "REQ-2026-001",
+        "stage": JobApplication.Stage.ASSESSMENT,
+        "status": JobApplication.Status.ACTIVE,
+        "screening_score": Decimal("88.00"),
+    },
+    {
+        "candidate_key": "deniz-ozkan",
+        "requisition_number": "REQ-2026-002",
+        "stage": JobApplication.Stage.PHONE_SCREEN,
+        "status": JobApplication.Status.ACTIVE,
+        "screening_score": Decimal("79.00"),
+    },
+    {
+        "candidate_key": "elif-akin",
+        "requisition_number": "REQ-2026-002",
+        "stage": JobApplication.Stage.SCREENING,
+        "status": JobApplication.Status.ACTIVE,
+        "screening_score": Decimal("74.00"),
+    },
+    {
+        "candidate_key": "can-yildiz",
+        "requisition_number": "REQ-2026-003",
+        "stage": JobApplication.Stage.INTERVIEW,
+        "status": JobApplication.Status.ACTIVE,
+        "screening_score": Decimal("84.00"),
+    },
+    {
+        "candidate_key": "selin-gunes",
+        "requisition_number": "REQ-2026-003",
+        "stage": JobApplication.Stage.APPLIED,
+        "status": JobApplication.Status.ACTIVE,
+        "screening_score": None,
+    },
+    {
+        "candidate_key": "mert-celik",
+        "requisition_number": "REQ-2026-003",
+        "stage": JobApplication.Stage.APPLIED,
+        "status": JobApplication.Status.ACTIVE,
+        "screening_score": None,
+    },
+    {
+        "candidate_key": "ayse-kaya",
+        "requisition_number": "REQ-2026-003",
+        "stage": JobApplication.Stage.REJECTED,
+        "status": JobApplication.Status.REJECTED,
+        "screening_score": Decimal("52.00"),
+        "rejection_reason": (
+            "Satış operasyonu deneyimi ilan gereksinimlerini "
+            "karşılamadı."
+        ),
+    },
+    {
+        "candidate_key": "deniz-ozkan",
+        "requisition_number": "REQ-2026-003",
+        "stage": JobApplication.Stage.WITHDRAWN,
+        "status": JobApplication.Status.WITHDRAWN,
+        "screening_score": None,
+        "withdrawn_reason": (
+            "Aday mevcut şirketinde kalmaya karar verdi."
+        ),
+    },
+]
+
 
 class Command(BaseCommand):
     help = (
@@ -884,6 +1505,898 @@ class Command(BaseCommand):
 
                 if approved_event_created:
                     created_absence_event_count += 1
+                work_schedule, work_schedule_created = (
+            WorkSchedule.objects.update_or_create(
+                company=company,
+                code=DEMO_WORK_SCHEDULE_CODE,
+                defaults={
+                    "name": "Standart 40 Saat",
+                    "weekly_hours": Decimal("40.00"),
+                    "timezone_name": "Europe/Istanbul",
+                    "description": (
+                        "Pazartesi-Cuma 09:00-18:00 standart "
+                        "demo çalışma takvimi."
+                    ),
+                    "is_active": True,
+                },
+            )
+        )
+
+        created_work_schedule_count = int(
+            work_schedule_created
+        )
+        created_work_schedule_day_count = 0
+        created_schedule_assignment_count = 0
+        created_attendance_record_count = 0
+
+        attendance_event_count_before = (
+            AttendanceRecordEvent.objects.filter(
+                company=company,
+            ).count()
+        )
+
+        for schedule_day_data in DEMO_WORK_SCHEDULE_DAYS:
+            _, schedule_day_created = (
+                WorkScheduleDay.objects.update_or_create(
+                    work_schedule=work_schedule,
+                    weekday=schedule_day_data["weekday"],
+                    defaults={
+                        "is_working_day": (
+                            schedule_day_data[
+                                "is_working_day"
+                            ]
+                        ),
+                        "start_time": (
+                            schedule_day_data["start_time"]
+                        ),
+                        "end_time": (
+                            schedule_day_data["end_time"]
+                        ),
+                        "break_minutes": (
+                            schedule_day_data[
+                                "break_minutes"
+                            ]
+                        ),
+                        "crosses_midnight": False,
+                    },
+                )
+            )
+
+            if schedule_day_created:
+                created_work_schedule_day_count += 1
+
+        for employee in hr_employees.values():
+            _, schedule_assignment_created = (
+                EmployeeScheduleAssignment.objects.update_or_create(
+                    company=company,
+                    employee=employee,
+                    is_primary=True,
+                    end_date=None,
+                    defaults={
+                        "work_schedule": work_schedule,
+                        "start_date": date(2026, 1, 1),
+                        "assignment_note": (
+                            "Demo standart çalışma takvimi ataması."
+                        ),
+                    },
+                )
+            )
+
+            if schedule_assignment_created:
+                created_schedule_assignment_count += 1
+
+        attendance_approver = hr_users["demo.hr.manager"]
+
+        for attendance_data in DEMO_ATTENDANCE_RECORDS:
+            employee = hr_employees[
+                attendance_data["employee_username"]
+            ]
+
+            attendance_record, attendance_record_created = (
+                generate_attendance_record(
+                    employee=employee,
+                    work_date=attendance_data["work_date"],
+                    changed_by=attendance_approver,
+                )
+            )
+
+            if attendance_record_created:
+                created_attendance_record_count += 1
+
+            attendance_record.refresh_from_db()
+
+            if (
+                attendance_data["status"]
+                == AttendanceRecord.Status.REMOTE
+                and not attendance_record.clock_in_at
+                and attendance_record.approval_status
+                in {
+                    AttendanceRecord.ApprovalStatus.DRAFT,
+                    AttendanceRecord.ApprovalStatus.REJECTED,
+                }
+            ):
+                attendance_record.status = (
+                    AttendanceRecord.Status.REMOTE
+                )
+                attendance_record.save(
+                    update_fields=[
+                        "status",
+                        "worked_minutes",
+                        "updated_at",
+                    ]
+                )
+
+            clock_in_time = attendance_data[
+                "clock_in_time"
+            ]
+
+            if (
+                clock_in_time
+                and not attendance_record.clock_in_at
+            ):
+                clock_in_at = timezone.make_aware(
+                    datetime.combine(
+                        attendance_data["work_date"],
+                        clock_in_time,
+                    ),
+                    timezone.get_current_timezone(),
+                )
+
+                attendance_record = clock_in_attendance(
+                    attendance_record=attendance_record,
+                    changed_by=employee.user,
+                    clock_in_at=clock_in_at,
+                )
+
+            attendance_record.refresh_from_db()
+
+            clock_out_time = attendance_data[
+                "clock_out_time"
+            ]
+
+            if (
+                clock_out_time
+                and attendance_record.clock_in_at
+                and not attendance_record.clock_out_at
+            ):
+                clock_out_at = timezone.make_aware(
+                    datetime.combine(
+                        attendance_data["work_date"],
+                        clock_out_time,
+                    ),
+                    timezone.get_current_timezone(),
+                )
+
+                attendance_record = clock_out_attendance(
+                    attendance_record=attendance_record,
+                    changed_by=employee.user,
+                    clock_out_at=clock_out_at,
+                )
+
+            attendance_record.refresh_from_db()
+
+            if attendance_record.note != attendance_data["note"]:
+                attendance_record.note = attendance_data["note"]
+                attendance_record.save(
+                    update_fields=[
+                        "note",
+                        "worked_minutes",
+                        "updated_at",
+                    ]
+                )
+
+            target_approval_status = attendance_data[
+                "approval_status"
+            ]
+
+            if (
+                target_approval_status
+                in {
+                    AttendanceRecord.ApprovalStatus.SUBMITTED,
+                    AttendanceRecord.ApprovalStatus.APPROVED,
+                }
+                and attendance_record.approval_status
+                in {
+                    AttendanceRecord.ApprovalStatus.DRAFT,
+                    AttendanceRecord.ApprovalStatus.REJECTED,
+                }
+            ):
+                attendance_record = submit_attendance_record(
+                    attendance_record=attendance_record,
+                    changed_by=employee.user,
+                    note="Demo devam kaydı onaya gönderildi.",
+                )
+
+            attendance_record.refresh_from_db()
+
+            if (
+                target_approval_status
+                == AttendanceRecord.ApprovalStatus.APPROVED
+                and attendance_record.approval_status
+                == AttendanceRecord.ApprovalStatus.SUBMITTED
+            ):
+                approve_attendance_record(
+                    attendance_record=attendance_record,
+                    changed_by=attendance_approver,
+                    note="Demo devam kaydı onaylandı.",
+                )
+
+        created_attendance_event_count = (
+            AttendanceRecordEvent.objects.filter(
+                company=company,
+            ).count()
+            - attendance_event_count_before
+        )
+        performance_cycle, performance_cycle_created = (
+            PerformanceReviewCycle.objects.update_or_create(
+                company=company,
+                code=DEMO_PERFORMANCE_CYCLE["code"],
+                defaults={
+                    "name": DEMO_PERFORMANCE_CYCLE["name"],
+                    "description": (
+                        DEMO_PERFORMANCE_CYCLE["description"]
+                    ),
+                    "start_date": (
+                        DEMO_PERFORMANCE_CYCLE["start_date"]
+                    ),
+                    "end_date": DEMO_PERFORMANCE_CYCLE["end_date"],
+                    "self_review_deadline": (
+                        DEMO_PERFORMANCE_CYCLE[
+                            "self_review_deadline"
+                        ]
+                    ),
+                    "manager_review_deadline": (
+                        DEMO_PERFORMANCE_CYCLE[
+                            "manager_review_deadline"
+                        ]
+                    ),
+                    "status": (
+                        PerformanceReviewCycle.Status.OPEN
+                    ),
+                    "is_active": True,
+                },
+            )
+        )
+
+        created_performance_cycle_count = int(
+            performance_cycle_created
+        )
+        created_employee_goal_count = 0
+        created_performance_review_count = 0
+        created_performance_event_count = 0
+
+        for goal_data in DEMO_EMPLOYEE_GOALS:
+            employee = hr_employees[
+                goal_data["employee_username"]
+            ]
+
+            _, goal_created = EmployeeGoal.objects.update_or_create(
+                cycle=performance_cycle,
+                employee=employee,
+                title=goal_data["title"],
+                defaults={
+                    "company": company,
+                    "description": goal_data["description"],
+                    "weight": goal_data["weight"],
+                    "target_value": goal_data["target_value"],
+                    "current_value": goal_data["current_value"],
+                    "unit": goal_data["unit"],
+                    "start_date": performance_cycle.start_date,
+                    "due_date": date(2026, 12, 15),
+                    "progress_percentage": (
+                        goal_data["progress_percentage"]
+                    ),
+                    "status": goal_data["status"],
+                    "completion_note": goal_data.get(
+                        "completion_note",
+                        "",
+                    ),
+                },
+            )
+
+            if goal_created:
+                created_employee_goal_count += 1
+
+        for review_data in DEMO_PERFORMANCE_REVIEWS:
+            employee = hr_employees[
+                review_data["employee_username"]
+            ]
+            manager = hr_employees[
+                review_data["manager_username"]
+            ]
+            employee_user = hr_users[
+                review_data["employee_username"]
+            ]
+            manager_user = hr_users[
+                review_data["manager_username"]
+            ]
+
+            target_status = review_data["status"]
+
+            submitted_at = None
+            completed_at = None
+            completed_by = None
+
+            if target_status in {
+                PerformanceReview.Status.MANAGER_REVIEW,
+                PerformanceReview.Status.COMPLETED,
+            }:
+                submitted_at = timezone.make_aware(
+                    datetime(2026, 11, 25, 10, 0)
+                )
+
+            if target_status == PerformanceReview.Status.COMPLETED:
+                completed_at = timezone.make_aware(
+                    datetime(2026, 12, 10, 15, 30)
+                )
+                completed_by = manager_user
+
+            performance_review, review_created = (
+                PerformanceReview.objects.update_or_create(
+                    company=company,
+                    cycle=performance_cycle,
+                    employee=employee,
+                    defaults={
+                        "manager": manager,
+                        "status": target_status,
+                        "employee_rating": (
+                            review_data["employee_rating"]
+                        ),
+                        "manager_rating": (
+                            review_data["manager_rating"]
+                        ),
+                        "overall_rating": (
+                            review_data["overall_rating"]
+                        ),
+                        "employee_comment": (
+                            review_data["employee_comment"]
+                        ),
+                        "manager_comment": (
+                            review_data["manager_comment"]
+                        ),
+                        "development_plan": (
+                            review_data["development_plan"]
+                        ),
+                        "submitted_at": submitted_at,
+                        "completed_at": completed_at,
+                        "completed_by": completed_by,
+                    },
+                )
+            )
+
+            if review_created:
+                created_performance_review_count += 1
+
+            event_definitions = [
+                {
+                    "event_type": (
+                        PerformanceReviewEvent.EventType.CREATED
+                    ),
+                    "previous_status": "",
+                    "new_status": PerformanceReview.Status.DRAFT,
+                    "changed_by": manager_user,
+                    "note": (
+                        "Demo performans değerlendirmesi oluşturuldu."
+                    ),
+                },
+            ]
+
+            if target_status in {
+                PerformanceReview.Status.SELF_REVIEW,
+                PerformanceReview.Status.MANAGER_REVIEW,
+                PerformanceReview.Status.COMPLETED,
+            }:
+                event_definitions.append(
+                    {
+                        "event_type": (
+                            PerformanceReviewEvent
+                            .EventType
+                            .SELF_REVIEW_STARTED
+                        ),
+                        "previous_status": (
+                            PerformanceReview.Status.DRAFT
+                        ),
+                        "new_status": (
+                            PerformanceReview.Status.SELF_REVIEW
+                        ),
+                        "changed_by": employee_user,
+                        "note": "Demo öz değerlendirme süreci başladı.",
+                    }
+                )
+
+            if target_status in {
+                PerformanceReview.Status.MANAGER_REVIEW,
+                PerformanceReview.Status.COMPLETED,
+            }:
+                event_definitions.append(
+                    {
+                        "event_type": (
+                            PerformanceReviewEvent
+                            .EventType
+                            .SELF_REVIEW_SUBMITTED
+                        ),
+                        "previous_status": (
+                            PerformanceReview.Status.SELF_REVIEW
+                        ),
+                        "new_status": (
+                            PerformanceReview.Status.MANAGER_REVIEW
+                        ),
+                        "changed_by": employee_user,
+                        "note": (
+                            "Demo öz değerlendirme yöneticiye "
+                            "gönderildi."
+                        ),
+                    }
+                )
+
+            if target_status == PerformanceReview.Status.COMPLETED:
+                event_definitions.append(
+                    {
+                        "event_type": (
+                            PerformanceReviewEvent
+                            .EventType
+                            .COMPLETED
+                        ),
+                        "previous_status": (
+                            PerformanceReview.Status.MANAGER_REVIEW
+                        ),
+                        "new_status": (
+                            PerformanceReview.Status.COMPLETED
+                        ),
+                        "changed_by": manager_user,
+                        "note": (
+                            "Demo performans değerlendirmesi "
+                            "tamamlandı."
+                        ),
+                    }
+                )
+
+            if target_status == PerformanceReview.Status.CANCELLED:
+                event_definitions.append(
+                    {
+                        "event_type": (
+                            PerformanceReviewEvent
+                            .EventType
+                            .CANCELLED
+                        ),
+                        "previous_status": (
+                            PerformanceReview.Status.DRAFT
+                        ),
+                        "new_status": (
+                            PerformanceReview.Status.CANCELLED
+                        ),
+                        "changed_by": manager_user,
+                        "note": (
+                            "Organizasyon değişikliği nedeniyle demo "
+                            "değerlendirme iptal edildi."
+                        ),
+                    }
+                )
+
+            for event_data in event_definitions:
+                _, event_created = (
+                    PerformanceReviewEvent.objects.get_or_create(
+                        review=performance_review,
+                        event_type=event_data["event_type"],
+                        previous_status=(
+                            event_data["previous_status"]
+                        ),
+                        new_status=event_data["new_status"],
+                        defaults={
+                            "company": company,
+                            "changed_by": event_data["changed_by"],
+                            "note": event_data["note"],
+                        },
+                    )
+                )
+
+                if event_created:
+                    created_performance_event_count += 1
+
+        recruitment_requisitions = {}
+        recruitment_candidates = {}
+
+        created_requisition_count = 0
+        created_candidate_count = 0
+        created_application_count = 0
+        created_recruitment_event_count = 0
+
+        for requisition_data in DEMO_JOB_REQUISITIONS:
+            department = departments[
+                requisition_data["department_code"]
+            ]
+            position = hr_positions[
+                requisition_data["position_code"]
+            ]
+            hiring_manager = hr_employees[
+                requisition_data["hiring_manager_username"]
+            ]
+            recruiter = hr_employees[
+                requisition_data["recruiter_username"]
+            ]
+
+            target_status = requisition_data["status"]
+            opened_at = None
+
+            if target_status == JobRequisition.Status.OPEN:
+                opened_at = timezone.make_aware(
+                    datetime(2026, 8, 1, 9, 0)
+                )
+
+            requisition, requisition_created = (
+                JobRequisition.objects.update_or_create(
+                    company=company,
+                    requisition_number=(
+                        requisition_data["requisition_number"]
+                    ),
+                    defaults={
+                        "department": department,
+                        "position": position,
+                        "title": requisition_data["title"],
+                        "description": (
+                            requisition_data["description"]
+                        ),
+                        "requirements": (
+                            requisition_data["requirements"]
+                        ),
+                        "employment_type": (
+                            requisition_data["employment_type"]
+                        ),
+                        "opening_reason": (
+                            requisition_data["opening_reason"]
+                        ),
+                        "headcount": requisition_data["headcount"],
+                        "filled_headcount": 0,
+                        "hiring_manager": hiring_manager,
+                        "recruiter": recruiter,
+                        "status": target_status,
+                        "target_start_date": (
+                            requisition_data["target_start_date"]
+                        ),
+                        "application_deadline": (
+                            requisition_data[
+                                "application_deadline"
+                            ]
+                        ),
+                        "opened_at": opened_at,
+                        "closed_at": None,
+                        "created_by": hr_users[
+                            requisition_data[
+                                "recruiter_username"
+                            ]
+                        ],
+                    },
+                )
+            )
+
+            recruitment_requisitions[
+                requisition_data["requisition_number"]
+            ] = requisition
+
+            if requisition_created:
+                created_requisition_count += 1
+
+        consent_time = timezone.make_aware(
+            datetime(2026, 8, 1, 10, 0)
+        )
+
+        for candidate_data in DEMO_CANDIDATES:
+            candidate, candidate_created = (
+                Candidate.objects.update_or_create(
+                    company=company,
+                    email=candidate_data["email"],
+                    defaults={
+                        "first_name": candidate_data["first_name"],
+                        "last_name": candidate_data["last_name"],
+                        "phone": candidate_data["phone"],
+                        "source": candidate_data["source"],
+                        "current_title": (
+                            candidate_data["current_title"]
+                        ),
+                        "current_company": (
+                            candidate_data["current_company"]
+                        ),
+                        "years_of_experience": (
+                            candidate_data[
+                                "years_of_experience"
+                            ]
+                        ),
+                        "consent_given": True,
+                        "consent_at": consent_time,
+                        "created_by": hr_users[
+                            "demo.hr.specialist"
+                        ],
+                    },
+                )
+            )
+
+            recruitment_candidates[
+                candidate_data["key"]
+            ] = candidate
+
+            if candidate_created:
+                created_candidate_count += 1
+
+        for index, application_data in enumerate(
+            DEMO_JOB_APPLICATIONS,
+            start=1,
+        ):
+            candidate = recruitment_candidates[
+                application_data["candidate_key"]
+            ]
+            requisition = recruitment_requisitions[
+                application_data["requisition_number"]
+            ]
+            recruiter = hr_employees["demo.hr.specialist"]
+            recruiter_user = hr_users["demo.hr.specialist"]
+
+            applied_at = timezone.make_aware(
+                datetime(2026, 8, 2 + index, 10, 0)
+            )
+
+            application, application_created = (
+                JobApplication.objects.update_or_create(
+                    requisition=requisition,
+                    candidate=candidate,
+                    defaults={
+                        "company": company,
+                        "stage": application_data["stage"],
+                        "status": application_data["status"],
+                        "applied_at": applied_at,
+                        "screening_score": (
+                            application_data["screening_score"]
+                        ),
+                        "source_note": (
+                            "Glauria Demo ATS başvurusu."
+                        ),
+                        "rejection_reason": (
+                            application_data.get(
+                                "rejection_reason",
+                                "",
+                            )
+                        ),
+                        "withdrawn_reason": (
+                            application_data.get(
+                                "withdrawn_reason",
+                                "",
+                            )
+                        ),
+                        "assigned_recruiter": recruiter,
+                    },
+                )
+            )
+
+            if application_created:
+                created_application_count += 1
+
+            target_stage = application_data["stage"]
+
+            event_definitions = [
+                {
+                    "event_type": (
+                        RecruitmentEvent
+                        .EventType
+                        .APPLICATION_CREATED
+                    ),
+                    "previous_stage": "",
+                    "new_stage": JobApplication.Stage.APPLIED,
+                    "previous_status": "",
+                    "new_status": JobApplication.Status.ACTIVE,
+                    "note": "Demo iş başvurusu oluşturuldu.",
+                },
+            ]
+
+            if target_stage in {
+                JobApplication.Stage.SCREENING,
+                JobApplication.Stage.PHONE_SCREEN,
+                JobApplication.Stage.INTERVIEW,
+                JobApplication.Stage.ASSESSMENT,
+                JobApplication.Stage.OFFER,
+                JobApplication.Stage.REJECTED,
+            }:
+                event_definitions.append(
+                    {
+                        "event_type": (
+                            RecruitmentEvent
+                            .EventType
+                            .MOVED_TO_SCREENING
+                        ),
+                        "previous_stage": (
+                            JobApplication.Stage.APPLIED
+                        ),
+                        "new_stage": (
+                            JobApplication.Stage.SCREENING
+                        ),
+                        "previous_status": (
+                            JobApplication.Status.ACTIVE
+                        ),
+                        "new_status": (
+                            JobApplication.Status.ACTIVE
+                        ),
+                        "note": "Demo başvuru ön elemeye alındı.",
+                    }
+                )
+
+            if target_stage in {
+                JobApplication.Stage.PHONE_SCREEN,
+                JobApplication.Stage.INTERVIEW,
+                JobApplication.Stage.ASSESSMENT,
+                JobApplication.Stage.OFFER,
+            }:
+                event_definitions.append(
+                    {
+                        "event_type": (
+                            RecruitmentEvent
+                            .EventType
+                            .MOVED_TO_PHONE_SCREEN
+                        ),
+                        "previous_stage": (
+                            JobApplication.Stage.SCREENING
+                        ),
+                        "new_stage": (
+                            JobApplication.Stage.PHONE_SCREEN
+                        ),
+                        "previous_status": (
+                            JobApplication.Status.ACTIVE
+                        ),
+                        "new_status": (
+                            JobApplication.Status.ACTIVE
+                        ),
+                        "note": (
+                            "Demo telefon görüşmesi aşamasına geçildi."
+                        ),
+                    }
+                )
+
+            if target_stage in {
+                JobApplication.Stage.INTERVIEW,
+                JobApplication.Stage.ASSESSMENT,
+                JobApplication.Stage.OFFER,
+            }:
+                event_definitions.append(
+                    {
+                        "event_type": (
+                            RecruitmentEvent
+                            .EventType
+                            .MOVED_TO_INTERVIEW
+                        ),
+                        "previous_stage": (
+                            JobApplication.Stage.PHONE_SCREEN
+                        ),
+                        "new_stage": (
+                            JobApplication.Stage.INTERVIEW
+                        ),
+                        "previous_status": (
+                            JobApplication.Status.ACTIVE
+                        ),
+                        "new_status": (
+                            JobApplication.Status.ACTIVE
+                        ),
+                        "note": "Demo başvuru mülakata taşındı.",
+                    }
+                )
+
+            if target_stage in {
+                JobApplication.Stage.ASSESSMENT,
+                JobApplication.Stage.OFFER,
+            }:
+                event_definitions.append(
+                    {
+                        "event_type": (
+                            RecruitmentEvent
+                            .EventType
+                            .MOVED_TO_ASSESSMENT
+                        ),
+                        "previous_stage": (
+                            JobApplication.Stage.INTERVIEW
+                        ),
+                        "new_stage": (
+                            JobApplication.Stage.ASSESSMENT
+                        ),
+                        "previous_status": (
+                            JobApplication.Status.ACTIVE
+                        ),
+                        "new_status": (
+                            JobApplication.Status.ACTIVE
+                        ),
+                        "note": (
+                            "Demo başvuru değerlendirme aşamasına "
+                            "taşındı."
+                        ),
+                    }
+                )
+
+            if target_stage == JobApplication.Stage.OFFER:
+                event_definitions.append(
+                    {
+                        "event_type": (
+                            RecruitmentEvent
+                            .EventType
+                            .MOVED_TO_OFFER
+                        ),
+                        "previous_stage": (
+                            JobApplication.Stage.ASSESSMENT
+                        ),
+                        "new_stage": JobApplication.Stage.OFFER,
+                        "previous_status": (
+                            JobApplication.Status.ACTIVE
+                        ),
+                        "new_status": (
+                            JobApplication.Status.ACTIVE
+                        ),
+                        "note": "Demo aday teklif aşamasına taşındı.",
+                    }
+                )
+
+            if target_stage == JobApplication.Stage.REJECTED:
+                event_definitions.append(
+                    {
+                        "event_type": (
+                            RecruitmentEvent.EventType.REJECTED
+                        ),
+                        "previous_stage": (
+                            JobApplication.Stage.SCREENING
+                        ),
+                        "new_stage": JobApplication.Stage.REJECTED,
+                        "previous_status": (
+                            JobApplication.Status.ACTIVE
+                        ),
+                        "new_status": (
+                            JobApplication.Status.REJECTED
+                        ),
+                        "note": application_data[
+                            "rejection_reason"
+                        ],
+                    }
+                )
+
+            if target_stage == JobApplication.Stage.WITHDRAWN:
+                event_definitions.append(
+                    {
+                        "event_type": (
+                            RecruitmentEvent.EventType.WITHDRAWN
+                        ),
+                        "previous_stage": (
+                            JobApplication.Stage.APPLIED
+                        ),
+                        "new_stage": (
+                            JobApplication.Stage.WITHDRAWN
+                        ),
+                        "previous_status": (
+                            JobApplication.Status.ACTIVE
+                        ),
+                        "new_status": (
+                            JobApplication.Status.WITHDRAWN
+                        ),
+                        "note": application_data[
+                            "withdrawn_reason"
+                        ],
+                    }
+                )
+
+            for event_data in event_definitions:
+                _, event_created = (
+                    RecruitmentEvent.objects.get_or_create(
+                        application=application,
+                        event_type=event_data["event_type"],
+                        previous_stage=(
+                            event_data["previous_stage"]
+                        ),
+                        new_stage=event_data["new_stage"],
+                        previous_status=(
+                            event_data["previous_status"]
+                        ),
+                        new_status=event_data["new_status"],
+                        defaults={
+                            "company": company,
+                            "changed_by": recruiter_user,
+                            "note": event_data["note"],
+                        },
+                    )
+                )
+
+                if event_created:
+                    created_recruitment_event_count += 1
 
         financial_account, financial_account_created = (
             FinancialAccount.objects.get_or_create(
@@ -1131,6 +2644,58 @@ class Command(BaseCommand):
         self.stdout.write(
             "Yeni izin işlem kaydı sayısı: "
             f"{created_absence_event_count}"
+        )
+        self.stdout.write(
+            "Yeni çalışma takvimi sayısı: "
+            f"{created_work_schedule_count}"
+        )
+        self.stdout.write(
+            "Yeni çalışma takvimi günü sayısı: "
+            f"{created_work_schedule_day_count}"
+        )
+        self.stdout.write(
+            "Yeni personel takvim ataması sayısı: "
+            f"{created_schedule_assignment_count}"
+        )
+        self.stdout.write(
+            "Yeni devam kaydı sayısı: "
+            f"{created_attendance_record_count}"
+        )
+        self.stdout.write(
+            "Yeni devam işlem kaydı sayısı: "
+            f"{created_attendance_event_count}"
+        )
+        self.stdout.write(
+            "Yeni performans dönemi sayısı: "
+            f"{created_performance_cycle_count}"
+        )
+        self.stdout.write(
+            "Yeni personel hedefi sayısı: "
+            f"{created_employee_goal_count}"
+        )
+        self.stdout.write(
+            "Yeni performans değerlendirmesi sayısı: "
+            f"{created_performance_review_count}"
+        )
+        self.stdout.write(
+            "Yeni performans işlem kaydı sayısı: "
+            f"{created_performance_event_count}"
+        )
+        self.stdout.write(
+            "Yeni işe alım talebi sayısı: "
+            f"{created_requisition_count}"
+        )
+        self.stdout.write(
+            "Yeni aday kartı sayısı: "
+            f"{created_candidate_count}"
+        )
+        self.stdout.write(
+            "Yeni iş başvurusu sayısı: "
+            f"{created_application_count}"
+        )
+        self.stdout.write(
+            "Yeni işe alım işlem kaydı sayısı: "
+            f"{created_recruitment_event_count}"
         )
         self.stdout.write(
             "Kasa / banka hesabı: "

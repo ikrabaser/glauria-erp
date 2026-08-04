@@ -1,0 +1,176 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}
+İşe Alım Talepleri | Glauria ERP
+{% endblock %}
+
+{% block extra_css %}
+<link
+    rel="stylesheet"
+    href="{% static 'css/hr.css' %}?v=hr-requisition-v1"
+>
+{% endblock %}
+
+{% block content %}
+<section class="module-page hr-dashboard">
+    {% url "hr:job_requisition_list" as list_url %}
+    {% url "hr:job_requisition_create" as create_url %}
+
+    {% if can_manage_hr %}
+        {% include "components/page_header.html" with eyebrow="İNSAN KAYNAKLARI · İŞE ALIM" title="İşe Alım Talepleri" description="Açık pozisyonları, kontenjanları ve işe alım sorumlularını yönetin." action_text="+ Yeni Talep" action_url=create_url %}
+    {% else %}
+        {% include "components/page_header.html" with eyebrow="İNSAN KAYNAKLARI · İŞE ALIM" title="İşe Alım Talepleri" description="Açık pozisyonları ve işe alım süreçlerini görüntüleyin." %}
+    {% endif %}
+
+    <nav class="hr-subnav">
+        <a href="{% url 'hr:recruitment_dashboard' %}">
+            İşe Alım Paneli
+        </a>
+        <a href="{{ list_url }}" class="is-active">
+            İşe Alım Talepleri
+        </a>
+        {% if can_manage_hr %}
+            <a
+                href="{{ create_url }}"
+                class="hr-subnav__primary"
+            >
+                + Yeni Talep
+            </a>
+        {% endif %}
+    </nav>
+
+    <form method="get" class="hr-toolbar">
+        <div class="hr-toolbar__search">
+            <label for="requisition-search">
+                Talep veya pozisyon ara
+            </label>
+            <input
+                id="requisition-search"
+                type="search"
+                name="q"
+                value="{{ search_query }}"
+                placeholder="Talep no, ilan veya pozisyon..."
+            >
+        </div>
+
+        <div class="hr-toolbar__field">
+            <label for="requisition-department">
+                Departman
+            </label>
+            <select
+                id="requisition-department"
+                name="department"
+            >
+                <option value="">Tüm departmanlar</option>
+                {% for department in departments %}
+                    <option
+                        value="{{ department.id }}"
+                        {% if department_filter == department.id|stringformat:"s" %}selected{% endif %}
+                    >
+                        {{ department.name }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="hr-toolbar__field">
+            <label for="requisition-status">Durum</label>
+            <select
+                id="requisition-status"
+                name="status"
+            >
+                <option value="">Tüm durumlar</option>
+                {% for value, label in status_choices %}
+                    <option
+                        value="{{ value }}"
+                        {% if status_filter == value %}selected{% endif %}
+                    >
+                        {{ label }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <button type="submit" class="hr-toolbar__submit">
+            Filtrele
+        </button>
+
+        <a href="{{ list_url }}" class="hr-toolbar__clear">
+            Temizle
+        </a>
+    </form>
+
+    <section class="hr-panel hr-directory__panel">
+        <div class="hr-panel__heading">
+            <div>
+                <span class="hr-panel__eyebrow">
+                    İŞE ALIM TALEPLERİ
+                </span>
+                <h3 class="hr-panel__title">
+                    Pozisyon ve Kontenjanlar
+                </h3>
+            </div>
+
+            <span class="hr-panel__count">
+                {{ requisitions|length }} kayıt
+            </span>
+        </div>
+
+        {% if requisitions %}
+            <div class="table-responsive">
+                <table class="data-table hr-directory-table">
+                    <thead>
+                        <tr>
+                            <th>Talep</th>
+                            <th>Departman</th>
+                            <th>Pozisyon</th>
+                            <th>Durum</th>
+                            <th>Kontenjan</th>
+                            <th>Başvuru</th>
+                            <th>İK Sorumlusu</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for requisition in requisitions %}
+                            <tr>
+                                <td>
+                                    <strong>{{ requisition.title }}</strong>
+                                    <div class="hr-muted">
+                                        {{ requisition.requisition_number }}
+                                    </div>
+                                </td>
+                                <td>{{ requisition.department.name }}</td>
+                                <td>{{ requisition.position.title }}</td>
+                                <td>
+                                    <span class="recruitment-stage">
+                                        {{ requisition.get_status_display }}
+                                    </span>
+                                </td>
+                                <td>
+                                    {{ requisition.filled_headcount }}/{{ requisition.headcount }}
+                                </td>
+                                <td>{{ requisition.application_count }}</td>
+                                <td>{{ requisition.recruiter.full_name }}</td>
+                                <td>
+                                    <a
+                                        href="{% url 'hr:job_requisition_detail' requisition.id %}"
+                                        class="hr-table-action"
+                                    >
+                                        Detay
+                                    </a>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="hr-panel__empty">
+                Filtreye uygun işe alım talebi bulunamadı.
+            </div>
+        {% endif %}
+    </section>
+</section>
+{% endblock %}

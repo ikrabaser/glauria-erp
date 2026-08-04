@@ -1,0 +1,357 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}
+Performans Yönetimi | Glauria ERP
+{% endblock %}
+
+{% block extra_css %}
+<link
+    rel="stylesheet"
+    href="{% static 'css/hr.css' %}?v=hr-performance-v1"
+>
+{% endblock %}
+
+{% block content %}
+<section class="module-page hr-dashboard performance-dashboard">
+    {% url "hr:performance_dashboard" as performance_url %}
+
+    {% include "components/page_header.html" with eyebrow="İNSAN KAYNAKLARI" title="Performans Yönetimi" description="Hedefleri, değerlendirme dönemlerini ve çalışan performans süreçlerini tek merkezden izleyin." %}
+
+    <nav class="hr-subnav">
+        <a href="{% url 'hr:home' %}">
+            İK Ana Paneli
+        </a>
+        <a href="{% url 'hr:employee_list' %}">
+            Personel Dizini
+        </a>
+        <a href="{% url 'hr:department_list' %}">
+            Departmanlar
+        </a>
+        <a href="{% url 'hr:position_list' %}">
+            Pozisyonlar
+        </a>
+        <a href="{% url 'hr:absence_request_list' %}">
+            İzinler
+        </a>
+        <a
+            href="{{ performance_url }}"
+            class="is-active"
+        >
+            Performans
+        </a>
+    </nav>
+
+    <div class="hr-metrics">
+        <article class="hr-metric-card hr-metric-card--primary">
+            <span class="hr-metric-card__label">
+                Aktif Dönem
+            </span>
+            <strong class="performance-cycle-name">
+                {% if active_cycle %}
+                    {{ active_cycle.name }}
+                {% else %}
+                    Dönem bulunmuyor
+                {% endif %}
+            </strong>
+            <span class="hr-metric-card__meta">
+                {% if active_cycle %}
+                    {{ active_cycle.start_date|date:"d.m.Y" }}
+                    –
+                    {{ active_cycle.end_date|date:"d.m.Y" }}
+                {% else %}
+                    Yeni dönem tanımlanması gerekiyor
+                {% endif %}
+            </span>
+        </article>
+
+        <article class="hr-metric-card">
+            <span class="hr-metric-card__label">
+                Değerlendirmeler
+            </span>
+            <strong class="hr-metric-card__value">
+                {{ review_counts.total }}
+            </strong>
+            <span class="hr-metric-card__meta">
+                {{ review_counts.completed }} tamamlandı
+            </span>
+        </article>
+
+        <article class="hr-metric-card">
+            <span class="hr-metric-card__label">
+                Ortalama Puan
+            </span>
+            <strong class="hr-metric-card__value">
+                {{ average_rating|floatformat:2 }}
+            </strong>
+            <span class="hr-metric-card__meta">
+                Tamamlanmış değerlendirmeler
+            </span>
+        </article>
+
+        <article class="hr-metric-card">
+            <span class="hr-metric-card__label">
+                Hedef İlerlemesi
+            </span>
+            <strong class="hr-metric-card__value hr-metric-card__value--positive">
+                %{{ average_goal_progress|floatformat:0 }}
+            </strong>
+            <span class="hr-metric-card__meta">
+                {{ completed_goal_count }}/{{ goal_count }} hedef tamamlandı
+            </span>
+        </article>
+    </div>
+
+    <section class="performance-status-grid">
+        <article>
+            <span>Taslak</span>
+            <strong>{{ review_counts.draft }}</strong>
+        </article>
+        <article>
+            <span>Öz Değerlendirme</span>
+            <strong>{{ review_counts.self_review }}</strong>
+        </article>
+        <article>
+            <span>Yönetici Aşaması</span>
+            <strong>{{ review_counts.manager_review }}</strong>
+        </article>
+        <article>
+            <span>Tamamlandı</span>
+            <strong>{{ review_counts.completed }}</strong>
+        </article>
+        <article>
+            <span>İptal Edildi</span>
+            <strong>{{ review_counts.cancelled }}</strong>
+        </article>
+    </section>
+
+    <div class="hr-dashboard__grid performance-dashboard__grid">
+        <section class="hr-panel">
+            <div class="hr-panel__heading">
+                <div>
+                    <span class="hr-panel__eyebrow">
+                        PERSONEL HEDEFLERİ
+                    </span>
+                    <h3 class="hr-panel__title">
+                        Hedef İlerlemesi
+                    </h3>
+                </div>
+
+                <span class="hr-panel__count">
+                    {{ goal_count }} hedef
+                </span>
+            </div>
+
+            {% if goals %}
+                <div class="performance-goal-list">
+                    {% for goal in goals %}
+                        <article class="performance-goal">
+                            <div class="performance-goal__heading">
+                                <div>
+                                    <strong>{{ goal.title }}</strong>
+                                    <span>
+                                        {{ goal.employee.full_name }}
+                                    </span>
+                                </div>
+
+                                <b>
+                                    %{{ goal.progress_percentage|floatformat:0 }}
+                                </b>
+                            </div>
+
+                            <div class="performance-progress">
+                                <span
+                                    style="width: {{ goal.progress_percentage|floatformat:0 }}%;"
+                                ></span>
+                            </div>
+
+                            <div class="performance-goal__meta">
+                                <span>
+                                    Ağırlık:
+                                    %{{ goal.weight|floatformat:0 }}
+                                </span>
+                                <span>
+                                    Son tarih:
+                                    {{ goal.due_date|date:"d.m.Y" }}
+                                </span>
+                            </div>
+                        </article>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="hr-panel__empty">
+                    Aktif dönem için personel hedefi bulunmuyor.
+                </div>
+            {% endif %}
+        </section>
+
+        <section class="hr-panel">
+            <div class="hr-panel__heading">
+                <div>
+                    <span class="hr-panel__eyebrow">
+                        DEĞERLENDİRME DAĞILIMI
+                    </span>
+                    <h3 class="hr-panel__title">
+                        Süreç Özeti
+                    </h3>
+                </div>
+            </div>
+
+            <div class="performance-summary-list">
+                <div>
+                    <span>Bekleyen çalışan değerlendirmesi</span>
+                    <strong>{{ review_counts.self_review }}</strong>
+                </div>
+                <div>
+                    <span>Yönetici değerlendirmesinde</span>
+                    <strong>{{ review_counts.manager_review }}</strong>
+                </div>
+                <div>
+                    <span>Tamamlanan değerlendirme</span>
+                    <strong>{{ review_counts.completed }}</strong>
+                </div>
+                <div>
+                    <span>Tamamlanan hedef</span>
+                    <strong>{{ completed_goal_count }}</strong>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <form
+        method="get"
+        class="hr-toolbar performance-toolbar"
+    >
+        <div class="hr-toolbar__search">
+            <label for="performance-search">
+                Personel veya dönem ara
+            </label>
+            <input
+                id="performance-search"
+                type="search"
+                name="q"
+                value="{{ search_query }}"
+                placeholder="Personel adı, numarası veya dönem..."
+            >
+        </div>
+
+        <div class="hr-toolbar__field">
+            <label for="performance-status">
+                Durum
+            </label>
+            <select
+                id="performance-status"
+                name="status"
+            >
+                <option value="">Tüm durumlar</option>
+                {% for value, label in performance_status_choices %}
+                    <option
+                        value="{{ value }}"
+                        {% if status_filter == value %}selected{% endif %}
+                    >
+                        {{ label }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <button
+            type="submit"
+            class="hr-toolbar__submit"
+        >
+            Filtrele
+        </button>
+
+        <a
+            href="{{ performance_url }}"
+            class="hr-toolbar__clear"
+        >
+            Temizle
+        </a>
+    </form>
+
+    <section class="hr-panel hr-directory__panel">
+        <div class="hr-panel__heading">
+            <div>
+                <span class="hr-panel__eyebrow">
+                    DEĞERLENDİRMELER
+                </span>
+                <h3 class="hr-panel__title">
+                    Performans Kayıtları
+                </h3>
+            </div>
+
+            <span class="hr-panel__count">
+                {{ review_counts.total }} kayıt
+            </span>
+        </div>
+
+        {% if reviews %}
+            <div class="table-responsive">
+                <table class="data-table hr-directory-table performance-table">
+                    <thead>
+                        <tr>
+                            <th>Personel</th>
+                            <th>Yönetici</th>
+                            <th>Dönem</th>
+                            <th>Durum</th>
+                            <th>Çalışan Puanı</th>
+                            <th>Yönetici Puanı</th>
+                            <th>Genel Puan</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for review in reviews %}
+                            <tr>
+                                <td>
+                                    <div class="hr-employee-cell">
+                                        <span class="hr-employee-cell__avatar">
+                                            {{ review.employee.first_name|first }}{{ review.employee.last_name|first }}
+                                        </span>
+                                        <span>
+                                            <strong>
+                                                {{ review.employee.full_name }}
+                                            </strong>
+                                            <small>
+                                                {{ review.employee.employee_number }}
+                                            </small>
+                                        </span>
+                                    </div>
+                                </td>
+                                <td>{{ review.manager.full_name }}</td>
+                                <td>
+                                    <strong>{{ review.cycle.code }}</strong>
+                                </td>
+                                <td>
+                                    <span class="performance-status performance-status--{{ review.status }}">
+                                        {{ review.get_status_display }}
+                                    </span>
+                                </td>
+                                <td>
+                                    {{ review.employee_rating|default:"—" }}
+                                </td>
+                                <td>
+                                    {{ review.manager_rating|default:"—" }}
+                                </td>
+                                <td>
+                                    {% if review.overall_rating %}
+                                        <strong class="performance-rating">
+                                            {{ review.overall_rating }}
+                                        </strong>
+                                    {% else %}
+                                        —
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="hr-panel__empty">
+                Filtreye uygun performans değerlendirmesi bulunamadı.
+            </div>
+        {% endif %}
+    </section>
+</section>
+{% endblock %}

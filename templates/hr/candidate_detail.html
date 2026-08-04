@@ -1,0 +1,236 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}
+{{ candidate.full_name }} | Glauria ERP
+{% endblock %}
+
+{% block extra_css %}
+<link
+    rel="stylesheet"
+    href="{% static 'css/hr.css' %}?v=hr-candidate-detail-v1"
+>
+{% endblock %}
+
+{% block content %}
+<section class="module-page hr-dashboard">
+    {% url "hr:candidate_list" as candidate_list_url %}
+
+    {% include "components/page_header.html" with eyebrow="İNSAN KAYNAKLARI · ADAY KARTI" title=candidate.full_name description=candidate.current_title action_text="Aday Havuzuna Dön" action_url=candidate_list_url %}
+
+    <nav class="hr-subnav">
+        <a href="{% url 'hr:recruitment_dashboard' %}">
+            İşe Alım Paneli
+        </a>
+        <a href="{% url 'hr:job_requisition_list' %}">
+            İşe Alım Talepleri
+        </a>
+        <a href="{{ candidate_list_url }}">
+            Aday Havuzu
+        </a>
+        <a href="#" class="is-active">
+            Aday Detayı
+        </a>
+    </nav>
+
+    <section class="candidate-profile-hero">
+        <div class="candidate-profile-hero__avatar">
+            {{ candidate.first_name|first }}{{ candidate.last_name|first }}
+        </div>
+
+        <div class="candidate-profile-hero__identity">
+            <span class="hr-panel__eyebrow">
+                {{ candidate.get_source_display }}
+            </span>
+            <h3>{{ candidate.full_name }}</h3>
+            <p>
+                {{ candidate.current_title|default:"Unvan belirtilmemiş" }}
+                {% if candidate.current_company %}
+                    · {{ candidate.current_company }}
+                {% endif %}
+            </p>
+        </div>
+
+        <div class="candidate-profile-hero__actions">
+            {% if candidate.linkedin_url %}
+                <a
+                    href="{{ candidate.linkedin_url }}"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="btn-secondary"
+                >
+                    LinkedIn
+                </a>
+            {% endif %}
+
+            {% if candidate.portfolio_url %}
+                <a
+                    href="{{ candidate.portfolio_url }}"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="btn-secondary"
+                >
+                    Portföy
+                </a>
+            {% endif %}
+
+            {% if candidate.resume %}
+                <a
+                    href="{{ candidate.resume.url }}"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="btn-primary"
+                >
+                    CV'yi Görüntüle
+                </a>
+            {% endif %}
+        </div>
+    </section>
+
+    <div class="hr-dashboard__grid">
+        <section class="hr-panel">
+            <div class="hr-panel__heading">
+                <div>
+                    <span class="hr-panel__eyebrow">
+                        ADAY BİLGİLERİ
+                    </span>
+                    <h3 class="hr-panel__title">
+                        İletişim ve Kariyer
+                    </h3>
+                </div>
+            </div>
+
+            <dl class="hr-detail-list">
+                <div>
+                    <dt>E-posta</dt>
+                    <dd>
+                        <a href="mailto:{{ candidate.email }}">
+                            {{ candidate.email }}
+                        </a>
+                    </dd>
+                </div>
+                <div>
+                    <dt>Telefon</dt>
+                    <dd>{{ candidate.phone|default:"—" }}</dd>
+                </div>
+                <div>
+                    <dt>Deneyim</dt>
+                    <dd>
+                        {% if candidate.years_of_experience != None %}
+                            {{ candidate.years_of_experience }} yıl
+                        {% else %}
+                            —
+                        {% endif %}
+                    </dd>
+                </div>
+                <div>
+                    <dt>Aday Kaynağı</dt>
+                    <dd>{{ candidate.get_source_display }}</dd>
+                </div>
+                <div>
+                    <dt>Veri İşleme Onayı</dt>
+                    <dd>
+                        {% if candidate.consent_given %}
+                            Onaylandı
+                        {% else %}
+                            Onay bulunmuyor
+                        {% endif %}
+                    </dd>
+                </div>
+                <div>
+                    <dt>Onay Zamanı</dt>
+                    <dd>
+                        {{ candidate.consent_at|date:"d.m.Y H:i"|default:"—" }}
+                    </dd>
+                </div>
+            </dl>
+        </section>
+
+        <section class="hr-panel">
+            <div class="hr-panel__heading">
+                <div>
+                    <span class="hr-panel__eyebrow">
+                        İK NOTLARI
+                    </span>
+                    <h3 class="hr-panel__title">
+                        Aday Değerlendirmesi
+                    </h3>
+                </div>
+            </div>
+
+            <div class="requisition-description">
+                {{ candidate.notes|linebreaks|default:"Aday hakkında not bulunmuyor." }}
+            </div>
+        </section>
+    </div>
+
+    <section class="hr-panel hr-directory__panel">
+        <div class="hr-panel__heading">
+            <div>
+                <span class="hr-panel__eyebrow">
+                    BAŞVURU GEÇMİŞİ
+                </span>
+                <h3 class="hr-panel__title">
+                    Adayın Başvuruları
+                </h3>
+            </div>
+
+            <span class="hr-panel__count">
+                {{ applications|length }} başvuru
+            </span>
+        </div>
+
+        {% if applications %}
+            <div class="table-responsive">
+                <table class="data-table hr-directory-table">
+                    <thead>
+                        <tr>
+                            <th>İlan</th>
+                            <th>Departman</th>
+                            <th>Aşama</th>
+                            <th>Durum</th>
+                            <th>Puan</th>
+                            <th>Başvuru Tarihi</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for application in applications %}
+                            <tr>
+                                <td>
+                                    <strong>
+                                        {{ application.requisition.title }}
+                                    </strong>
+                                    <div class="hr-muted">
+                                        {{ application.requisition.requisition_number }}
+                                    </div>
+                                </td>
+                                <td>
+                                    {{ application.requisition.department.name }}
+                                </td>
+                                <td>
+                                    <span class="recruitment-stage recruitment-stage--{{ application.stage }}">
+                                        {{ application.get_stage_display }}
+                                    </span>
+                                </td>
+                                <td>
+                                    {{ application.get_status_display }}
+                                </td>
+                                <td>
+                                    {{ application.screening_score|default:"—" }}
+                                </td>
+                                <td>
+                                    {{ application.applied_at|date:"d.m.Y H:i" }}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="hr-panel__empty">
+                Bu adaya ait iş başvurusu bulunmuyor.
+            </div>
+        {% endif %}
+    </section>
+</section>
+{% endblock %}

@@ -1,0 +1,186 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}
+Aday Havuzu | Glauria ERP
+{% endblock %}
+
+{% block extra_css %}
+<link
+    rel="stylesheet"
+    href="{% static 'css/hr.css' %}?v=hr-candidates-v1"
+>
+{% endblock %}
+
+{% block content %}
+<section class="module-page hr-dashboard">
+    {% url "hr:candidate_list" as list_url %}
+    {% url "hr:candidate_create" as create_url %}
+
+    {% if can_manage_hr %}
+        {% include "components/page_header.html" with eyebrow="İNSAN KAYNAKLARI · İŞE ALIM" title="Aday Havuzu" description="Aday profillerini, öz geçmişleri ve başvuru geçmişlerini tek merkezden yönetin." action_text="+ Yeni Aday" action_url=create_url %}
+    {% else %}
+        {% include "components/page_header.html" with eyebrow="İNSAN KAYNAKLARI · İŞE ALIM" title="Aday Havuzu" description="Aday profillerini ve başvuru geçmişlerini görüntüleyin." %}
+    {% endif %}
+
+    <nav class="hr-subnav">
+        <a href="{% url 'hr:recruitment_dashboard' %}">
+            İşe Alım Paneli
+        </a>
+        <a href="{% url 'hr:job_requisition_list' %}">
+            İşe Alım Talepleri
+        </a>
+        <a href="{{ list_url }}" class="is-active">
+            Aday Havuzu
+        </a>
+        {% if can_manage_hr %}
+            <a href="{{ create_url }}" class="hr-subnav__primary">
+                + Yeni Aday
+            </a>
+        {% endif %}
+    </nav>
+
+    <form method="get" class="hr-toolbar">
+        <div class="hr-toolbar__search">
+            <label for="candidate-search">
+                Aday ara
+            </label>
+            <input
+                id="candidate-search"
+                type="search"
+                name="q"
+                value="{{ search_query }}"
+                placeholder="Ad, e-posta, unvan veya şirket..."
+            >
+        </div>
+
+        <div class="hr-toolbar__field">
+            <label for="candidate-source">
+                Kaynak
+            </label>
+            <select
+                id="candidate-source"
+                name="source"
+            >
+                <option value="">Tüm kaynaklar</option>
+                {% for value, label in source_choices %}
+                    <option
+                        value="{{ value }}"
+                        {% if source_filter == value %}selected{% endif %}
+                    >
+                        {{ label }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <button type="submit" class="hr-toolbar__submit">
+            Filtrele
+        </button>
+
+        <a href="{{ list_url }}" class="hr-toolbar__clear">
+            Temizle
+        </a>
+    </form>
+
+    <section class="hr-panel hr-directory__panel">
+        <div class="hr-panel__heading">
+            <div>
+                <span class="hr-panel__eyebrow">
+                    ADAY YÖNETİMİ
+                </span>
+                <h3 class="hr-panel__title">
+                    Aday Profilleri
+                </h3>
+            </div>
+
+            <span class="hr-panel__count">
+                {{ candidates|length }} aday
+            </span>
+        </div>
+
+        {% if candidates %}
+            <div class="table-responsive">
+                <table class="data-table hr-directory-table">
+                    <thead>
+                        <tr>
+                            <th>Aday</th>
+                            <th>Mevcut Unvan</th>
+                            <th>Deneyim</th>
+                            <th>Kaynak</th>
+                            <th>Başvuru</th>
+                            <th>CV</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for candidate in candidates %}
+                            <tr>
+                                <td>
+                                    <div class="hr-employee-cell">
+                                        <span class="hr-employee-cell__avatar">
+                                            {{ candidate.first_name|first }}{{ candidate.last_name|first }}
+                                        </span>
+                                        <span>
+                                            <strong>
+                                                {{ candidate.full_name }}
+                                            </strong>
+                                            <small>
+                                                {{ candidate.email }}
+                                            </small>
+                                        </span>
+                                    </div>
+                                </td>
+                                <td>
+                                    {{ candidate.current_title|default:"—" }}
+                                    {% if candidate.current_company %}
+                                        <div class="hr-muted">
+                                            {{ candidate.current_company }}
+                                        </div>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if candidate.years_of_experience != None %}
+                                        {{ candidate.years_of_experience }} yıl
+                                    {% else %}
+                                        —
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {{ candidate.get_source_display }}
+                                </td>
+                                <td>
+                                    {{ candidate.application_count }}
+                                </td>
+                                <td>
+                                    {% if candidate.resume %}
+                                        <span class="candidate-file-state candidate-file-state--ready">
+                                            Yüklendi
+                                        </span>
+                                    {% else %}
+                                        <span class="candidate-file-state">
+                                            Bulunmuyor
+                                        </span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <a
+                                        href="{% url 'hr:candidate_detail' candidate.id %}"
+                                        class="hr-table-action"
+                                    >
+                                        Detay
+                                    </a>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="hr-panel__empty">
+                Filtreye uygun aday kaydı bulunamadı.
+            </div>
+        {% endif %}
+    </section>
+</section>
+{% endblock %}

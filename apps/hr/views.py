@@ -1,9 +1,10 @@
 from datetime import timedelta
 
 from django.contrib.auth.decorators import login_required
-from django.db.models import Count, Prefetch, Q
+from django.db.models import Avg, Count, Prefetch, Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
+from django.urls import reverse
 from django.contrib import messages
 from django.db import transaction
 from django.http import HttpResponseForbidden
@@ -19,6 +20,12 @@ from .models import (
     Employee,
     EmploymentAssignment,
     Position,
+    EmployeeGoal,
+    PerformanceReview,
+    PerformanceReviewCycle,
+    Candidate,
+    JobApplication,
+    JobRequisition,
 )
 from .forms import (
     AbsenceCancellationForm,
@@ -29,6 +36,8 @@ from .forms import (
     EmployeeForm,
     InitialAssignmentForm,
     PositionForm,
+    JobRequisitionForm,
+    CandidateForm,
 )
 from .services import (
     approve_absence_request,
@@ -36,6 +45,7 @@ from .services import (
     change_employee_assignment,
     reject_absence_request,
     submit_absence_request,
+    open_job_requisition,
 )
 
 def get_active_membership(user):
@@ -1668,3 +1678,728 @@ def absence_request_cancel(request, request_id):
         "hr:absence_request_detail",
         request_id=absence_request.id,
     )
+
+
+@login_required
+def performance_dashboard(request):
+    membership = get_active_membership(request.user)
+
+    if not has_hr_access(membership):
+        return redirect("hr:home")
+
+    company = membership.company
+    search_query = request.GET.get("q", "").strip()
+    status_filter = request.GET.get("status", "").strip()
+
+    cycles = PerformanceReviewCycle.objects.filter(
+        company=company,
+        is_active=True,
+    )
+
+    active_cycle = (
+        cycles.filter(
+            status=PerformanceReviewCycle.Status.OPEN,
+        )
+        .order_by(
+            "-start_date",
+            "-created_at",
+        )
+        .first()
+    )
+
+    goals = (
+        EmployeeGoal.objects.filter(
+            company=company,
+        )
+        .select_related(
+            "employee",
+            "employee__user",
+            "cycle",
+        )
+        .order_by(
+            "-cycle__start_date",
+            "employee__last_name",
+            "employee__first_name",
+            "due_date",
+        )
+    )
+
+    reviews = (
+        PerformanceReview.objects.filter(
+            company=company,
+        )
+        .select_related(
+            "employee",
+            "employee__user",
+            "manager",
+            "manager__user",
+            "cycle",
+            "completed_by",
+        )
+        .order_by(
+            "-cycle__start_date",
+            "employee__last_name",
+            "employee__first_name",
+        )
+    )
+
+    if active_cycle:
+        goals = goals.filter(cycle=active_cycle)
+        reviews = reviews.filter(cycle=active_cycle)
+
+    if search_query:
+        reviews = reviews.filter(
+            Q(employee__employee_number__icontains=search_query)
+            | Q(employee__first_name__icontains=search_query)
+            | Q(employee__last_name__icontains=search_query)
+            | Q(manager__first_name__icontains=search_query)
+            | Q(manager__last_name__icontains=search_query)
+            | Q(cycle__name__icontains=search_query)
+            | Q(cycle__code__icontains=search_query)
+        )
+
+    valid_statuses = {
+        value
+        for value, _label in PerformanceReview.Status.choices
+    }
+
+    if status_filter in valid_statuses:
+        reviews = reviews.filter(status=status_filter)
+    else:
+        status_filter = ""
+
+    review_counts = {
+        "total": reviews.count(),
+        "draft": reviews.filter(
+            status=PerformanceReview.Status.DRAFT,
+        ).count(),
+        "self_review": reviews.filter(
+            status=PerformanceReview.Status.SELF_REVIEW,
+        ).count(),
+        "manager_review": reviews.filter(
+            status=PerformanceReview.Status.MANAGER_REVIEW,
+        ).count(),
+        "completed": reviews.filter(
+            status=PerformanceReview.Status.COMPLETED,
+        ).count(),
+        "cancelled": reviews.filter(
+            status=PerformanceReview.Status.CANCELLED,
+        ).count(),
+    }
+
+    average_rating = (
+        reviews.filter(
+            status=PerformanceReview.Status.COMPLETED,
+            overall_rating__isnull=False,
+        )
+        .aggregate(value=Avg("overall_rating"))
+        .get("value")
+    )
+
+    goal_summary = goals.aggregate(
+        average_progress=Avg("progress_percentage"),
+    )
+
+    return render(
+        request,
+        "hr/performance_dashboard.html",
+        {
+            "current_membership": membership,
+            "active_cycle": active_cycle,
+            "cycle_count": cycles.count(),
+            "goals": goals[:8],
+            "goal_count": goals.count(),
+            "completed_goal_count": goals.filter(
+                status=EmployeeGoal.Status.COMPLETED,
+            ).count(),
+            "average_goal_progress": (
+                goal_summary["average_progress"] or 0
+            ),
+            "reviews": reviews,
+            "review_counts": review_counts,
+            "average_rating": average_rating or 0,
+            "performance_status_choices": (
+                PerformanceReview.Status.choices
+            ),
+            "search_query": search_query,
+            "status_filter": status_filter,
+            "can_manage_hr": can_manage_hr(membership),
+        },
+    )
+
+
+@login_required
+def recruitment_dashboard(request):
+    membership = get_active_membership(request.user)
+
+    if not has_hr_access(membership):
+        return redirect("hr:home")
+
+    company = membership.company
+    search_query = request.GET.get("q", "").strip()
+    stage_filter = request.GET.get("stage", "").strip()
+    requisition_filter = request.GET.get(
+        "requisition",
+        "",
+    ).strip()
+
+    requisitions = (
+        JobRequisition.objects.filter(
+            company=company,
+        )
+        .select_related(
+            "department",
+            "position",
+            "hiring_manager",
+            "recruiter",
+        )
+        .order_by(
+            "-created_at",
+            "requisition_number",
+        )
+    )
+
+    applications = (
+        JobApplication.objects.filter(
+            company=company,
+        )
+        .select_related(
+            "candidate",
+            "requisition",
+            "requisition__department",
+            "requisition__position",
+            "assigned_recruiter",
+        )
+        .order_by(
+            "-applied_at",
+            "-created_at",
+        )
+    )
+
+    if search_query:
+        applications = applications.filter(
+            Q(candidate__first_name__icontains=search_query)
+            | Q(candidate__last_name__icontains=search_query)
+            | Q(candidate__email__icontains=search_query)
+            | Q(
+                requisition__requisition_number__icontains=(
+                    search_query
+                )
+            )
+            | Q(requisition__title__icontains=search_query)
+        )
+
+    valid_stages = {
+        value
+        for value, _label in JobApplication.Stage.choices
+    }
+
+    if stage_filter in valid_stages:
+        applications = applications.filter(
+            stage=stage_filter,
+        )
+    else:
+        stage_filter = ""
+
+    if requisition_filter:
+        applications = applications.filter(
+            requisition_id=requisition_filter,
+        )
+
+    open_requisitions = requisitions.filter(
+        status=JobRequisition.Status.OPEN,
+    )
+
+    active_applications = applications.filter(
+        status=JobApplication.Status.ACTIVE,
+    )
+
+    pipeline_counts = {
+        "applied": applications.filter(
+            stage=JobApplication.Stage.APPLIED,
+        ).count(),
+        "screening": applications.filter(
+            stage=JobApplication.Stage.SCREENING,
+        ).count(),
+        "phone_screen": applications.filter(
+            stage=JobApplication.Stage.PHONE_SCREEN,
+        ).count(),
+        "interview": applications.filter(
+            stage=JobApplication.Stage.INTERVIEW,
+        ).count(),
+        "assessment": applications.filter(
+            stage=JobApplication.Stage.ASSESSMENT,
+        ).count(),
+        "offer": applications.filter(
+            stage=JobApplication.Stage.OFFER,
+        ).count(),
+        "hired": applications.filter(
+            stage=JobApplication.Stage.HIRED,
+        ).count(),
+        "rejected": applications.filter(
+            stage=JobApplication.Stage.REJECTED,
+        ).count(),
+        "withdrawn": applications.filter(
+            stage=JobApplication.Stage.WITHDRAWN,
+        ).count(),
+    }
+
+    total_headcount = sum(
+        requisition.headcount
+        for requisition in open_requisitions
+    )
+    filled_headcount = sum(
+        requisition.filled_headcount
+        for requisition in open_requisitions
+    )
+
+    fill_rate = 0
+
+    if total_headcount:
+        fill_rate = (
+            filled_headcount
+            / total_headcount
+            * 100
+        )
+
+    return render(
+        request,
+        "hr/recruitment_dashboard.html",
+        {
+            "current_membership": membership,
+            "requisitions": requisitions,
+            "open_requisitions": open_requisitions[:8],
+            "open_requisition_count": (
+                open_requisitions.count()
+            ),
+            "candidate_count": Candidate.objects.filter(
+                company=company,
+            ).count(),
+            "application_count": applications.count(),
+            "active_application_count": (
+                active_applications.count()
+            ),
+            "pipeline_counts": pipeline_counts,
+            "total_headcount": total_headcount,
+            "filled_headcount": filled_headcount,
+            "fill_rate": fill_rate,
+            "recent_applications": applications[:10],
+            "application_stage_choices": (
+                JobApplication.Stage.choices
+            ),
+            "search_query": search_query,
+            "stage_filter": stage_filter,
+            "requisition_filter": requisition_filter,
+            "can_manage_hr": can_manage_hr(membership),
+        },
+    )
+
+
+@login_required
+def job_requisition_list(request):
+    membership = get_active_membership(request.user)
+
+    if not has_hr_access(membership):
+        return redirect("hr:home")
+
+    company = membership.company
+    search_query = request.GET.get("q", "").strip()
+    status_filter = request.GET.get("status", "").strip()
+    department_filter = request.GET.get(
+        "department",
+        "",
+    ).strip()
+
+    requisitions = (
+        JobRequisition.objects.filter(
+            company=company,
+        )
+        .select_related(
+            "department",
+            "department__branch",
+            "position",
+            "hiring_manager",
+            "recruiter",
+        )
+        .annotate(
+            application_count=Count(
+                "applications",
+                distinct=True,
+            )
+        )
+        .order_by(
+            "-created_at",
+            "requisition_number",
+        )
+    )
+
+    if search_query:
+        requisitions = requisitions.filter(
+            Q(requisition_number__icontains=search_query)
+            | Q(title__icontains=search_query)
+            | Q(description__icontains=search_query)
+            | Q(department__name__icontains=search_query)
+            | Q(position__title__icontains=search_query)
+        )
+
+    valid_statuses = {
+        value
+        for value, _label in JobRequisition.Status.choices
+    }
+
+    if status_filter in valid_statuses:
+        requisitions = requisitions.filter(
+            status=status_filter,
+        )
+    else:
+        status_filter = ""
+
+    if department_filter:
+        requisitions = requisitions.filter(
+            department_id=department_filter,
+        )
+
+    departments = (
+        Department.objects.filter(
+            branch__company=company,
+            is_active=True,
+        )
+        .order_by("name")
+    )
+
+    return render(
+        request,
+        "hr/job_requisition_list.html",
+        {
+            "current_membership": membership,
+            "requisitions": requisitions,
+            "departments": departments,
+            "status_choices": JobRequisition.Status.choices,
+            "search_query": search_query,
+            "status_filter": status_filter,
+            "department_filter": department_filter,
+            "can_manage_hr": can_manage_hr(membership),
+        },
+    )
+
+
+@login_required
+def job_requisition_create(request):
+    membership = get_active_membership(request.user)
+
+    if not can_manage_hr(membership):
+        return hr_management_forbidden()
+
+    company = membership.company
+
+    if request.method == "POST":
+        form = JobRequisitionForm(
+            request.POST,
+            company=company,
+        )
+
+        if form.is_valid():
+            requisition = form.save(commit=False)
+            requisition.company = company
+            requisition.created_by = request.user
+            requisition.status = JobRequisition.Status.DRAFT
+            requisition.save()
+
+            messages.success(
+                request,
+                "İşe alım talebi taslak olarak oluşturuldu.",
+            )
+
+            return redirect(
+                "hr:job_requisition_detail",
+                requisition_id=requisition.id,
+            )
+    else:
+        form = JobRequisitionForm(
+            company=company,
+        )
+
+    return render(
+        request,
+        "hr/job_requisition_form.html",
+        {
+            "current_membership": membership,
+            "form": form,
+            "page_title": "Yeni İşe Alım Talebi",
+            "page_description": (
+                "Pozisyon, kontenjan ve işe alım sorumlularını "
+                "tanımlayarak yeni bir talep oluşturun."
+            ),
+            "submit_text": "Talebi Oluştur",
+            "cancel_url": reverse(
+                "hr:job_requisition_list",
+            ),
+        },
+    )
+
+
+@login_required
+def job_requisition_detail(
+    request,
+    requisition_id,
+):
+    membership = get_active_membership(request.user)
+
+    if not has_hr_access(membership):
+        return redirect("hr:home")
+
+    requisition = get_object_or_404(
+        JobRequisition.objects.select_related(
+            "company",
+            "department",
+            "department__branch",
+            "position",
+            "hiring_manager",
+            "recruiter",
+            "created_by",
+        ).prefetch_related(
+            "applications",
+            "applications__candidate",
+        ),
+        id=requisition_id,
+        company=membership.company,
+    )
+
+    applications = (
+        requisition.applications
+        .select_related(
+            "candidate",
+            "assigned_recruiter",
+        )
+        .order_by(
+            "-applied_at",
+        )
+    )
+
+    return render(
+        request,
+        "hr/job_requisition_detail.html",
+        {
+            "current_membership": membership,
+            "requisition": requisition,
+            "applications": applications,
+            "can_manage_hr": can_manage_hr(membership),
+        },
+    )
+
+
+@login_required
+def job_requisition_open(
+    request,
+    requisition_id,
+):
+    membership = get_active_membership(request.user)
+
+    if not can_manage_hr(membership):
+        return hr_management_forbidden()
+
+    requisition = get_object_or_404(
+        JobRequisition,
+        id=requisition_id,
+        company=membership.company,
+    )
+
+    if request.method != "POST":
+        return redirect(
+            "hr:job_requisition_detail",
+            requisition_id=requisition.id,
+        )
+
+    try:
+        open_job_requisition(
+            requisition=requisition,
+            changed_by=request.user,
+        )
+    except ValidationError as error:
+        messages.error(
+            request,
+            " ".join(error.messages),
+        )
+    else:
+        messages.success(
+            request,
+            "İşe alım talebi yayına alındı.",
+        )
+
+    return redirect(
+        "hr:job_requisition_detail",
+        requisition_id=requisition.id,
+    )
+
+
+@login_required
+def candidate_list(request):
+    membership = get_active_membership(request.user)
+
+    if not has_hr_access(membership):
+        return redirect("hr:home")
+
+    company = membership.company
+    search_query = request.GET.get("q", "").strip()
+    source_filter = request.GET.get("source", "").strip()
+
+    candidates = (
+        Candidate.objects.filter(
+            company=company,
+        )
+        .select_related(
+            "created_by",
+        )
+        .annotate(
+            application_count=Count(
+                "applications",
+                distinct=True,
+            )
+        )
+        .order_by(
+            "last_name",
+            "first_name",
+        )
+    )
+
+    if search_query:
+        candidates = candidates.filter(
+            Q(first_name__icontains=search_query)
+            | Q(last_name__icontains=search_query)
+            | Q(email__icontains=search_query)
+            | Q(phone__icontains=search_query)
+            | Q(current_title__icontains=search_query)
+            | Q(current_company__icontains=search_query)
+        )
+
+    valid_sources = {
+        value
+        for value, _label in Candidate.Source.choices
+    }
+
+    if source_filter in valid_sources:
+        candidates = candidates.filter(
+            source=source_filter,
+        )
+    else:
+        source_filter = ""
+
+    return render(
+        request,
+        "hr/candidate_list.html",
+        {
+            "current_membership": membership,
+            "candidates": candidates,
+            "source_choices": Candidate.Source.choices,
+            "search_query": search_query,
+            "source_filter": source_filter,
+            "can_manage_hr": can_manage_hr(membership),
+        },
+    )
+
+
+@login_required
+def candidate_create(request):
+    membership = get_active_membership(request.user)
+
+    if not can_manage_hr(membership):
+        return hr_management_forbidden()
+
+    company = membership.company
+
+    if request.method == "POST":
+        form = CandidateForm(
+            request.POST,
+            request.FILES,
+            company=company,
+        )
+
+        if form.is_valid():
+            candidate = form.save(commit=False)
+            candidate.company = company
+            candidate.created_by = request.user
+            candidate.consent_at = timezone.now()
+            candidate.save()
+
+            messages.success(
+                request,
+                "Aday kartı başarıyla oluşturuldu.",
+            )
+
+            return redirect(
+                "hr:candidate_detail",
+                candidate_id=candidate.id,
+            )
+    else:
+        form = CandidateForm(
+            company=company,
+        )
+
+    return render(
+        request,
+        "hr/candidate_form.html",
+        {
+            "current_membership": membership,
+            "form": form,
+            "page_title": "Yeni Aday",
+            "page_description": (
+                "Adayın iletişim, deneyim ve öz geçmiş "
+                "bilgilerini kaydedin."
+            ),
+            "submit_text": "Adayı Kaydet",
+            "cancel_url": reverse(
+                "hr:candidate_list",
+            ),
+        },
+    )
+
+
+@login_required
+def candidate_detail(
+    request,
+    candidate_id,
+):
+    membership = get_active_membership(request.user)
+
+    if not has_hr_access(membership):
+        return redirect("hr:home")
+
+    candidate = get_object_or_404(
+        Candidate.objects.select_related(
+            "company",
+            "created_by",
+        ),
+        id=candidate_id,
+        company=membership.company,
+    )
+
+    applications = (
+        JobApplication.objects.filter(
+            company=membership.company,
+            candidate=candidate,
+        )
+        .select_related(
+            "requisition",
+            "requisition__department",
+            "requisition__position",
+            "assigned_recruiter",
+        )
+        .prefetch_related(
+            "events",
+        )
+        .order_by(
+            "-applied_at",
+        )
+    )
+
+    return render(
+        request,
+        "hr/candidate_detail.html",
+        {
+            "current_membership": membership,
+            "candidate": candidate,
+            "applications": applications,
+            "can_manage_hr": can_manage_hr(membership),
+        },
+    )
+
