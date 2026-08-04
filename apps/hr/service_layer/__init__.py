@@ -1,3 +1,11 @@
+from .recruitment import (
+    create_job_application,
+    create_recruitment_event,
+    move_application_stage,
+    open_job_requisition,
+    reject_job_application,
+    withdraw_job_application,
+)
 from .performance import (
     cancel_performance_review,
     complete_performance_review,
@@ -29,6 +37,18 @@ from .attendance import (
 from .workforce import change_employee_assignment
 
 __all__ = [
+    "withdraw_job_application",
+
+    "reject_job_application",
+
+    "open_job_requisition",
+
+    "move_application_stage",
+
+    "create_recruitment_event",
+
+    "create_job_application",
+
     "update_employee_goal_progress",
 
     "submit_self_review",

@@ -22,6 +22,9 @@ from .models import (
     EmployeeGoal,
     PerformanceReview,
     PerformanceReviewCycle,
+    Candidate,
+    JobApplication,
+    JobRequisition,
 )
 from .forms import (
     AbsenceCancellationForm,
@@ -1816,6 +1819,173 @@ def performance_dashboard(request):
             ),
             "search_query": search_query,
             "status_filter": status_filter,
+            "can_manage_hr": can_manage_hr(membership),
+        },
+    )
+
+
+@login_required
+def recruitment_dashboard(request):
+    membership = get_active_membership(request.user)
+
+    if not has_hr_access(membership):
+        return redirect("hr:home")
+
+    company = membership.company
+    search_query = request.GET.get("q", "").strip()
+    stage_filter = request.GET.get("stage", "").strip()
+    requisition_filter = request.GET.get(
+        "requisition",
+        "",
+    ).strip()
+
+    requisitions = (
+        JobRequisition.objects.filter(
+            company=company,
+        )
+        .select_related(
+            "department",
+            "position",
+            "hiring_manager",
+            "recruiter",
+        )
+        .order_by(
+            "-created_at",
+            "requisition_number",
+        )
+    )
+
+    applications = (
+        JobApplication.objects.filter(
+            company=company,
+        )
+        .select_related(
+            "candidate",
+            "requisition",
+            "requisition__department",
+            "requisition__position",
+            "assigned_recruiter",
+        )
+        .order_by(
+            "-applied_at",
+            "-created_at",
+        )
+    )
+
+    if search_query:
+        applications = applications.filter(
+            Q(candidate__first_name__icontains=search_query)
+            | Q(candidate__last_name__icontains=search_query)
+            | Q(candidate__email__icontains=search_query)
+            | Q(
+                requisition__requisition_number__icontains=(
+                    search_query
+                )
+            )
+            | Q(requisition__title__icontains=search_query)
+        )
+
+    valid_stages = {
+        value
+        for value, _label in JobApplication.Stage.choices
+    }
+
+    if stage_filter in valid_stages:
+        applications = applications.filter(
+            stage=stage_filter,
+        )
+    else:
+        stage_filter = ""
+
+    if requisition_filter:
+        applications = applications.filter(
+            requisition_id=requisition_filter,
+        )
+
+    open_requisitions = requisitions.filter(
+        status=JobRequisition.Status.OPEN,
+    )
+
+    active_applications = applications.filter(
+        status=JobApplication.Status.ACTIVE,
+    )
+
+    pipeline_counts = {
+        "applied": applications.filter(
+            stage=JobApplication.Stage.APPLIED,
+        ).count(),
+        "screening": applications.filter(
+            stage=JobApplication.Stage.SCREENING,
+        ).count(),
+        "phone_screen": applications.filter(
+            stage=JobApplication.Stage.PHONE_SCREEN,
+        ).count(),
+        "interview": applications.filter(
+            stage=JobApplication.Stage.INTERVIEW,
+        ).count(),
+        "assessment": applications.filter(
+            stage=JobApplication.Stage.ASSESSMENT,
+        ).count(),
+        "offer": applications.filter(
+            stage=JobApplication.Stage.OFFER,
+        ).count(),
+        "hired": applications.filter(
+            stage=JobApplication.Stage.HIRED,
+        ).count(),
+        "rejected": applications.filter(
+            stage=JobApplication.Stage.REJECTED,
+        ).count(),
+        "withdrawn": applications.filter(
+            stage=JobApplication.Stage.WITHDRAWN,
+        ).count(),
+    }
+
+    total_headcount = sum(
+        requisition.headcount
+        for requisition in open_requisitions
+    )
+    filled_headcount = sum(
+        requisition.filled_headcount
+        for requisition in open_requisitions
+    )
+
+    fill_rate = 0
+
+    if total_headcount:
+        fill_rate = (
+            filled_headcount
+            / total_headcount
+            * 100
+        )
+
+    return render(
+        request,
+        "hr/recruitment_dashboard.html",
+        {
+            "current_membership": membership,
+            "requisitions": requisitions,
+            "open_requisitions": open_requisitions[:8],
+            "open_requisition_count": (
+                open_requisitions.count()
+            ),
+            "candidate_count": Candidate.objects.filter(
+                company=company,
+            ).count(),
+            "application_count": applications.count(),
+            "active_application_count": (
+                active_applications.count()
+            ),
+            "pipeline_counts": pipeline_counts,
+            "total_headcount": total_headcount,
+            "filled_headcount": filled_headcount,
+            "fill_rate": fill_rate,
+            "recent_applications": applications[:10],
+            "application_stage_choices": (
+                JobApplication.Stage.choices
+            ),
+            "search_query": search_query,
+            "stage_filter": stage_filter,
+            "requisition_filter": requisition_filter,
             "can_manage_hr": can_manage_hr(membership),
         },
     )

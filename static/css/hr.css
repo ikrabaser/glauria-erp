@@ -2434,3 +2434,167 @@ html[data-theme="light"] .performance-summary-list div {
         flex-direction: column;
     }
 }
+
+
+/* =========================================================
+   Recruitment Management
+   ========================================================= */
+
+.recruitment-pipeline {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 0.75rem;
+    margin-bottom: 1.25rem;
+}
+
+.recruitment-pipeline article {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    min-height: 72px;
+    padding: 0.9rem;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.035);
+}
+
+.recruitment-pipeline span {
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 0.72rem;
+    font-weight: 700;
+}
+
+.recruitment-pipeline strong {
+    color: #fff;
+    font-size: 1.15rem;
+}
+
+.recruitment-dashboard__grid {
+    grid-template-columns: minmax(0, 1.5fr) minmax(280px, 0.75fr);
+    margin-bottom: 1.25rem;
+}
+
+.recruitment-requisition-list {
+    display: grid;
+    gap: 0.8rem;
+}
+
+.recruitment-requisition {
+    padding: 1rem;
+    border: 1px solid rgba(255, 255, 255, 0.075);
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.025);
+}
+
+.recruitment-requisition__heading,
+.recruitment-requisition__meta {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.recruitment-requisition__heading strong,
+.recruitment-requisition__heading span {
+    display: block;
+}
+
+.recruitment-requisition__heading strong {
+    color: #fff;
+    font-size: 0.9rem;
+}
+
+.recruitment-requisition__heading span,
+.recruitment-requisition__meta {
+    margin-top: 0.25rem;
+    color: rgba(255, 255, 255, 0.54);
+    font-size: 0.75rem;
+}
+
+.recruitment-requisition__heading b {
+    color: #e4a8a1;
+    font-size: 0.95rem;
+}
+
+.recruitment-toolbar {
+    margin-bottom: 1.25rem;
+}
+
+.recruitment-stage {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.38rem 0.65rem;
+    border-radius: 999px;
+    font-size: 0.7rem;
+    font-weight: 800;
+    white-space: nowrap;
+    color: #d1d5db;
+    background: rgba(148, 163, 184, 0.14);
+}
+
+.recruitment-stage--screening,
+.recruitment-stage--phone_screen {
+    color: #f7c76c;
+    background: rgba(245, 184, 70, 0.13);
+}
+
+.recruitment-stage--interview,
+.recruitment-stage--assessment {
+    color: #93c5fd;
+    background: rgba(96, 165, 250, 0.13);
+}
+
+.recruitment-stage--offer {
+    color: #d8b4fe;
+    background: rgba(192, 132, 252, 0.13);
+}
+
+.recruitment-stage--hired {
+    color: #86efac;
+    background: rgba(74, 222, 128, 0.13);
+}
+
+.recruitment-stage--rejected,
+.recruitment-stage--withdrawn {
+    color: #fca5a5;
+    background: rgba(248, 113, 113, 0.13);
+}
+
+html[data-theme="light"] .recruitment-pipeline strong,
+html[data-theme="light"] .recruitment-requisition__heading strong {
+    color: #231f2c;
+}
+
+html[data-theme="light"] .recruitment-pipeline article,
+html[data-theme="light"] .recruitment-requisition {
+    border-color: rgba(42, 34, 49, 0.08);
+    background: rgba(255, 255, 255, 0.72);
+}
+
+html[data-theme="light"] .recruitment-pipeline span,
+html[data-theme="light"] .recruitment-requisition__heading span,
+html[data-theme="light"] .recruitment-requisition__meta {
+    color: rgba(43, 36, 50, 0.62);
+}
+
+@media (max-width: 1200px) {
+    .recruitment-pipeline {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+
+    .recruitment-dashboard__grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 720px) {
+    .recruitment-pipeline {
+        grid-template-columns: 1fr;
+    }
+
+    .recruitment-requisition__heading,
+    .recruitment-requisition__meta {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+}

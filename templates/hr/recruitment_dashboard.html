@@ -1,0 +1,437 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}
+İşe Alım Yönetimi | Glauria ERP
+{% endblock %}
+
+{% block extra_css %}
+<link
+    rel="stylesheet"
+    href="{% static 'css/hr.css' %}?v=hr-recruitment-v1"
+>
+{% endblock %}
+
+{% block content %}
+<section class="module-page hr-dashboard recruitment-dashboard">
+    {% url "hr:recruitment_dashboard" as recruitment_url %}
+
+    {% include "components/page_header.html" with eyebrow="İNSAN KAYNAKLARI" title="İşe Alım Yönetimi" description="İlanları, aday havuzunu ve başvuru pipeline süreçlerini tek merkezden izleyin." %}
+
+    <nav class="hr-subnav">
+        <a href="{% url 'hr:home' %}">
+            İK Ana Paneli
+        </a>
+
+        <a href="{% url 'hr:employee_list' %}">
+            Personel Dizini
+        </a>
+
+        <a href="{% url 'hr:department_list' %}">
+            Departmanlar
+        </a>
+
+        <a href="{% url 'hr:position_list' %}">
+            Pozisyonlar
+        </a>
+
+        <a href="{% url 'hr:absence_request_list' %}">
+            İzinler
+        </a>
+
+        <a href="{% url 'hr:performance_dashboard' %}">
+            Performans
+        </a>
+
+        <a
+            href="{{ recruitment_url }}"
+            class="is-active"
+        >
+            İşe Alım
+        </a>
+    </nav>
+
+    <div class="hr-metrics">
+        <article class="hr-metric-card hr-metric-card--primary">
+            <span class="hr-metric-card__label">
+                Açık İlan
+            </span>
+
+            <strong class="hr-metric-card__value">
+                {{ open_requisition_count }}
+            </strong>
+
+            <span class="hr-metric-card__meta">
+                Aktif işe alım talepleri
+            </span>
+        </article>
+
+        <article class="hr-metric-card">
+            <span class="hr-metric-card__label">
+                Aday Havuzu
+            </span>
+
+            <strong class="hr-metric-card__value">
+                {{ candidate_count }}
+            </strong>
+
+            <span class="hr-metric-card__meta">
+                Şirket aday kartları
+            </span>
+        </article>
+
+        <article class="hr-metric-card">
+            <span class="hr-metric-card__label">
+                Aktif Başvuru
+            </span>
+
+            <strong class="hr-metric-card__value">
+                {{ active_application_count }}
+            </strong>
+
+            <span class="hr-metric-card__meta">
+                Toplam {{ application_count }} başvuru
+            </span>
+        </article>
+
+        <article class="hr-metric-card">
+            <span class="hr-metric-card__label">
+                Kontenjan Doluluk
+            </span>
+
+            <strong class="hr-metric-card__value hr-metric-card__value--positive">
+                %{{ fill_rate|floatformat:0 }}
+            </strong>
+
+            <span class="hr-metric-card__meta">
+                {{ filled_headcount }}/{{ total_headcount }} kontenjan
+            </span>
+        </article>
+    </div>
+
+    <section class="recruitment-pipeline">
+        <article>
+            <span>Başvurdu</span>
+            <strong>{{ pipeline_counts.applied }}</strong>
+        </article>
+
+        <article>
+            <span>Ön Eleme</span>
+            <strong>{{ pipeline_counts.screening }}</strong>
+        </article>
+
+        <article>
+            <span>Telefon</span>
+            <strong>{{ pipeline_counts.phone_screen }}</strong>
+        </article>
+
+        <article>
+            <span>Mülakat</span>
+            <strong>{{ pipeline_counts.interview }}</strong>
+        </article>
+
+        <article>
+            <span>Değerlendirme</span>
+            <strong>{{ pipeline_counts.assessment }}</strong>
+        </article>
+
+        <article>
+            <span>Teklif</span>
+            <strong>{{ pipeline_counts.offer }}</strong>
+        </article>
+
+        <article>
+            <span>İşe Alındı</span>
+            <strong>{{ pipeline_counts.hired }}</strong>
+        </article>
+    </section>
+
+    <div class="hr-dashboard__grid recruitment-dashboard__grid">
+        <section class="hr-panel">
+            <div class="hr-panel__heading">
+                <div>
+                    <span class="hr-panel__eyebrow">
+                        AÇIK İLANLAR
+                    </span>
+
+                    <h3 class="hr-panel__title">
+                        Kontenjan Durumu
+                    </h3>
+                </div>
+
+                <span class="hr-panel__count">
+                    {{ open_requisition_count }} ilan
+                </span>
+            </div>
+
+            {% if open_requisitions %}
+                <div class="recruitment-requisition-list">
+                    {% for requisition in open_requisitions %}
+                        <article class="recruitment-requisition">
+                            <div class="recruitment-requisition__heading">
+                                <div>
+                                    <strong>
+                                        {{ requisition.title }}
+                                    </strong>
+
+                                    <span>
+                                        {{ requisition.requisition_number }}
+                                        ·
+                                        {{ requisition.department.name }}
+                                    </span>
+                                </div>
+
+                                <b>
+                                    {{ requisition.filled_headcount }}/{{ requisition.headcount }}
+                                </b>
+                            </div>
+
+                            <div class="performance-progress">
+                                {% widthratio requisition.filled_headcount requisition.headcount 100 as requisition_fill %}
+                                <span
+                                    style="width: {{ requisition_fill }}%;"
+                                ></span>
+                            </div>
+
+                            <div class="recruitment-requisition__meta">
+                                <span>
+                                    {{ requisition.get_employment_type_display }}
+                                </span>
+
+                                <span>
+                                    {% if requisition.application_deadline %}
+                                        Son başvuru:
+                                        {{ requisition.application_deadline|date:"d.m.Y" }}
+                                    {% else %}
+                                        Son başvuru tarihi yok
+                                    {% endif %}
+                                </span>
+                            </div>
+                        </article>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="hr-panel__empty">
+                    Yayında işe alım talebi bulunmuyor.
+                </div>
+            {% endif %}
+        </section>
+
+        <section class="hr-panel">
+            <div class="hr-panel__heading">
+                <div>
+                    <span class="hr-panel__eyebrow">
+                        PIPELINE ÖZETİ
+                    </span>
+
+                    <h3 class="hr-panel__title">
+                        Başvuru Dağılımı
+                    </h3>
+                </div>
+            </div>
+
+            <div class="performance-summary-list">
+                <div>
+                    <span>Aktif başvurular</span>
+                    <strong>{{ active_application_count }}</strong>
+                </div>
+
+                <div>
+                    <span>Mülakat aşamasında</span>
+                    <strong>{{ pipeline_counts.interview }}</strong>
+                </div>
+
+                <div>
+                    <span>Teklif aşamasında</span>
+                    <strong>{{ pipeline_counts.offer }}</strong>
+                </div>
+
+                <div>
+                    <span>İşe alınan adaylar</span>
+                    <strong>{{ pipeline_counts.hired }}</strong>
+                </div>
+
+                <div>
+                    <span>Reddedilen başvurular</span>
+                    <strong>{{ pipeline_counts.rejected }}</strong>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <form
+        method="get"
+        class="hr-toolbar recruitment-toolbar"
+    >
+        <div class="hr-toolbar__search">
+            <label for="recruitment-search">
+                Aday veya ilan ara
+            </label>
+
+            <input
+                id="recruitment-search"
+                type="search"
+                name="q"
+                value="{{ search_query }}"
+                placeholder="Aday adı, e-posta veya ilan..."
+            >
+        </div>
+
+        <div class="hr-toolbar__field">
+            <label for="recruitment-stage">
+                Aşama
+            </label>
+
+            <select
+                id="recruitment-stage"
+                name="stage"
+            >
+                <option value="">Tüm aşamalar</option>
+
+                {% for value, label in application_stage_choices %}
+                    <option
+                        value="{{ value }}"
+                        {% if stage_filter == value %}selected{% endif %}
+                    >
+                        {{ label }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="hr-toolbar__field">
+            <label for="recruitment-requisition">
+                İlan
+            </label>
+
+            <select
+                id="recruitment-requisition"
+                name="requisition"
+            >
+                <option value="">Tüm ilanlar</option>
+
+                {% for requisition in requisitions %}
+                    <option
+                        value="{{ requisition.id }}"
+                        {% if requisition_filter == requisition.id|stringformat:"s" %}selected{% endif %}
+                    >
+                        {{ requisition.requisition_number }}
+                        ·
+                        {{ requisition.title }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <button
+            type="submit"
+            class="hr-toolbar__submit"
+        >
+            Filtrele
+        </button>
+
+        <a
+            href="{{ recruitment_url }}"
+            class="hr-toolbar__clear"
+        >
+            Temizle
+        </a>
+    </form>
+
+    <section class="hr-panel hr-directory__panel">
+        <div class="hr-panel__heading">
+            <div>
+                <span class="hr-panel__eyebrow">
+                    SON BAŞVURULAR
+                </span>
+
+                <h3 class="hr-panel__title">
+                    Aday Pipeline
+                </h3>
+            </div>
+
+            <span class="hr-panel__count">
+                {{ application_count }} başvuru
+            </span>
+        </div>
+
+        {% if recent_applications %}
+            <div class="table-responsive">
+                <table class="data-table hr-directory-table recruitment-table">
+                    <thead>
+                        <tr>
+                            <th>Aday</th>
+                            <th>İlan</th>
+                            <th>Departman</th>
+                            <th>Aşama</th>
+                            <th>Durum</th>
+                            <th>Ön Eleme Puanı</th>
+                            <th>Başvuru Tarihi</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        {% for application in recent_applications %}
+                            <tr>
+                                <td>
+                                    <div class="hr-employee-cell">
+                                        <span class="hr-employee-cell__avatar">
+                                            {{ application.candidate.first_name|first }}{{ application.candidate.last_name|first }}
+                                        </span>
+
+                                        <span>
+                                            <strong>
+                                                {{ application.candidate.full_name }}
+                                            </strong>
+
+                                            <small>
+                                                {{ application.candidate.email }}
+                                            </small>
+                                        </span>
+                                    </div>
+                                </td>
+
+                                <td>
+                                    <strong>
+                                        {{ application.requisition.title }}
+                                    </strong>
+
+                                    <div class="hr-muted">
+                                        {{ application.requisition.requisition_number }}
+                                    </div>
+                                </td>
+
+                                <td>
+                                    {{ application.requisition.department.name }}
+                                </td>
+
+                                <td>
+                                    <span class="recruitment-stage recruitment-stage--{{ application.stage }}">
+                                        {{ application.get_stage_display }}
+                                    </span>
+                                </td>
+
+                                <td>
+                                    {{ application.get_status_display }}
+                                </td>
+
+                                <td>
+                                    {{ application.screening_score|default:"—" }}
+                                </td>
+
+                                <td>
+                                    {{ application.applied_at|date:"d.m.Y H:i" }}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="hr-panel__empty">
+                Filtreye uygun iş başvurusu bulunamadı.
+            </div>
+        {% endif %}
+    </section>
+</section>
+{% endblock %}

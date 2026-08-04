@@ -18,6 +18,10 @@ from .models import (
     PerformanceReview,
     PerformanceReviewCycle,
     PerformanceReviewEvent,
+    Candidate,
+    JobApplication,
+    JobRequisition,
+    RecruitmentEvent,
 )
 
 
@@ -800,6 +804,223 @@ class PerformanceReviewEventAdmin(admin.ModelAdmin):
         "review",
         "company",
         "event_type",
+        "previous_status",
+        "new_status",
+        "changed_by",
+        "note",
+        "occurred_at",
+        "created_at",
+        "updated_at",
+    )
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(
+        self,
+        request,
+        obj=None,
+    ):
+        return False
+
+    def has_delete_permission(
+        self,
+        request,
+        obj=None,
+    ):
+        return False
+
+
+@admin.register(JobRequisition)
+class JobRequisitionAdmin(admin.ModelAdmin):
+    list_display = (
+        "requisition_number",
+        "title",
+        "company",
+        "department",
+        "position",
+        "status",
+        "headcount",
+        "filled_headcount",
+        "application_deadline",
+    )
+    list_filter = (
+        "company",
+        "department",
+        "status",
+        "employment_type",
+        "opening_reason",
+        "application_deadline",
+    )
+    search_fields = (
+        "requisition_number",
+        "title",
+        "description",
+        "requirements",
+        "department__name",
+        "position__title",
+        "hiring_manager__first_name",
+        "hiring_manager__last_name",
+        "recruiter__first_name",
+        "recruiter__last_name",
+    )
+    ordering = (
+        "-created_at",
+        "requisition_number",
+    )
+    list_select_related = (
+        "company",
+        "department",
+        "position",
+        "hiring_manager",
+        "recruiter",
+        "created_by",
+    )
+    readonly_fields = (
+        "opened_at",
+        "closed_at",
+        "created_at",
+        "updated_at",
+    )
+
+
+@admin.register(Candidate)
+class CandidateAdmin(admin.ModelAdmin):
+    list_display = (
+        "full_name_display",
+        "email",
+        "company",
+        "current_title",
+        "source",
+        "years_of_experience",
+        "consent_given",
+    )
+    list_filter = (
+        "company",
+        "source",
+        "consent_given",
+        "created_at",
+    )
+    search_fields = (
+        "first_name",
+        "last_name",
+        "email",
+        "phone",
+        "current_title",
+        "current_company",
+        "linkedin_url",
+        "portfolio_url",
+    )
+    ordering = (
+        "last_name",
+        "first_name",
+    )
+    list_select_related = (
+        "company",
+        "created_by",
+    )
+    readonly_fields = (
+        "created_at",
+        "updated_at",
+    )
+
+    @admin.display(description="Aday")
+    def full_name_display(self, obj):
+        return obj.full_name
+
+
+@admin.register(JobApplication)
+class JobApplicationAdmin(admin.ModelAdmin):
+    list_display = (
+        "candidate",
+        "requisition",
+        "company",
+        "stage",
+        "status",
+        "screening_score",
+        "assigned_recruiter",
+        "applied_at",
+    )
+    list_filter = (
+        "company",
+        "requisition",
+        "stage",
+        "status",
+        "assigned_recruiter",
+        "applied_at",
+    )
+    search_fields = (
+        "candidate__first_name",
+        "candidate__last_name",
+        "candidate__email",
+        "requisition__requisition_number",
+        "requisition__title",
+        "source_note",
+        "rejection_reason",
+        "withdrawn_reason",
+    )
+    ordering = (
+        "-applied_at",
+        "-created_at",
+    )
+    list_select_related = (
+        "company",
+        "candidate",
+        "requisition",
+        "assigned_recruiter",
+    )
+    readonly_fields = (
+        "applied_at",
+        "created_at",
+        "updated_at",
+    )
+
+
+@admin.register(RecruitmentEvent)
+class RecruitmentEventAdmin(admin.ModelAdmin):
+    list_display = (
+        "application",
+        "event_type",
+        "previous_stage",
+        "new_stage",
+        "previous_status",
+        "new_status",
+        "changed_by",
+        "occurred_at",
+    )
+    list_filter = (
+        "company",
+        "event_type",
+        "new_stage",
+        "new_status",
+        "occurred_at",
+    )
+    search_fields = (
+        "application__candidate__first_name",
+        "application__candidate__last_name",
+        "application__candidate__email",
+        "application__requisition__requisition_number",
+        "application__requisition__title",
+        "changed_by__username",
+        "note",
+    )
+    ordering = (
+        "-occurred_at",
+        "-created_at",
+    )
+    list_select_related = (
+        "application",
+        "application__candidate",
+        "application__requisition",
+        "company",
+        "changed_by",
+    )
+    readonly_fields = (
+        "application",
+        "company",
+        "event_type",
+        "previous_stage",
+        "new_stage",
         "previous_status",
         "new_status",
         "changed_by",

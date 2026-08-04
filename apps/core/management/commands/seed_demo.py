@@ -23,6 +23,10 @@ from apps.hr.models import (
     PerformanceReview,
     PerformanceReviewCycle,
     PerformanceReviewEvent,
+    Candidate,
+    JobApplication,
+    JobRequisition,
+    RecruitmentEvent,
 )
 from apps.hr.services import (
     approve_attendance_record,
@@ -793,6 +797,280 @@ DEMO_PERFORMANCE_REVIEWS = [
         "employee_comment": "",
         "manager_comment": "",
         "development_plan": "",
+    },
+]
+
+
+DEMO_JOB_REQUISITIONS = [
+    {
+        "requisition_number": "REQ-2026-001",
+        "title": "Backend Developer",
+        "department_code": "OPS",
+        "position_code": "OPS-MGR",
+        "hiring_manager_username": "demo.operations.manager",
+        "recruiter_username": "demo.hr.specialist",
+        "description": (
+            "Django, PostgreSQL ve kurumsal ERP geliştirme "
+            "süreçlerinde görev alacak backend geliştirici."
+        ),
+        "requirements": (
+            "Python, Django, REST servisleri, PostgreSQL ve "
+            "Git bilgisi."
+        ),
+        "employment_type": (
+            JobRequisition.EmploymentType.FULL_TIME
+        ),
+        "opening_reason": JobRequisition.OpeningReason.GROWTH,
+        "headcount": 2,
+        "status": JobRequisition.Status.OPEN,
+        "target_start_date": date(2026, 10, 1),
+        "application_deadline": date(2026, 9, 15),
+    },
+    {
+        "requisition_number": "REQ-2026-002",
+        "title": "Finans Uzmanı",
+        "department_code": "FIN",
+        "position_code": "FIN-MGR",
+        "hiring_manager_username": "demo.finance.manager",
+        "recruiter_username": "demo.hr.specialist",
+        "description": (
+            "Finansal raporlama, bütçe kontrolü ve cari hesap "
+            "süreçlerinde görev alacak finans uzmanı."
+        ),
+        "requirements": (
+            "Finans, muhasebe, bütçeleme ve raporlama bilgisi."
+        ),
+        "employment_type": (
+            JobRequisition.EmploymentType.FULL_TIME
+        ),
+        "opening_reason": (
+            JobRequisition.OpeningReason.NEW_POSITION
+        ),
+        "headcount": 1,
+        "status": JobRequisition.Status.OPEN,
+        "target_start_date": date(2026, 10, 15),
+        "application_deadline": date(2026, 9, 25),
+    },
+    {
+        "requisition_number": "REQ-2026-003",
+        "title": "Satış Operasyon Uzmanı",
+        "department_code": "SAL",
+        "position_code": "SAL-MGR",
+        "hiring_manager_username": "demo.sales.manager",
+        "recruiter_username": "demo.hr.specialist",
+        "description": (
+            "Satış pipeline, teklif ve müşteri operasyonlarını "
+            "destekleyecek satış operasyon uzmanı."
+        ),
+        "requirements": (
+            "CRM, satış operasyonları ve müşteri iletişimi deneyimi."
+        ),
+        "employment_type": (
+            JobRequisition.EmploymentType.FULL_TIME
+        ),
+        "opening_reason": JobRequisition.OpeningReason.GROWTH,
+        "headcount": 2,
+        "status": JobRequisition.Status.OPEN,
+        "target_start_date": date(2026, 11, 1),
+        "application_deadline": date(2026, 10, 10),
+    },
+    {
+        "requisition_number": "REQ-2026-004",
+        "title": "İnsan Kaynakları Stajyeri",
+        "department_code": "HR",
+        "position_code": "HR-SPC",
+        "hiring_manager_username": "demo.hr.manager",
+        "recruiter_username": "demo.hr.specialist",
+        "description": (
+            "İK operasyonları, aday yönetimi ve personel süreçlerine "
+            "destek olacak uzun dönem stajyer."
+        ),
+        "requirements": (
+            "İnsan kaynakları veya ilgili bölümlerde öğrenci olmak."
+        ),
+        "employment_type": (
+            JobRequisition.EmploymentType.INTERN
+        ),
+        "opening_reason": (
+            JobRequisition.OpeningReason.TEMPORARY_NEED
+        ),
+        "headcount": 1,
+        "status": JobRequisition.Status.DRAFT,
+        "target_start_date": date(2026, 10, 1),
+        "application_deadline": date(2026, 9, 20),
+    },
+]
+
+
+DEMO_CANDIDATES = [
+    {
+        "key": "ahmet-demir",
+        "first_name": "Ahmet",
+        "last_name": "Demir",
+        "email": "ahmet.demir@candidate.glauria.local",
+        "phone": "+90 555 100 00 01",
+        "source": Candidate.Source.LINKEDIN,
+        "current_title": "Backend Developer",
+        "current_company": "Nova Teknoloji",
+        "years_of_experience": Decimal("3.5"),
+    },
+    {
+        "key": "ayse-kaya",
+        "first_name": "Ayşe",
+        "last_name": "Kaya",
+        "email": "ayse.kaya@candidate.glauria.local",
+        "phone": "+90 555 100 00 02",
+        "source": Candidate.Source.CAREER_SITE,
+        "current_title": "Python Developer",
+        "current_company": "Atlas Yazılım",
+        "years_of_experience": Decimal("2.0"),
+    },
+    {
+        "key": "burak-arslan",
+        "first_name": "Burak",
+        "last_name": "Arslan",
+        "email": "burak.arslan@candidate.glauria.local",
+        "phone": "+90 555 100 00 03",
+        "source": Candidate.Source.REFERRAL,
+        "current_title": "Software Engineer",
+        "current_company": "Pera Digital",
+        "years_of_experience": Decimal("4.0"),
+    },
+    {
+        "key": "deniz-ozkan",
+        "first_name": "Deniz",
+        "last_name": "Özkan",
+        "email": "deniz.ozkan@candidate.glauria.local",
+        "phone": "+90 555 100 00 04",
+        "source": Candidate.Source.LINKEDIN,
+        "current_title": "Finans Uzmanı",
+        "current_company": "Vega Finans",
+        "years_of_experience": Decimal("3.0"),
+    },
+    {
+        "key": "elif-akin",
+        "first_name": "Elif",
+        "last_name": "Akın",
+        "email": "elif.akin@candidate.glauria.local",
+        "phone": "+90 555 100 00 05",
+        "source": Candidate.Source.CAREER_SITE,
+        "current_title": "Muhasebe Uzmanı",
+        "current_company": "Mira Holding",
+        "years_of_experience": Decimal("2.5"),
+    },
+    {
+        "key": "can-yildiz",
+        "first_name": "Can",
+        "last_name": "Yıldız",
+        "email": "can.yildiz@candidate.glauria.local",
+        "phone": "+90 555 100 00 06",
+        "source": Candidate.Source.AGENCY,
+        "current_title": "Satış Operasyon Uzmanı",
+        "current_company": "Delta Ticaret",
+        "years_of_experience": Decimal("4.5"),
+    },
+    {
+        "key": "selin-gunes",
+        "first_name": "Selin",
+        "last_name": "Güneş",
+        "email": "selin.gunes@candidate.glauria.local",
+        "phone": "+90 555 100 00 07",
+        "source": Candidate.Source.UNIVERSITY,
+        "current_title": "Yeni Mezun",
+        "current_company": "",
+        "years_of_experience": Decimal("0.5"),
+    },
+    {
+        "key": "mert-celik",
+        "first_name": "Mert",
+        "last_name": "Çelik",
+        "email": "mert.celik@candidate.glauria.local",
+        "phone": "+90 555 100 00 08",
+        "source": Candidate.Source.REFERRAL,
+        "current_title": "Müşteri Temsilcisi",
+        "current_company": "Orion Hizmet",
+        "years_of_experience": Decimal("2.0"),
+    },
+]
+
+
+DEMO_JOB_APPLICATIONS = [
+    {
+        "candidate_key": "ahmet-demir",
+        "requisition_number": "REQ-2026-001",
+        "stage": JobApplication.Stage.OFFER,
+        "status": JobApplication.Status.ACTIVE,
+        "screening_score": Decimal("91.00"),
+    },
+    {
+        "candidate_key": "ayse-kaya",
+        "requisition_number": "REQ-2026-001",
+        "stage": JobApplication.Stage.INTERVIEW,
+        "status": JobApplication.Status.ACTIVE,
+        "screening_score": Decimal("86.00"),
+    },
+    {
+        "candidate_key": "burak-arslan",
+        "requisition_number": "REQ-2026-001",
+        "stage": JobApplication.Stage.ASSESSMENT,
+        "status": JobApplication.Status.ACTIVE,
+        "screening_score": Decimal("88.00"),
+    },
+    {
+        "candidate_key": "deniz-ozkan",
+        "requisition_number": "REQ-2026-002",
+        "stage": JobApplication.Stage.PHONE_SCREEN,
+        "status": JobApplication.Status.ACTIVE,
+        "screening_score": Decimal("79.00"),
+    },
+    {
+        "candidate_key": "elif-akin",
+        "requisition_number": "REQ-2026-002",
+        "stage": JobApplication.Stage.SCREENING,
+        "status": JobApplication.Status.ACTIVE,
+        "screening_score": Decimal("74.00"),
+    },
+    {
+        "candidate_key": "can-yildiz",
+        "requisition_number": "REQ-2026-003",
+        "stage": JobApplication.Stage.INTERVIEW,
+        "status": JobApplication.Status.ACTIVE,
+        "screening_score": Decimal("84.00"),
+    },
+    {
+        "candidate_key": "selin-gunes",
+        "requisition_number": "REQ-2026-003",
+        "stage": JobApplication.Stage.APPLIED,
+        "status": JobApplication.Status.ACTIVE,
+        "screening_score": None,
+    },
+    {
+        "candidate_key": "mert-celik",
+        "requisition_number": "REQ-2026-003",
+        "stage": JobApplication.Stage.APPLIED,
+        "status": JobApplication.Status.ACTIVE,
+        "screening_score": None,
+    },
+    {
+        "candidate_key": "ayse-kaya",
+        "requisition_number": "REQ-2026-003",
+        "stage": JobApplication.Stage.REJECTED,
+        "status": JobApplication.Status.REJECTED,
+        "screening_score": Decimal("52.00"),
+        "rejection_reason": (
+            "Satış operasyonu deneyimi ilan gereksinimlerini "
+            "karşılamadı."
+        ),
+    },
+    {
+        "candidate_key": "deniz-ozkan",
+        "requisition_number": "REQ-2026-003",
+        "stage": JobApplication.Stage.WITHDRAWN,
+        "status": JobApplication.Status.WITHDRAWN,
+        "screening_score": None,
+        "withdrawn_reason": (
+            "Aday mevcut şirketinde kalmaya karar verdi."
+        ),
     },
 ]
 
@@ -1715,6 +1993,411 @@ class Command(BaseCommand):
                 if event_created:
                     created_performance_event_count += 1
 
+        recruitment_requisitions = {}
+        recruitment_candidates = {}
+
+        created_requisition_count = 0
+        created_candidate_count = 0
+        created_application_count = 0
+        created_recruitment_event_count = 0
+
+        for requisition_data in DEMO_JOB_REQUISITIONS:
+            department = departments[
+                requisition_data["department_code"]
+            ]
+            position = hr_positions[
+                requisition_data["position_code"]
+            ]
+            hiring_manager = hr_employees[
+                requisition_data["hiring_manager_username"]
+            ]
+            recruiter = hr_employees[
+                requisition_data["recruiter_username"]
+            ]
+
+            target_status = requisition_data["status"]
+            opened_at = None
+
+            if target_status == JobRequisition.Status.OPEN:
+                opened_at = timezone.make_aware(
+                    datetime(2026, 8, 1, 9, 0)
+                )
+
+            requisition, requisition_created = (
+                JobRequisition.objects.update_or_create(
+                    company=company,
+                    requisition_number=(
+                        requisition_data["requisition_number"]
+                    ),
+                    defaults={
+                        "department": department,
+                        "position": position,
+                        "title": requisition_data["title"],
+                        "description": (
+                            requisition_data["description"]
+                        ),
+                        "requirements": (
+                            requisition_data["requirements"]
+                        ),
+                        "employment_type": (
+                            requisition_data["employment_type"]
+                        ),
+                        "opening_reason": (
+                            requisition_data["opening_reason"]
+                        ),
+                        "headcount": requisition_data["headcount"],
+                        "filled_headcount": 0,
+                        "hiring_manager": hiring_manager,
+                        "recruiter": recruiter,
+                        "status": target_status,
+                        "target_start_date": (
+                            requisition_data["target_start_date"]
+                        ),
+                        "application_deadline": (
+                            requisition_data[
+                                "application_deadline"
+                            ]
+                        ),
+                        "opened_at": opened_at,
+                        "closed_at": None,
+                        "created_by": hr_users[
+                            requisition_data[
+                                "recruiter_username"
+                            ]
+                        ],
+                    },
+                )
+            )
+
+            recruitment_requisitions[
+                requisition_data["requisition_number"]
+            ] = requisition
+
+            if requisition_created:
+                created_requisition_count += 1
+
+        consent_time = timezone.make_aware(
+            datetime(2026, 8, 1, 10, 0)
+        )
+
+        for candidate_data in DEMO_CANDIDATES:
+            candidate, candidate_created = (
+                Candidate.objects.update_or_create(
+                    company=company,
+                    email=candidate_data["email"],
+                    defaults={
+                        "first_name": candidate_data["first_name"],
+                        "last_name": candidate_data["last_name"],
+                        "phone": candidate_data["phone"],
+                        "source": candidate_data["source"],
+                        "current_title": (
+                            candidate_data["current_title"]
+                        ),
+                        "current_company": (
+                            candidate_data["current_company"]
+                        ),
+                        "years_of_experience": (
+                            candidate_data[
+                                "years_of_experience"
+                            ]
+                        ),
+                        "consent_given": True,
+                        "consent_at": consent_time,
+                        "created_by": hr_users[
+                            "demo.hr.specialist"
+                        ],
+                    },
+                )
+            )
+
+            recruitment_candidates[
+                candidate_data["key"]
+            ] = candidate
+
+            if candidate_created:
+                created_candidate_count += 1
+
+        for index, application_data in enumerate(
+            DEMO_JOB_APPLICATIONS,
+            start=1,
+        ):
+            candidate = recruitment_candidates[
+                application_data["candidate_key"]
+            ]
+            requisition = recruitment_requisitions[
+                application_data["requisition_number"]
+            ]
+            recruiter = hr_employees["demo.hr.specialist"]
+            recruiter_user = hr_users["demo.hr.specialist"]
+
+            applied_at = timezone.make_aware(
+                datetime(2026, 8, 2 + index, 10, 0)
+            )
+
+            application, application_created = (
+                JobApplication.objects.update_or_create(
+                    requisition=requisition,
+                    candidate=candidate,
+                    defaults={
+                        "company": company,
+                        "stage": application_data["stage"],
+                        "status": application_data["status"],
+                        "applied_at": applied_at,
+                        "screening_score": (
+                            application_data["screening_score"]
+                        ),
+                        "source_note": (
+                            "Glauria Demo ATS başvurusu."
+                        ),
+                        "rejection_reason": (
+                            application_data.get(
+                                "rejection_reason",
+                                "",
+                            )
+                        ),
+                        "withdrawn_reason": (
+                            application_data.get(
+                                "withdrawn_reason",
+                                "",
+                            )
+                        ),
+                        "assigned_recruiter": recruiter,
+                    },
+                )
+            )
+
+            if application_created:
+                created_application_count += 1
+
+            target_stage = application_data["stage"]
+
+            event_definitions = [
+                {
+                    "event_type": (
+                        RecruitmentEvent
+                        .EventType
+                        .APPLICATION_CREATED
+                    ),
+                    "previous_stage": "",
+                    "new_stage": JobApplication.Stage.APPLIED,
+                    "previous_status": "",
+                    "new_status": JobApplication.Status.ACTIVE,
+                    "note": "Demo iş başvurusu oluşturuldu.",
+                },
+            ]
+
+            if target_stage in {
+                JobApplication.Stage.SCREENING,
+                JobApplication.Stage.PHONE_SCREEN,
+                JobApplication.Stage.INTERVIEW,
+                JobApplication.Stage.ASSESSMENT,
+                JobApplication.Stage.OFFER,
+                JobApplication.Stage.REJECTED,
+            }:
+                event_definitions.append(
+                    {
+                        "event_type": (
+                            RecruitmentEvent
+                            .EventType
+                            .MOVED_TO_SCREENING
+                        ),
+                        "previous_stage": (
+                            JobApplication.Stage.APPLIED
+                        ),
+                        "new_stage": (
+                            JobApplication.Stage.SCREENING
+                        ),
+                        "previous_status": (
+                            JobApplication.Status.ACTIVE
+                        ),
+                        "new_status": (
+                            JobApplication.Status.ACTIVE
+                        ),
+                        "note": "Demo başvuru ön elemeye alındı.",
+                    }
+                )
+
+            if target_stage in {
+                JobApplication.Stage.PHONE_SCREEN,
+                JobApplication.Stage.INTERVIEW,
+                JobApplication.Stage.ASSESSMENT,
+                JobApplication.Stage.OFFER,
+            }:
+                event_definitions.append(
+                    {
+                        "event_type": (
+                            RecruitmentEvent
+                            .EventType
+                            .MOVED_TO_PHONE_SCREEN
+                        ),
+                        "previous_stage": (
+                            JobApplication.Stage.SCREENING
+                        ),
+                        "new_stage": (
+                            JobApplication.Stage.PHONE_SCREEN
+                        ),
+                        "previous_status": (
+                            JobApplication.Status.ACTIVE
+                        ),
+                        "new_status": (
+                            JobApplication.Status.ACTIVE
+                        ),
+                        "note": (
+                            "Demo telefon görüşmesi aşamasına geçildi."
+                        ),
+                    }
+                )
+
+            if target_stage in {
+                JobApplication.Stage.INTERVIEW,
+                JobApplication.Stage.ASSESSMENT,
+                JobApplication.Stage.OFFER,
+            }:
+                event_definitions.append(
+                    {
+                        "event_type": (
+                            RecruitmentEvent
+                            .EventType
+                            .MOVED_TO_INTERVIEW
+                        ),
+                        "previous_stage": (
+                            JobApplication.Stage.PHONE_SCREEN
+                        ),
+                        "new_stage": (
+                            JobApplication.Stage.INTERVIEW
+                        ),
+                        "previous_status": (
+                            JobApplication.Status.ACTIVE
+                        ),
+                        "new_status": (
+                            JobApplication.Status.ACTIVE
+                        ),
+                        "note": "Demo başvuru mülakata taşındı.",
+                    }
+                )
+
+            if target_stage in {
+                JobApplication.Stage.ASSESSMENT,
+                JobApplication.Stage.OFFER,
+            }:
+                event_definitions.append(
+                    {
+                        "event_type": (
+                            RecruitmentEvent
+                            .EventType
+                            .MOVED_TO_ASSESSMENT
+                        ),
+                        "previous_stage": (
+                            JobApplication.Stage.INTERVIEW
+                        ),
+                        "new_stage": (
+                            JobApplication.Stage.ASSESSMENT
+                        ),
+                        "previous_status": (
+                            JobApplication.Status.ACTIVE
+                        ),
+                        "new_status": (
+                            JobApplication.Status.ACTIVE
+                        ),
+                        "note": (
+                            "Demo başvuru değerlendirme aşamasına "
+                            "taşındı."
+                        ),
+                    }
+                )
+
+            if target_stage == JobApplication.Stage.OFFER:
+                event_definitions.append(
+                    {
+                        "event_type": (
+                            RecruitmentEvent
+                            .EventType
+                            .MOVED_TO_OFFER
+                        ),
+                        "previous_stage": (
+                            JobApplication.Stage.ASSESSMENT
+                        ),
+                        "new_stage": JobApplication.Stage.OFFER,
+                        "previous_status": (
+                            JobApplication.Status.ACTIVE
+                        ),
+                        "new_status": (
+                            JobApplication.Status.ACTIVE
+                        ),
+                        "note": "Demo aday teklif aşamasına taşındı.",
+                    }
+                )
+
+            if target_stage == JobApplication.Stage.REJECTED:
+                event_definitions.append(
+                    {
+                        "event_type": (
+                            RecruitmentEvent.EventType.REJECTED
+                        ),
+                        "previous_stage": (
+                            JobApplication.Stage.SCREENING
+                        ),
+                        "new_stage": JobApplication.Stage.REJECTED,
+                        "previous_status": (
+                            JobApplication.Status.ACTIVE
+                        ),
+                        "new_status": (
+                            JobApplication.Status.REJECTED
+                        ),
+                        "note": application_data[
+                            "rejection_reason"
+                        ],
+                    }
+                )
+
+            if target_stage == JobApplication.Stage.WITHDRAWN:
+                event_definitions.append(
+                    {
+                        "event_type": (
+                            RecruitmentEvent.EventType.WITHDRAWN
+                        ),
+                        "previous_stage": (
+                            JobApplication.Stage.APPLIED
+                        ),
+                        "new_stage": (
+                            JobApplication.Stage.WITHDRAWN
+                        ),
+                        "previous_status": (
+                            JobApplication.Status.ACTIVE
+                        ),
+                        "new_status": (
+                            JobApplication.Status.WITHDRAWN
+                        ),
+                        "note": application_data[
+                            "withdrawn_reason"
+                        ],
+                    }
+                )
+
+            for event_data in event_definitions:
+                _, event_created = (
+                    RecruitmentEvent.objects.get_or_create(
+                        application=application,
+                        event_type=event_data["event_type"],
+                        previous_stage=(
+                            event_data["previous_stage"]
+                        ),
+                        new_stage=event_data["new_stage"],
+                        previous_status=(
+                            event_data["previous_status"]
+                        ),
+                        new_status=event_data["new_status"],
+                        defaults={
+                            "company": company,
+                            "changed_by": recruiter_user,
+                            "note": event_data["note"],
+                        },
+                    )
+                )
+
+                if event_created:
+                    created_recruitment_event_count += 1
+
         financial_account, financial_account_created = (
             FinancialAccount.objects.get_or_create(
                 company=company,
@@ -1997,6 +2680,22 @@ class Command(BaseCommand):
         self.stdout.write(
             "Yeni performans işlem kaydı sayısı: "
             f"{created_performance_event_count}"
+        )
+        self.stdout.write(
+            "Yeni işe alım talebi sayısı: "
+            f"{created_requisition_count}"
+        )
+        self.stdout.write(
+            "Yeni aday kartı sayısı: "
+            f"{created_candidate_count}"
+        )
+        self.stdout.write(
+            "Yeni iş başvurusu sayısı: "
+            f"{created_application_count}"
+        )
+        self.stdout.write(
+            "Yeni işe alım işlem kaydı sayısı: "
+            f"{created_recruitment_event_count}"
         )
         self.stdout.write(
             "Kasa / banka hesabı: "

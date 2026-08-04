@@ -22,6 +22,10 @@ from apps.hr.models import (
     PerformanceReview,
     PerformanceReviewCycle,
     PerformanceReviewEvent,
+    Candidate,
+    JobApplication,
+    JobRequisition,
+    RecruitmentEvent,
 )
 from apps.organizations.models import Company
 
@@ -627,6 +631,137 @@ class SeedDemoCommandTests(TestCase):
         )
         self.assertIn(
             "Yeni performans işlem kaydı sayısı: 0",
+            output_text,
+        )
+
+    def test_seed_demo_creates_recruitment_data(self):
+        self.assertEqual(
+            JobRequisition.objects.filter(
+                company=self.company,
+            ).count(),
+            4,
+        )
+
+        self.assertEqual(
+            JobRequisition.objects.filter(
+                company=self.company,
+                status=JobRequisition.Status.OPEN,
+            ).count(),
+            3,
+        )
+
+        self.assertEqual(
+            Candidate.objects.filter(
+                company=self.company,
+            ).count(),
+            8,
+        )
+
+        self.assertEqual(
+            JobApplication.objects.filter(
+                company=self.company,
+            ).count(),
+            10,
+        )
+
+        self.assertEqual(
+            RecruitmentEvent.objects.filter(
+                company=self.company,
+            ).count(),
+            31,
+        )
+
+        self.assertEqual(
+            JobApplication.objects.filter(
+                company=self.company,
+                stage=JobApplication.Stage.INTERVIEW,
+            ).count(),
+            2,
+        )
+
+        self.assertEqual(
+            JobApplication.objects.filter(
+                company=self.company,
+                stage=JobApplication.Stage.OFFER,
+            ).count(),
+            1,
+        )
+
+        self.assertEqual(
+            JobApplication.objects.filter(
+                company=self.company,
+                status=JobApplication.Status.REJECTED,
+            ).count(),
+            1,
+        )
+
+        offer_application = JobApplication.objects.get(
+            company=self.company,
+            candidate__email=(
+                "ahmet.demir@candidate.glauria.local"
+            ),
+            requisition__requisition_number="REQ-2026-001",
+        )
+
+        self.assertEqual(
+            offer_application.stage,
+            JobApplication.Stage.OFFER,
+        )
+        self.assertEqual(
+            offer_application.events.count(),
+            6,
+        )
+
+    def test_seed_demo_is_idempotent_for_recruitment_data(self):
+        second_output = StringIO()
+
+        call_command(
+            "seed_demo",
+            owner=self.owner.username,
+            stdout=second_output,
+        )
+
+        self.assertEqual(
+            JobRequisition.objects.filter(
+                company=self.company,
+            ).count(),
+            4,
+        )
+        self.assertEqual(
+            Candidate.objects.filter(
+                company=self.company,
+            ).count(),
+            8,
+        )
+        self.assertEqual(
+            JobApplication.objects.filter(
+                company=self.company,
+            ).count(),
+            10,
+        )
+        self.assertEqual(
+            RecruitmentEvent.objects.filter(
+                company=self.company,
+            ).count(),
+            31,
+        )
+
+        output_text = second_output.getvalue()
+
+        self.assertIn(
+            "Yeni işe alım talebi sayısı: 0",
+            output_text,
+        )
+        self.assertIn(
+            "Yeni aday kartı sayısı: 0",
+            output_text,
+        )
+        self.assertIn(
+            "Yeni iş başvurusu sayısı: 0",
+            output_text,
+        )
+        self.assertIn(
+            "Yeni işe alım işlem kaydı sayısı: 0",
             output_text,
         )
 

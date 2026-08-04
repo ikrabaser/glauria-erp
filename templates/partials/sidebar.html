@@ -225,6 +225,13 @@
             >
                 Performans Yönetimi
             </a>
+
+            <a
+                href="{% url 'hr:recruitment_dashboard' %}"
+                class="sidebar-group__link{% if request.resolver_match.url_name == 'recruitment_dashboard' %} active{% endif %}"
+            >
+                İşe Alım Yönetimi
+            </a>
         </div>
     </details>
 {% elif absence_access %}
