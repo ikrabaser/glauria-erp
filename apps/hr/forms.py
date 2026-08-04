@@ -11,6 +11,7 @@ from .models import (
     EmploymentAssignment,
     Position,
     JobRequisition,
+    Candidate,
 )
 
 class HRBaseModelForm(forms.ModelForm):
@@ -1093,6 +1094,180 @@ class JobRequisitionForm(HRBaseModelForm):
                     field_name,
                     "Seçilen personel aktif şirkete ait olmalıdır.",
                 )
+
+        return cleaned_data
+
+
+class CandidateForm(HRBaseModelForm):
+    MAX_RESUME_SIZE = 5 * 1024 * 1024
+    ALLOWED_RESUME_EXTENSIONS = (
+        ".pdf",
+        ".doc",
+        ".docx",
+    )
+
+    class Meta:
+        model = Candidate
+        fields = [
+            "first_name",
+            "last_name",
+            "email",
+            "phone",
+            "linkedin_url",
+            "portfolio_url",
+            "source",
+            "current_title",
+            "current_company",
+            "years_of_experience",
+            "resume",
+            "notes",
+            "consent_given",
+        ]
+        widgets = {
+            "first_name": forms.TextInput(
+                attrs={
+                    "placeholder": "Adayın adı",
+                }
+            ),
+            "last_name": forms.TextInput(
+                attrs={
+                    "placeholder": "Adayın soyadı",
+                }
+            ),
+            "email": forms.EmailInput(
+                attrs={
+                    "placeholder": "aday@example.com",
+                }
+            ),
+            "phone": forms.TextInput(
+                attrs={
+                    "placeholder": "+90 5xx xxx xx xx",
+                }
+            ),
+            "linkedin_url": forms.URLInput(
+                attrs={
+                    "placeholder": "https://linkedin.com/in/...",
+                }
+            ),
+            "portfolio_url": forms.URLInput(
+                attrs={
+                    "placeholder": "https://github.com/... veya portföy",
+                }
+            ),
+            "current_title": forms.TextInput(
+                attrs={
+                    "placeholder": "Örn. Backend Developer",
+                }
+            ),
+            "current_company": forms.TextInput(
+                attrs={
+                    "placeholder": "Mevcut veya son şirket",
+                }
+            ),
+            "years_of_experience": forms.NumberInput(
+                attrs={
+                    "min": 0,
+                    "step": "0.5",
+                    "placeholder": "Örn. 2.5",
+                }
+            ),
+            "resume": forms.ClearableFileInput(
+                attrs={
+                    "accept": ".pdf,.doc,.docx",
+                }
+            ),
+            "notes": forms.Textarea(
+                attrs={
+                    "rows": 5,
+                    "placeholder": (
+                        "Aday hakkındaki değerlendirme ve ek notlar."
+                    ),
+                }
+            ),
+        }
+
+    def __init__(
+        self,
+        *args,
+        company=None,
+        **kwargs,
+    ):
+        super().__init__(*args, **kwargs)
+        self.company = company
+
+        self.fields["resume"].help_text = (
+            "PDF, DOC veya DOCX; en fazla 5 MB."
+        )
+        self.fields["consent_given"].help_text = (
+            "Adayın kişisel verilerinin işe alım amacıyla "
+            "işlenmesine onay verdiğini doğrular."
+        )
+
+        self.apply_control_classes()
+
+    def _post_clean(self):
+        consent_given = self.cleaned_data.get("consent_given")
+
+        if consent_given and not self.instance.consent_at:
+            self.instance.consent_at = timezone.now()
+        elif not consent_given:
+            self.instance.consent_at = None
+
+        super()._post_clean()
+
+    def clean_email(self):
+        email = self.cleaned_data["email"].strip().lower()
+
+        queryset = Candidate.objects.filter(
+            company=self.company,
+            email=email,
+        )
+
+        if self.instance.pk:
+            queryset = queryset.exclude(pk=self.instance.pk)
+
+        if queryset.exists():
+            raise forms.ValidationError(
+                "Bu e-posta adresiyle kayıtlı bir aday zaten var."
+            )
+
+        return email
+
+    def clean_resume(self):
+        resume = self.cleaned_data.get("resume")
+
+        if not resume:
+            return resume
+
+        file_name = resume.name.lower()
+
+        if not file_name.endswith(
+            self.ALLOWED_RESUME_EXTENSIONS
+        ):
+            raise forms.ValidationError(
+                "Öz geçmiş PDF, DOC veya DOCX formatında olmalıdır."
+            )
+
+        if resume.size > self.MAX_RESUME_SIZE:
+            raise forms.ValidationError(
+                "Öz geçmiş dosyası 5 MB boyutunu aşamaz."
+            )
+
+        return resume
+
+    def clean(self):
+        cleaned_data = super().clean()
+
+        consent_given = cleaned_data.get("consent_given")
+
+        if not consent_given:
+            self.add_error(
+                "consent_given",
+                (
+                    "Aday kaydı oluşturulabilmesi için kişisel veri "
+                    "işleme onayı zorunludur."
+                ),
+            )
 
         return cleaned_data
 

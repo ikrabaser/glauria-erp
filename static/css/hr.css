@@ -2658,3 +2658,108 @@ html[data-theme="light"] .requisition-description {
         flex-direction: column;
     }
 }
+
+
+/* Candidate Management */
+
+.candidate-file-state {
+    display: inline-flex;
+    padding: 0.32rem 0.58rem;
+    border-radius: 999px;
+    color: rgba(255, 255, 255, 0.58);
+    background: rgba(148, 163, 184, 0.12);
+    font-size: 0.69rem;
+    font-weight: 800;
+}
+
+.candidate-file-state--ready {
+    color: #86efac;
+    background: rgba(74, 222, 128, 0.13);
+}
+
+.candidate-profile-hero {
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+    margin-bottom: 1.25rem;
+    padding: 1.4rem;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 20px;
+    background:
+        radial-gradient(
+            circle at top right,
+            rgba(229, 167, 161, 0.16),
+            transparent 42%
+        ),
+        rgba(255, 255, 255, 0.035);
+}
+
+.candidate-profile-hero__avatar {
+    display: grid;
+    flex: 0 0 74px;
+    width: 74px;
+    height: 74px;
+    place-items: center;
+    border: 1px solid rgba(229, 167, 161, 0.24);
+    border-radius: 22px;
+    color: #fff;
+    background: rgba(185, 111, 120, 0.16);
+    font-size: 1.35rem;
+    font-weight: 800;
+}
+
+.candidate-profile-hero__identity {
+    flex: 1;
+    min-width: 0;
+}
+
+.candidate-profile-hero__identity h3 {
+    margin: 0.3rem 0 0;
+    color: #fff;
+    font-size: 1.45rem;
+}
+
+.candidate-profile-hero__identity p {
+    margin: 0.35rem 0 0;
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 0.84rem;
+}
+
+.candidate-profile-hero__actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 0.6rem;
+}
+
+html[data-theme="light"] .candidate-profile-hero {
+    border-color: rgba(42, 34, 49, 0.08);
+    background:
+        radial-gradient(
+            circle at top right,
+            rgba(229, 167, 161, 0.2),
+            transparent 42%
+        ),
+        rgba(255, 255, 255, 0.74);
+}
+
+html[data-theme="light"] .candidate-profile-hero__identity h3,
+html[data-theme="light"] .candidate-profile-hero__avatar {
+    color: #231f2c;
+}
+
+html[data-theme="light"] .candidate-profile-hero__identity p {
+    color: rgba(43, 36, 50, 0.62);
+}
+
+@media (max-width: 760px) {
+    .candidate-profile-hero {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .candidate-profile-hero__actions {
+        justify-content: flex-start;
+        width: 100%;
+    }
+}

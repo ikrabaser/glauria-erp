@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}
+{{ page_title }} | Glauria ERP
+{% endblock %}
+
+{% block extra_css %}
+<link
+    rel="stylesheet"
+    href="{% static 'css/hr.css' %}?v=hr-candidate-form-v1"
+>
+{% endblock %}
+
+{% block content %}
+<section class="module-page">
+    {% include "components/page_header.html" with eyebrow="İNSAN KAYNAKLARI · ADAY YÖNETİMİ" title=page_title description=page_description %}
+
+    <form
+        method="post"
+        enctype="multipart/form-data"
+        class="hr-record-form"
+        novalidate
+    >
+        {% csrf_token %}
+
+        {% if form.non_field_errors %}
+            <div class="form-errors">
+                {{ form.non_field_errors }}
+            </div>
+        {% endif %}
+
+        <section class="hr-form-section">
+            <div class="hr-form-section__heading">
+                <span>01</span>
+                <div>
+                    <h3>Aday Profili</h3>
+                    <p>
+                        Adayın iletişim, kariyer ve öz geçmiş
+                        bilgilerini kaydedin.
+                    </p>
+                </div>
+            </div>
+
+            <div class="hr-form-grid">
+                {% for field in form %}
+                    <div class="hr-form-field {% if field.name == 'notes' %}hr-form-field--full{% endif %}">
+                        <label for="{{ field.id_for_label }}">
+                            {{ field.label }}
+                        </label>
+
+                        {{ field }}
+
+                        {% if field.help_text %}
+                            <small>{{ field.help_text }}</small>
+                        {% endif %}
+
+                        {% for error in field.errors %}
+                            <span class="field-error">
+                                {{ error }}
+                            </span>
+                        {% endfor %}
+                    </div>
+                {% endfor %}
+            </div>
+        </section>
+
+        <div class="form-actions">
+            <a href="{{ cancel_url }}" class="btn-secondary">
+                Vazgeç
+            </a>
+
+            <button type="submit" class="btn-primary">
+                {{ submit_text }}
+            </button>
+        </div>
+    </form>
+</section>
+{% endblock %}

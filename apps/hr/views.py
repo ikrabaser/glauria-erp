@@ -37,6 +37,7 @@ from .forms import (
     InitialAssignmentForm,
     PositionForm,
     JobRequisitionForm,
+    CandidateForm,
 )
 from .services import (
     approve_absence_request,
@@ -2228,5 +2229,177 @@ def job_requisition_open(
     return redirect(
         "hr:job_requisition_detail",
         requisition_id=requisition.id,
+    )
+
+
+@login_required
+def candidate_list(request):
+    membership = get_active_membership(request.user)
+
+    if not has_hr_access(membership):
+        return redirect("hr:home")
+
+    company = membership.company
+    search_query = request.GET.get("q", "").strip()
+    source_filter = request.GET.get("source", "").strip()
+
+    candidates = (
+        Candidate.objects.filter(
+            company=company,
+        )
+        .select_related(
+            "created_by",
+        )
+        .annotate(
+            application_count=Count(
+                "applications",
+                distinct=True,
+            )
+        )
+        .order_by(
+            "last_name",
+            "first_name",
+        )
+    )
+
+    if search_query:
+        candidates = candidates.filter(
+            Q(first_name__icontains=search_query)
+            | Q(last_name__icontains=search_query)
+            | Q(email__icontains=search_query)
+            | Q(phone__icontains=search_query)
+            | Q(current_title__icontains=search_query)
+            | Q(current_company__icontains=search_query)
+        )
+
+    valid_sources = {
+        value
+        for value, _label in Candidate.Source.choices
+    }
+
+    if source_filter in valid_sources:
+        candidates = candidates.filter(
+            source=source_filter,
+        )
+    else:
+        source_filter = ""
+
+    return render(
+        request,
+        "hr/candidate_list.html",
+        {
+            "current_membership": membership,
+            "candidates": candidates,
+            "source_choices": Candidate.Source.choices,
+            "search_query": search_query,
+            "source_filter": source_filter,
+            "can_manage_hr": can_manage_hr(membership),
+        },
+    )
+
+
+@login_required
+def candidate_create(request):
+    membership = get_active_membership(request.user)
+
+    if not can_manage_hr(membership):
+        return hr_management_forbidden()
+
+    company = membership.company
+
+    if request.method == "POST":
+        form = CandidateForm(
+            request.POST,
+            request.FILES,
+            company=company,
+        )
+
+        if form.is_valid():
+            candidate = form.save(commit=False)
+            candidate.company = company
+            candidate.created_by = request.user
+            candidate.consent_at = timezone.now()
+            candidate.save()
+
+            messages.success(
+                request,
+                "Aday kartı başarıyla oluşturuldu.",
+            )
+
+            return redirect(
+                "hr:candidate_detail",
+                candidate_id=candidate.id,
+            )
+    else:
+        form = CandidateForm(
+            company=company,
+        )
+
+    return render(
+        request,
+        "hr/candidate_form.html",
+        {
+            "current_membership": membership,
+            "form": form,
+            "page_title": "Yeni Aday",
+            "page_description": (
+                "Adayın iletişim, deneyim ve öz geçmiş "
+                "bilgilerini kaydedin."
+            ),
+            "submit_text": "Adayı Kaydet",
+            "cancel_url": reverse(
+                "hr:candidate_list",
+            ),
+        },
+    )
+
+
+@login_required
+def candidate_detail(
+    request,
+    candidate_id,
+):
+    membership = get_active_membership(request.user)
+
+    if not has_hr_access(membership):
+        return redirect("hr:home")
+
+    candidate = get_object_or_404(
+        Candidate.objects.select_related(
+            "company",
+            "created_by",
+        ),
+        id=candidate_id,
+        company=membership.company,
+    )
+
+    applications = (
+        JobApplication.objects.filter(
+            company=membership.company,
+            candidate=candidate,
+        )
+        .select_related(
+            "requisition",
+            "requisition__department",
+            "requisition__position",
+            "assigned_recruiter",
+        )
+        .prefetch_related(
+            "events",
+        )
+        .order_by(
+            "-applied_at",
+        )
+    )
+
+    return render(
+        request,
+        "hr/candidate_detail.html",
+        {
+            "current_membership": membership,
+            "candidate": candidate,
+            "applications": applications,
+            "can_manage_hr": can_manage_hr(membership),
+        },
     )
 

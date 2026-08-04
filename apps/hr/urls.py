@@ -15,6 +15,9 @@ from .views import (
     position_update,
     performance_dashboard,
     recruitment_dashboard,
+    candidate_create,
+    candidate_detail,
+    candidate_list,
     job_requisition_create,
     job_requisition_detail,
     job_requisition_list,
@@ -31,6 +34,21 @@ from .views import (
 app_name = "hr"
 
 urlpatterns = [
+    path(
+        "ise-alim/adaylar/",
+        candidate_list,
+        name="candidate_list",
+    ),
+    path(
+        "ise-alim/adaylar/yeni/",
+        candidate_create,
+        name="candidate_create",
+    ),
+    path(
+        "ise-alim/adaylar/<uuid:candidate_id>/",
+        candidate_detail,
+        name="candidate_detail",
+    ),
     path(
         "ise-alim/talepler/",
         job_requisition_list,
