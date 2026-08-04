@@ -14,6 +14,10 @@ from .models import (
     WorkSchedule,
     WorkScheduleDay,
     AttendanceRecordEvent,
+    EmployeeGoal,
+    PerformanceReview,
+    PerformanceReviewCycle,
+    PerformanceReviewEvent,
 )
 
 
@@ -616,3 +620,209 @@ class AttendanceRecordEventAdmin(admin.ModelAdmin):
         obj=None,
     ):
         return False
+
+
+@admin.register(PerformanceReviewCycle)
+class PerformanceReviewCycleAdmin(admin.ModelAdmin):
+    list_display = (
+        "code",
+        "name",
+        "company",
+        "start_date",
+        "end_date",
+        "status",
+        "is_active",
+    )
+    list_filter = (
+        "company",
+        "status",
+        "is_active",
+        "start_date",
+        "end_date",
+    )
+    search_fields = (
+        "code",
+        "name",
+        "description",
+        "company__name",
+    )
+    ordering = (
+        "-start_date",
+        "company__name",
+        "name",
+    )
+    list_select_related = (
+        "company",
+    )
+    readonly_fields = (
+        "created_at",
+        "updated_at",
+        "deleted_at",
+    )
+
+
+@admin.register(EmployeeGoal)
+class EmployeeGoalAdmin(admin.ModelAdmin):
+    list_display = (
+        "title",
+        "employee",
+        "cycle",
+        "company",
+        "weight",
+        "progress_percentage",
+        "status",
+        "due_date",
+    )
+    list_filter = (
+        "company",
+        "cycle",
+        "status",
+        "start_date",
+        "due_date",
+    )
+    search_fields = (
+        "title",
+        "description",
+        "employee__employee_number",
+        "employee__first_name",
+        "employee__last_name",
+        "cycle__code",
+        "cycle__name",
+    )
+    ordering = (
+        "due_date",
+        "employee__last_name",
+        "employee__first_name",
+        "title",
+    )
+    list_select_related = (
+        "company",
+        "cycle",
+        "employee",
+    )
+    readonly_fields = (
+        "created_at",
+        "updated_at",
+    )
+
+
+@admin.register(PerformanceReview)
+class PerformanceReviewAdmin(admin.ModelAdmin):
+    list_display = (
+        "employee",
+        "manager",
+        "cycle",
+        "company",
+        "status",
+        "employee_rating",
+        "manager_rating",
+        "overall_rating",
+        "completed_at",
+    )
+    list_filter = (
+        "company",
+        "cycle",
+        "status",
+        "submitted_at",
+        "completed_at",
+    )
+    search_fields = (
+        "employee__employee_number",
+        "employee__first_name",
+        "employee__last_name",
+        "manager__employee_number",
+        "manager__first_name",
+        "manager__last_name",
+        "cycle__code",
+        "cycle__name",
+        "employee_comment",
+        "manager_comment",
+        "development_plan",
+    )
+    ordering = (
+        "-cycle__start_date",
+        "employee__last_name",
+        "employee__first_name",
+    )
+    list_select_related = (
+        "company",
+        "cycle",
+        "employee",
+        "manager",
+        "completed_by",
+    )
+    readonly_fields = (
+        "submitted_at",
+        "completed_at",
+        "completed_by",
+        "created_at",
+        "updated_at",
+    )
+
+
+@admin.register(PerformanceReviewEvent)
+class PerformanceReviewEventAdmin(admin.ModelAdmin):
+    list_display = (
+        "review",
+        "event_type",
+        "previous_status",
+        "new_status",
+        "changed_by",
+        "occurred_at",
+    )
+    list_filter = (
+        "company",
+        "event_type",
+        "new_status",
+        "occurred_at",
+    )
+    search_fields = (
+        "review__employee__employee_number",
+        "review__employee__first_name",
+        "review__employee__last_name",
+        "review__cycle__code",
+        "review__cycle__name",
+        "changed_by__username",
+        "note",
+    )
+    ordering = (
+        "-occurred_at",
+        "-created_at",
+    )
+    list_select_related = (
+        "review",
+        "review__employee",
+        "review__cycle",
+        "company",
+        "changed_by",
+    )
+    readonly_fields = (
+        "review",
+        "company",
+        "event_type",
+        "previous_status",
+        "new_status",
+        "changed_by",
+        "note",
+        "occurred_at",
+        "created_at",
+        "updated_at",
+    )
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(
+        self,
+        request,
+        obj=None,
+    ):
+        return False
+
+    def has_delete_permission(
+        self,
+        request,
+        obj=None,
+    ):
+        return False
+

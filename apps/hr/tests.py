@@ -25,6 +25,10 @@ from .models import (
     WorkSchedule,
     WorkScheduleDay,
     AttendanceRecordEvent,
+    EmployeeGoal,
+    PerformanceReview,
+    PerformanceReviewCycle,
+    PerformanceReviewEvent,
 )
 from .services import (
     approve_absence_request,
@@ -38,6 +42,12 @@ from .services import (
     generate_attendance_record,
     reject_attendance_record,
     submit_attendance_record,
+    cancel_performance_review,
+    complete_performance_review,
+    create_performance_review,
+    start_self_review,
+    submit_self_review,
+    update_employee_goal_progress,
 )
 class HRModelTestCase(TestCase):
     def setUp(self):
@@ -1928,3 +1938,392 @@ class TimeAndAttendanceWorkflowTestCase(TestCase):
             record.approval_status,
             AttendanceRecord.ApprovalStatus.SUBMITTED,
         )
+
+class PerformanceWorkflowTestCase(TestCase):
+    def setUp(self):
+        self.company = Company.objects.create(
+            name="Performans Test Şirketi",
+        )
+
+        self.manager_user = User.objects.create_user(
+            username="performance.manager",
+            email="performance.manager@example.com",
+            password="test-password",
+        )
+
+        self.employee_user = User.objects.create_user(
+            username="performance.employee",
+            email="performance.employee@example.com",
+            password="test-password",
+        )
+
+        self.manager = Employee.objects.create(
+            company=self.company,
+            user=self.manager_user,
+            employee_number="PERF-MGR-001",
+            first_name="Ayşe",
+            last_name="Yönetici",
+            work_email="ayse.yonetici@example.com",
+            hire_date=date(2023, 1, 1),
+        )
+
+        self.employee = Employee.objects.create(
+            company=self.company,
+            user=self.employee_user,
+            employee_number="PERF-EMP-001",
+            first_name="Mehmet",
+            last_name="Çalışan",
+            work_email="mehmet.calisan@example.com",
+            hire_date=date(2024, 1, 1),
+        )
+
+        self.cycle = PerformanceReviewCycle.objects.create(
+            company=self.company,
+            code="PERF-2026",
+            name="2026 Yıllık Performans Dönemi",
+            start_date=date(2026, 1, 1),
+            end_date=date(2026, 12, 31),
+            self_review_deadline=date(2026, 11, 30),
+            manager_review_deadline=date(2026, 12, 15),
+            status=PerformanceReviewCycle.Status.OPEN,
+        )
+
+    def create_review(self):
+        review, created = create_performance_review(
+            company=self.company,
+            cycle=self.cycle,
+            employee=self.employee,
+            manager=self.manager,
+            changed_by=self.manager_user,
+            note="Yıllık değerlendirme oluşturuldu.",
+        )
+
+        self.assertTrue(created)
+
+        return review
+
+    def test_create_performance_review_creates_initial_event(self):
+        review = self.create_review()
+
+        self.assertEqual(
+            review.status,
+            PerformanceReview.Status.DRAFT,
+        )
+        self.assertEqual(review.manager, self.manager)
+        self.assertEqual(review.events.count(), 1)
+
+        event = review.events.get()
+
+        self.assertEqual(
+            event.event_type,
+            PerformanceReviewEvent.EventType.CREATED,
+        )
+        self.assertEqual(
+            event.new_status,
+            PerformanceReview.Status.DRAFT,
+        )
+        self.assertEqual(event.changed_by, self.manager_user)
+
+    def test_create_performance_review_is_idempotent(self):
+        first_review, first_created = create_performance_review(
+            company=self.company,
+            cycle=self.cycle,
+            employee=self.employee,
+            manager=self.manager,
+            changed_by=self.manager_user,
+        )
+
+        second_review, second_created = create_performance_review(
+            company=self.company,
+            cycle=self.cycle,
+            employee=self.employee,
+            manager=self.manager,
+            changed_by=self.manager_user,
+        )
+
+        self.assertTrue(first_created)
+        self.assertFalse(second_created)
+        self.assertEqual(first_review.pk, second_review.pk)
+        self.assertEqual(
+            PerformanceReview.objects.filter(
+                company=self.company,
+                cycle=self.cycle,
+                employee=self.employee,
+            ).count(),
+            1,
+        )
+        self.assertEqual(first_review.events.count(), 1)
+
+    def test_review_cannot_be_created_for_closed_cycle(self):
+        self.cycle.status = PerformanceReviewCycle.Status.CLOSED
+        self.cycle.save()
+
+        with self.assertRaises(ValidationError):
+            create_performance_review(
+                company=self.company,
+                cycle=self.cycle,
+                employee=self.employee,
+                manager=self.manager,
+                changed_by=self.manager_user,
+            )
+
+    def test_employee_cannot_be_own_performance_manager(self):
+        with self.assertRaises(ValidationError):
+            create_performance_review(
+                company=self.company,
+                cycle=self.cycle,
+                employee=self.employee,
+                manager=self.employee,
+                changed_by=self.manager_user,
+            )
+
+    def test_performance_review_completes_full_workflow(self):
+        review = self.create_review()
+
+        review = start_self_review(
+            performance_review=review,
+            changed_by=self.employee_user,
+            note="Öz değerlendirme açıldı.",
+        )
+
+        self.assertEqual(
+            review.status,
+            PerformanceReview.Status.SELF_REVIEW,
+        )
+
+        review = submit_self_review(
+            performance_review=review,
+            changed_by=self.employee_user,
+            employee_rating=Decimal("4.20"),
+            employee_comment=(
+                "Yıl boyunca belirlenen hedeflerin büyük bölümünü "
+                "başarıyla tamamladım."
+            ),
+            note="Öz değerlendirme tamamlandı.",
+        )
+
+        self.assertEqual(
+            review.status,
+            PerformanceReview.Status.MANAGER_REVIEW,
+        )
+        self.assertEqual(
+            review.employee_rating,
+            Decimal("4.20"),
+        )
+        self.assertIsNotNone(review.submitted_at)
+
+        review = complete_performance_review(
+            performance_review=review,
+            changed_by=self.manager_user,
+            manager_rating=Decimal("4.40"),
+            overall_rating=Decimal("4.30"),
+            manager_comment=(
+                "Çalışan yıl boyunca beklentilerin üzerinde "
+                "performans göstermiştir."
+            ),
+            development_plan=(
+                "Liderlik ve proje yönetimi eğitimlerine katılım."
+            ),
+            note="Yıllık değerlendirme tamamlandı.",
+        )
+
+        self.assertEqual(
+            review.status,
+            PerformanceReview.Status.COMPLETED,
+        )
+        self.assertEqual(
+            review.manager_rating,
+            Decimal("4.40"),
+        )
+        self.assertEqual(
+            review.overall_rating,
+            Decimal("4.30"),
+        )
+        self.assertEqual(
+            review.completed_by,
+            self.manager_user,
+        )
+        self.assertIsNotNone(review.completed_at)
+        self.assertEqual(review.events.count(), 4)
+
+        self.assertTrue(
+            review.events.filter(
+                event_type=(
+                    PerformanceReviewEvent
+                    .EventType
+                    .COMPLETED
+                ),
+                new_status=PerformanceReview.Status.COMPLETED,
+            ).exists()
+        )
+
+    def test_self_review_requires_comment(self):
+        review = self.create_review()
+
+        review = start_self_review(
+            performance_review=review,
+            changed_by=self.employee_user,
+        )
+
+        with self.assertRaises(ValidationError):
+            submit_self_review(
+                performance_review=review,
+                changed_by=self.employee_user,
+                employee_rating=Decimal("4.00"),
+                employee_comment="",
+            )
+
+        review.refresh_from_db()
+
+        self.assertEqual(
+            review.status,
+            PerformanceReview.Status.SELF_REVIEW,
+        )
+
+    def test_invalid_performance_rating_is_rejected(self):
+        review = self.create_review()
+
+        review = start_self_review(
+            performance_review=review,
+            changed_by=self.employee_user,
+        )
+
+        with self.assertRaises(ValidationError):
+            submit_self_review(
+                performance_review=review,
+                changed_by=self.employee_user,
+                employee_rating=Decimal("5.50"),
+                employee_comment="Öz değerlendirme açıklaması.",
+            )
+
+    def test_review_cannot_be_completed_before_manager_stage(self):
+        review = self.create_review()
+
+        with self.assertRaises(ValidationError):
+            complete_performance_review(
+                performance_review=review,
+                changed_by=self.manager_user,
+                manager_rating=Decimal("4.00"),
+                overall_rating=Decimal("4.00"),
+                manager_comment="Yönetici değerlendirme açıklaması.",
+            )
+
+    def test_cancelling_review_requires_reason(self):
+        review = self.create_review()
+
+        with self.assertRaises(ValidationError):
+            cancel_performance_review(
+                performance_review=review,
+                changed_by=self.manager_user,
+                cancellation_note="",
+            )
+
+        review.refresh_from_db()
+
+        self.assertEqual(
+            review.status,
+            PerformanceReview.Status.DRAFT,
+        )
+
+    def test_active_review_can_be_cancelled_with_event(self):
+        review = self.create_review()
+
+        review = cancel_performance_review(
+            performance_review=review,
+            changed_by=self.manager_user,
+            cancellation_note=(
+                "Organizasyon değişikliği nedeniyle dönem iptal edildi."
+            ),
+        )
+
+        self.assertEqual(
+            review.status,
+            PerformanceReview.Status.CANCELLED,
+        )
+        self.assertTrue(
+            review.events.filter(
+                event_type=(
+                    PerformanceReviewEvent
+                    .EventType
+                    .CANCELLED
+                ),
+                previous_status=PerformanceReview.Status.DRAFT,
+                new_status=PerformanceReview.Status.CANCELLED,
+            ).exists()
+        )
+
+    def test_employee_goal_progress_updates_status(self):
+        goal = EmployeeGoal.objects.create(
+            company=self.company,
+            cycle=self.cycle,
+            employee=self.employee,
+            title="Müşteri memnuniyetini artırmak",
+            description="Müşteri memnuniyet puanını artırmak.",
+            weight=Decimal("30.00"),
+            target_value=Decimal("95.00"),
+            current_value=Decimal("80.00"),
+            unit="puan",
+            start_date=date(2026, 1, 1),
+            due_date=date(2026, 12, 15),
+            progress_percentage=Decimal("0.00"),
+            status=EmployeeGoal.Status.DRAFT,
+        )
+
+        goal = update_employee_goal_progress(
+            employee_goal=goal,
+            changed_by=self.employee_user,
+            progress_percentage=Decimal("60.00"),
+            current_value=Decimal("89.00"),
+        )
+
+        self.assertEqual(
+            goal.status,
+            EmployeeGoal.Status.IN_PROGRESS,
+        )
+        self.assertEqual(
+            goal.progress_percentage,
+            Decimal("60.00"),
+        )
+        self.assertEqual(
+            goal.current_value,
+            Decimal("89.00"),
+        )
+
+        goal = update_employee_goal_progress(
+            employee_goal=goal,
+            changed_by=self.employee_user,
+            progress_percentage=Decimal("100.00"),
+            current_value=Decimal("96.00"),
+            completion_note="Hedef başarıyla tamamlandı.",
+        )
+
+        self.assertEqual(
+            goal.status,
+            EmployeeGoal.Status.COMPLETED,
+        )
+        self.assertEqual(
+            goal.progress_percentage,
+            Decimal("100.00"),
+        )
+        self.assertEqual(
+            goal.completion_note,
+            "Hedef başarıyla tamamlandı.",
+        )
+
+    def test_goal_progress_outside_valid_range_is_rejected(self):
+        goal = EmployeeGoal.objects.create(
+            company=self.company,
+            cycle=self.cycle,
+            employee=self.employee,
+            title="Süreç verimliliğini artırmak",
+            weight=Decimal("20.00"),
+            start_date=date(2026, 1, 1),
+            due_date=date(2026, 12, 1),
+        )
+
+        with self.assertRaises(ValidationError):
+            update_employee_goal_progress(
+                employee_goal=goal,
+                changed_by=self.employee_user,
+                progress_percentage=Decimal("120.00"),
+            )

@@ -1870,3 +1870,750 @@ class AttendanceRecordEvent(BaseModel):
             f"{self.record.employee.full_name} · "
             f"{self.get_event_type_display()}"
         )
+
+class PerformanceReviewCycle(MasterDataModel):
+    """
+    Şirket içerisindeki performans değerlendirme dönemidir.
+
+    Yıllık, altı aylık veya özel değerlendirme süreçlerinin tarihlerini
+    ve yaşam döngüsü durumunu merkezi olarak yönetir.
+    """
+
+    class Status(models.TextChoices):
+        DRAFT = "draft", "Taslak"
+        OPEN = "open", "Açık"
+        CLOSED = "closed", "Kapalı"
+        ARCHIVED = "archived", "Arşivlendi"
+
+    company = models.ForeignKey(
+        Company,
+        on_delete=models.PROTECT,
+        related_name="performance_review_cycles",
+        verbose_name="Şirket",
+    )
+
+    code = models.CharField(
+        max_length=30,
+        verbose_name="Dönem kodu",
+    )
+
+    name = models.CharField(
+        max_length=150,
+        verbose_name="Dönem adı",
+    )
+
+    description = models.TextField(
+        blank=True,
+        verbose_name="Açıklama",
+    )
+
+    start_date = models.DateField(
+        verbose_name="Başlangıç tarihi",
+    )
+
+    end_date = models.DateField(
+        verbose_name="Bitiş tarihi",
+    )
+
+    self_review_deadline = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name="Öz değerlendirme son tarihi",
+    )
+
+    manager_review_deadline = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name="Yönetici değerlendirmesi son tarihi",
+    )
+
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.DRAFT,
+        verbose_name="Durum",
+    )
+
+    class Meta:
+        verbose_name = "Performans değerlendirme dönemi"
+        verbose_name_plural = "Performans değerlendirme dönemleri"
+        ordering = [
+            "-start_date",
+            "name",
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=[
+                    "company",
+                    "code",
+                ],
+                name="unique_performance_cycle_code_per_company",
+            ),
+            models.CheckConstraint(
+                condition=Q(end_date__gte=models.F("start_date")),
+                name="performance_cycle_end_not_before_start",
+            ),
+        ]
+        indexes = [
+            models.Index(
+                fields=[
+                    "company",
+                    "status",
+                    "start_date",
+                ],
+            ),
+        ]
+
+    def clean(self):
+        errors = {}
+
+        if (
+            self.start_date
+            and self.end_date
+            and self.end_date < self.start_date
+        ):
+            errors["end_date"] = (
+                "Bitiş tarihi başlangıç tarihinden önce olamaz."
+            )
+
+        if self.self_review_deadline:
+            if (
+                self.start_date
+                and self.self_review_deadline < self.start_date
+            ):
+                errors["self_review_deadline"] = (
+                    "Öz değerlendirme son tarihi dönem başlangıcından "
+                    "önce olamaz."
+                )
+
+            if (
+                self.end_date
+                and self.self_review_deadline > self.end_date
+            ):
+                errors["self_review_deadline"] = (
+                    "Öz değerlendirme son tarihi dönem bitişinden "
+                    "sonra olamaz."
+                )
+
+        if self.manager_review_deadline:
+            if (
+                self.start_date
+                and self.manager_review_deadline < self.start_date
+            ):
+                errors["manager_review_deadline"] = (
+                    "Yönetici değerlendirmesi son tarihi dönem "
+                    "başlangıcından önce olamaz."
+                )
+
+            if (
+                self.end_date
+                and self.manager_review_deadline > self.end_date
+            ):
+                errors["manager_review_deadline"] = (
+                    "Yönetici değerlendirmesi son tarihi dönem "
+                    "bitişinden sonra olamaz."
+                )
+
+        if (
+            self.self_review_deadline
+            and self.manager_review_deadline
+            and self.manager_review_deadline
+            < self.self_review_deadline
+        ):
+            errors["manager_review_deadline"] = (
+                "Yönetici değerlendirmesi son tarihi öz değerlendirme "
+                "son tarihinden önce olamaz."
+            )
+
+        if errors:
+            raise ValidationError(errors)
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.code} · {self.name}"
+
+
+class EmployeeGoal(BaseModel):
+    """
+    Personelin belirli bir değerlendirme dönemi içerisindeki hedefidir.
+    """
+
+    class Status(models.TextChoices):
+        DRAFT = "draft", "Taslak"
+        IN_PROGRESS = "in_progress", "Devam ediyor"
+        COMPLETED = "completed", "Tamamlandı"
+        CANCELLED = "cancelled", "İptal edildi"
+
+    company = models.ForeignKey(
+        Company,
+        on_delete=models.PROTECT,
+        related_name="employee_goals",
+        verbose_name="Şirket",
+    )
+
+    cycle = models.ForeignKey(
+        PerformanceReviewCycle,
+        on_delete=models.PROTECT,
+        related_name="employee_goals",
+        verbose_name="Değerlendirme dönemi",
+    )
+
+    employee = models.ForeignKey(
+        Employee,
+        on_delete=models.PROTECT,
+        related_name="performance_goals",
+        verbose_name="Personel",
+    )
+
+    title = models.CharField(
+        max_length=200,
+        verbose_name="Hedef başlığı",
+    )
+
+    description = models.TextField(
+        blank=True,
+        verbose_name="Hedef açıklaması",
+    )
+
+    weight = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=0,
+        verbose_name="Ağırlık yüzdesi",
+    )
+
+    target_value = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name="Hedef değer",
+    )
+
+    current_value = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name="Mevcut değer",
+    )
+
+    unit = models.CharField(
+        max_length=50,
+        blank=True,
+        verbose_name="Ölçü birimi",
+    )
+
+    start_date = models.DateField(
+        verbose_name="Başlangıç tarihi",
+    )
+
+    due_date = models.DateField(
+        verbose_name="Hedef tarihi",
+    )
+
+    progress_percentage = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=0,
+        verbose_name="İlerleme yüzdesi",
+    )
+
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.DRAFT,
+        verbose_name="Durum",
+    )
+
+    completion_note = models.TextField(
+        blank=True,
+        verbose_name="Tamamlama notu",
+    )
+
+    class Meta:
+        verbose_name = "Personel hedefi"
+        verbose_name_plural = "Personel hedefleri"
+        ordering = [
+            "due_date",
+            "employee__last_name",
+            "title",
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=[
+                    "cycle",
+                    "employee",
+                    "title",
+                ],
+                name="unique_goal_title_per_cycle_employee",
+            ),
+            models.CheckConstraint(
+                condition=Q(weight__gte=0) & Q(weight__lte=100),
+                name="employee_goal_weight_between_0_and_100",
+            ),
+            models.CheckConstraint(
+                condition=(
+                    Q(progress_percentage__gte=0)
+                    & Q(progress_percentage__lte=100)
+                ),
+                name="employee_goal_progress_between_0_and_100",
+            ),
+            models.CheckConstraint(
+                condition=Q(due_date__gte=models.F("start_date")),
+                name="employee_goal_due_not_before_start",
+            ),
+        ]
+        indexes = [
+            models.Index(
+                fields=[
+                    "company",
+                    "cycle",
+                    "status",
+                ],
+            ),
+            models.Index(
+                fields=[
+                    "employee",
+                    "status",
+                    "due_date",
+                ],
+            ),
+        ]
+
+    def clean(self):
+        errors = {}
+
+        if self.company_id and self.cycle_id:
+            if self.cycle.company_id != self.company_id:
+                errors["cycle"] = (
+                    "Değerlendirme dönemi seçilen şirkete ait olmalıdır."
+                )
+
+        if self.company_id and self.employee_id:
+            if self.employee.company_id != self.company_id:
+                errors["employee"] = (
+                    "Personel seçilen şirkete ait olmalıdır."
+                )
+
+        if (
+            self.start_date
+            and self.due_date
+            and self.due_date < self.start_date
+        ):
+            errors["due_date"] = (
+                "Hedef tarihi başlangıç tarihinden önce olamaz."
+            )
+
+        if self.cycle_id and self.start_date:
+            if self.start_date < self.cycle.start_date:
+                errors["start_date"] = (
+                    "Hedef başlangıcı değerlendirme döneminden "
+                    "önce olamaz."
+                )
+
+        if self.cycle_id and self.due_date:
+            if self.due_date > self.cycle.end_date:
+                errors["due_date"] = (
+                    "Hedef tarihi değerlendirme döneminden sonra olamaz."
+                )
+
+        if self.weight is not None:
+            if self.weight < 0 or self.weight > 100:
+                errors["weight"] = (
+                    "Hedef ağırlığı 0 ile 100 arasında olmalıdır."
+                )
+
+        if self.progress_percentage is not None:
+            if (
+                self.progress_percentage < 0
+                or self.progress_percentage > 100
+            ):
+                errors["progress_percentage"] = (
+                    "İlerleme yüzdesi 0 ile 100 arasında olmalıdır."
+                )
+
+        if errors:
+            raise ValidationError(errors)
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return (
+            f"{self.employee.full_name} · "
+            f"{self.title}"
+        )
+
+
+class PerformanceReview(BaseModel):
+    """
+    Bir değerlendirme döneminde çalışan ile yöneticisi arasındaki
+    performans değerlendirme kaydıdır.
+    """
+
+    class Status(models.TextChoices):
+        DRAFT = "draft", "Taslak"
+        SELF_REVIEW = "self_review", "Öz değerlendirmede"
+        MANAGER_REVIEW = "manager_review", "Yönetici değerlendirmesinde"
+        COMPLETED = "completed", "Tamamlandı"
+        CANCELLED = "cancelled", "İptal edildi"
+
+    company = models.ForeignKey(
+        Company,
+        on_delete=models.PROTECT,
+        related_name="performance_reviews",
+        verbose_name="Şirket",
+    )
+
+    cycle = models.ForeignKey(
+        PerformanceReviewCycle,
+        on_delete=models.PROTECT,
+        related_name="performance_reviews",
+        verbose_name="Değerlendirme dönemi",
+    )
+
+    employee = models.ForeignKey(
+        Employee,
+        on_delete=models.PROTECT,
+        related_name="performance_reviews",
+        verbose_name="Değerlendirilen personel",
+    )
+
+    manager = models.ForeignKey(
+        Employee,
+        on_delete=models.PROTECT,
+        related_name="managed_performance_reviews",
+        verbose_name="Değerlendiren yönetici",
+    )
+
+    status = models.CharField(
+        max_length=30,
+        choices=Status.choices,
+        default=Status.DRAFT,
+        verbose_name="Durum",
+    )
+
+    employee_rating = models.DecimalField(
+        max_digits=3,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name="Çalışan öz değerlendirme puanı",
+    )
+
+    manager_rating = models.DecimalField(
+        max_digits=3,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name="Yönetici puanı",
+    )
+
+    overall_rating = models.DecimalField(
+        max_digits=3,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name="Genel performans puanı",
+    )
+
+    employee_comment = models.TextField(
+        blank=True,
+        verbose_name="Çalışan değerlendirme notu",
+    )
+
+    manager_comment = models.TextField(
+        blank=True,
+        verbose_name="Yönetici değerlendirme notu",
+    )
+
+    development_plan = models.TextField(
+        blank=True,
+        verbose_name="Gelişim planı",
+    )
+
+    submitted_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="Gönderim zamanı",
+    )
+
+    completed_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="Tamamlanma zamanı",
+    )
+
+    completed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="completed_performance_reviews",
+        verbose_name="Tamamlayan kullanıcı",
+    )
+
+    class Meta:
+        verbose_name = "Performans değerlendirmesi"
+        verbose_name_plural = "Performans değerlendirmeleri"
+        ordering = [
+            "-cycle__start_date",
+            "employee__last_name",
+            "employee__first_name",
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=[
+                    "company",
+                    "cycle",
+                    "employee",
+                ],
+                name="unique_performance_review_per_cycle_employee",
+            ),
+        ]
+        indexes = [
+            models.Index(
+                fields=[
+                    "company",
+                    "cycle",
+                    "status",
+                ],
+            ),
+            models.Index(
+                fields=[
+                    "employee",
+                    "status",
+                ],
+            ),
+            models.Index(
+                fields=[
+                    "manager",
+                    "status",
+                ],
+            ),
+        ]
+
+    def clean(self):
+        errors = {}
+
+        if self.company_id and self.cycle_id:
+            if self.cycle.company_id != self.company_id:
+                errors["cycle"] = (
+                    "Değerlendirme dönemi seçilen şirkete ait olmalıdır."
+                )
+
+        if self.company_id and self.employee_id:
+            if self.employee.company_id != self.company_id:
+                errors["employee"] = (
+                    "Değerlendirilen personel seçilen şirkete "
+                    "ait olmalıdır."
+                )
+
+        if self.company_id and self.manager_id:
+            if self.manager.company_id != self.company_id:
+                errors["manager"] = (
+                    "Yönetici seçilen şirkete ait olmalıdır."
+                )
+
+        if (
+            self.employee_id
+            and self.manager_id
+            and self.employee_id == self.manager_id
+        ):
+            errors["manager"] = (
+                "Personel kendi performans yöneticisi olamaz."
+            )
+
+        rating_fields = {
+            "employee_rating": self.employee_rating,
+            "manager_rating": self.manager_rating,
+            "overall_rating": self.overall_rating,
+        }
+
+        for field_name, rating in rating_fields.items():
+            if rating is not None and (rating < 1 or rating > 5):
+                errors[field_name] = (
+                    "Performans puanı 1 ile 5 arasında olmalıdır."
+                )
+
+        if self.status == self.Status.COMPLETED:
+            if self.overall_rating is None:
+                errors["overall_rating"] = (
+                    "Tamamlanan değerlendirmede genel puan zorunludur."
+                )
+
+            if not self.completed_at:
+                errors["completed_at"] = (
+                    "Tamamlanan değerlendirmede tamamlanma zamanı "
+                    "zorunludur."
+                )
+
+            if not self.completed_by_id:
+                errors["completed_by"] = (
+                    "Tamamlanan değerlendirmede tamamlayan kullanıcı "
+                    "zorunludur."
+                )
+
+        if errors:
+            raise ValidationError(errors)
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return (
+            f"{self.employee.full_name} · "
+            f"{self.cycle.name}"
+        )
+
+
+class PerformanceReviewEvent(BaseModel):
+    """
+    Performans değerlendirmesindeki durum ve işlem değişikliklerini
+    saklayan denetim kaydıdır.
+    """
+
+    class EventType(models.TextChoices):
+        CREATED = "created", "Oluşturuldu"
+        SELF_REVIEW_STARTED = (
+            "self_review_started",
+            "Öz değerlendirme başladı",
+        )
+        SELF_REVIEW_SUBMITTED = (
+            "self_review_submitted",
+            "Öz değerlendirme gönderildi",
+        )
+        MANAGER_REVIEW_STARTED = (
+            "manager_review_started",
+            "Yönetici değerlendirmesi başladı",
+        )
+        COMPLETED = "completed", "Tamamlandı"
+        CANCELLED = "cancelled", "İptal edildi"
+        UPDATED = "updated", "Güncellendi"
+
+    review = models.ForeignKey(
+        PerformanceReview,
+        on_delete=models.CASCADE,
+        related_name="events",
+        verbose_name="Performans değerlendirmesi",
+    )
+
+    company = models.ForeignKey(
+        Company,
+        on_delete=models.PROTECT,
+        related_name="performance_review_events",
+        verbose_name="Şirket",
+    )
+
+    event_type = models.CharField(
+        max_length=40,
+        choices=EventType.choices,
+        verbose_name="İşlem türü",
+    )
+
+    previous_status = models.CharField(
+        max_length=30,
+        choices=PerformanceReview.Status.choices,
+        blank=True,
+        verbose_name="Önceki durum",
+    )
+
+    new_status = models.CharField(
+        max_length=30,
+        choices=PerformanceReview.Status.choices,
+        verbose_name="Yeni durum",
+    )
+
+    changed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="performance_review_events",
+        verbose_name="İşlemi yapan kullanıcı",
+    )
+
+    note = models.TextField(
+        blank=True,
+        verbose_name="İşlem notu",
+    )
+
+    occurred_at = models.DateTimeField(
+        default=timezone.now,
+        verbose_name="İşlem zamanı",
+    )
+
+    class Meta:
+        verbose_name = "Performans değerlendirme işlem kaydı"
+        verbose_name_plural = "Performans değerlendirme işlem kayıtları"
+        ordering = [
+            "-occurred_at",
+            "-created_at",
+        ]
+        indexes = [
+            models.Index(
+                fields=[
+                    "company",
+                    "occurred_at",
+                ],
+            ),
+            models.Index(
+                fields=[
+                    "review",
+                    "occurred_at",
+                ],
+            ),
+            models.Index(
+                fields=[
+                    "event_type",
+                    "occurred_at",
+                ],
+            ),
+        ]
+
+    def clean(self):
+        errors = {}
+
+        if self.review_id and self.company_id:
+            if self.review.company_id != self.company_id:
+                errors["review"] = (
+                    "İşlem kaydı değerlendirmeyle aynı şirkete "
+                    "ait olmalıdır."
+                )
+
+        transition_events = {
+            self.EventType.SELF_REVIEW_STARTED,
+            self.EventType.SELF_REVIEW_SUBMITTED,
+            self.EventType.MANAGER_REVIEW_STARTED,
+            self.EventType.COMPLETED,
+            self.EventType.CANCELLED,
+        }
+
+        if self.event_type in transition_events:
+            if not self.previous_status:
+                errors["previous_status"] = (
+                    "Durum değiştiren işlemlerde önceki durum zorunludur."
+                )
+            elif self.previous_status == self.new_status:
+                errors["new_status"] = (
+                    "Yeni durum önceki durumdan farklı olmalıdır."
+                )
+
+        if errors:
+            raise ValidationError(errors)
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return (
+            f"{self.review.employee.full_name} · "
+            f"{self.get_event_type_display()}"
+        )
