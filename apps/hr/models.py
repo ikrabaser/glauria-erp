@@ -1095,3 +1095,643 @@ class AbsenceRequestEvent(BaseModel):
             f"{self.request.employee.full_name} · "
             f"{self.get_new_status_display()}"
         )
+class WorkSchedule(MasterDataModel):
+    """
+    Şirket içerisindeki standart çalışma takvimidir.
+    """
+
+    company = models.ForeignKey(
+        Company,
+        on_delete=models.PROTECT,
+        related_name="work_schedules",
+        verbose_name="Şirket",
+    )
+
+    code = models.CharField(
+        max_length=30,
+        verbose_name="Çalışma takvimi kodu",
+    )
+
+    name = models.CharField(
+        max_length=150,
+        verbose_name="Çalışma takvimi adı",
+    )
+
+    weekly_hours = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=40,
+        verbose_name="Haftalık çalışma saati",
+    )
+
+    timezone_name = models.CharField(
+        max_length=64,
+        default="Europe/Istanbul",
+        verbose_name="Saat dilimi",
+    )
+
+    description = models.TextField(
+        blank=True,
+        verbose_name="Açıklama",
+    )
+
+    class Meta:
+        verbose_name = "Çalışma takvimi"
+        verbose_name_plural = "Çalışma takvimleri"
+        ordering = [
+            "company__name",
+            "name",
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=[
+                    "company",
+                    "code",
+                ],
+                name="unique_work_schedule_code_per_company",
+            ),
+            models.CheckConstraint(
+                condition=Q(weekly_hours__gt=0),
+                name="work_schedule_weekly_hours_positive",
+            ),
+        ]
+        indexes = [
+            models.Index(
+                fields=[
+                    "company",
+                    "is_active",
+                ],
+            ),
+        ]
+
+    def save(self, *args, **kwargs):
+        self.code = self.code.strip().upper()
+        self.full_clean()
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.code} · {self.name}"
+
+
+class WorkScheduleDay(BaseModel):
+    """
+    Takvimin haftanın belirli bir günündeki çalışma saatidir.
+    """
+
+    class Weekday(models.IntegerChoices):
+        MONDAY = 0, "Pazartesi"
+        TUESDAY = 1, "Salı"
+        WEDNESDAY = 2, "Çarşamba"
+        THURSDAY = 3, "Perşembe"
+        FRIDAY = 4, "Cuma"
+        SATURDAY = 5, "Cumartesi"
+        SUNDAY = 6, "Pazar"
+
+    work_schedule = models.ForeignKey(
+        WorkSchedule,
+        on_delete=models.CASCADE,
+        related_name="days",
+        verbose_name="Çalışma takvimi",
+    )
+
+    weekday = models.PositiveSmallIntegerField(
+        choices=Weekday.choices,
+        verbose_name="Haftanın günü",
+    )
+
+    is_working_day = models.BooleanField(
+        default=True,
+        verbose_name="Çalışma günü mü?",
+    )
+
+    start_time = models.TimeField(
+        null=True,
+        blank=True,
+        verbose_name="Başlangıç saati",
+    )
+
+    end_time = models.TimeField(
+        null=True,
+        blank=True,
+        verbose_name="Bitiş saati",
+    )
+
+    break_minutes = models.PositiveIntegerField(
+        default=0,
+        verbose_name="Mola süresi (dakika)",
+    )
+
+    crosses_midnight = models.BooleanField(
+        default=False,
+        verbose_name="Ertesi güne taşıyor mu?",
+    )
+
+    class Meta:
+        verbose_name = "Çalışma takvimi günü"
+        verbose_name_plural = "Çalışma takvimi günleri"
+        ordering = [
+            "work_schedule",
+            "weekday",
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=[
+                    "work_schedule",
+                    "weekday",
+                ],
+                name="unique_weekday_per_work_schedule",
+            ),
+        ]
+        indexes = [
+            models.Index(
+                fields=[
+                    "work_schedule",
+                    "weekday",
+                ],
+            ),
+        ]
+
+    def clean(self):
+        errors = {}
+
+        if self.is_working_day:
+            if not self.start_time:
+                errors["start_time"] = (
+                    "Çalışma gününde başlangıç saati zorunludur."
+                )
+
+            if not self.end_time:
+                errors["end_time"] = (
+                    "Çalışma gününde bitiş saati zorunludur."
+                )
+
+            if (
+                self.start_time
+                and self.end_time
+                and not self.crosses_midnight
+                and self.end_time <= self.start_time
+            ):
+                errors["end_time"] = (
+                    "Bitiş saati başlangıç saatinden sonra olmalıdır."
+                )
+        else:
+            if self.start_time or self.end_time:
+                errors["is_working_day"] = (
+                    "Çalışılmayan günlerde başlangıç ve bitiş "
+                    "saati tanımlanamaz."
+                )
+
+            if self.break_minutes:
+                errors["break_minutes"] = (
+                    "Çalışılmayan günlerde mola süresi tanımlanamaz."
+                )
+
+            if self.crosses_midnight:
+                errors["crosses_midnight"] = (
+                    "Çalışılmayan gün ertesi güne taşınamaz."
+                )
+
+        if errors:
+            raise ValidationError(errors)
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return (
+            f"{self.work_schedule.name} · "
+            f"{self.get_weekday_display()}"
+        )
+class EmployeeScheduleAssignment(BaseModel):
+    """
+    Personelin belirli tarih aralığındaki çalışma takvimi atamasıdır.
+    """
+
+    company = models.ForeignKey(
+        Company,
+        on_delete=models.PROTECT,
+        related_name="employee_schedule_assignments",
+        verbose_name="Şirket",
+    )
+
+    employee = models.ForeignKey(
+        Employee,
+        on_delete=models.PROTECT,
+        related_name="schedule_assignments",
+        verbose_name="Personel",
+    )
+
+    work_schedule = models.ForeignKey(
+        WorkSchedule,
+        on_delete=models.PROTECT,
+        related_name="employee_assignments",
+        verbose_name="Çalışma takvimi",
+    )
+
+    start_date = models.DateField(
+        verbose_name="Başlangıç tarihi",
+    )
+
+    end_date = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name="Bitiş tarihi",
+    )
+
+    is_primary = models.BooleanField(
+        default=True,
+        verbose_name="Birincil takvim mi?",
+    )
+
+    assignment_note = models.TextField(
+        blank=True,
+        verbose_name="Atama notu",
+    )
+
+    class Meta:
+        verbose_name = "Personel çalışma takvimi ataması"
+        verbose_name_plural = "Personel çalışma takvimi atamaları"
+        ordering = [
+            "-start_date",
+            "-created_at",
+        ]
+        constraints = [
+            models.CheckConstraint(
+                condition=(
+                    Q(end_date__isnull=True)
+                    | Q(end_date__gte=models.F("start_date"))
+                ),
+                name="schedule_assignment_end_not_before_start",
+            ),
+            models.UniqueConstraint(
+                fields=[
+                    "employee",
+                ],
+                condition=Q(
+                    is_primary=True,
+                    end_date__isnull=True,
+                ),
+                name="unique_active_primary_schedule_per_employee",
+            ),
+        ]
+        indexes = [
+            models.Index(
+                fields=[
+                    "company",
+                    "start_date",
+                    "end_date",
+                ],
+            ),
+            models.Index(
+                fields=[
+                    "employee",
+                    "is_primary",
+                    "end_date",
+                ],
+            ),
+        ]
+
+    def clean(self):
+        errors = {}
+
+        if self.employee_id and self.company_id:
+            if self.employee.company_id != self.company_id:
+                errors["employee"] = (
+                    "Personel takvim atamasındaki şirkete ait olmalıdır."
+                )
+
+        if self.work_schedule_id and self.company_id:
+            if self.work_schedule.company_id != self.company_id:
+                errors["work_schedule"] = (
+                    "Çalışma takvimi atamadaki şirkete ait olmalıdır."
+                )
+
+        if (
+            self.start_date
+            and self.end_date
+            and self.end_date < self.start_date
+        ):
+            errors["end_date"] = (
+                "Bitiş tarihi başlangıç tarihinden önce olamaz."
+            )
+
+        if (
+            self.employee_id
+            and self.start_date
+            and self.is_primary
+        ):
+            overlapping_assignments = (
+                EmployeeScheduleAssignment.objects.filter(
+                    employee=self.employee,
+                    is_primary=True,
+                )
+                .filter(
+                    Q(end_date__isnull=True)
+                    | Q(end_date__gte=self.start_date)
+                )
+            )
+
+            if self.end_date:
+                overlapping_assignments = (
+                    overlapping_assignments.filter(
+                        start_date__lte=self.end_date,
+                    )
+                )
+
+            overlapping_assignments = (
+                overlapping_assignments.exclude(pk=self.pk)
+            )
+
+            if overlapping_assignments.exists():
+                errors["start_date"] = (
+                    "Personelin bu tarihlerle çakışan birincil "
+                    "çalışma takvimi ataması bulunuyor."
+                )
+
+        if errors:
+            raise ValidationError(errors)
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return (
+            f"{self.employee.full_name} · "
+            f"{self.work_schedule.name}"
+        )
+
+
+class AttendanceRecord(BaseModel):
+    """
+    Personelin belirli iş günündeki zaman ve devam kaydıdır.
+    """
+
+    class Status(models.TextChoices):
+        SCHEDULED = "scheduled", "Planlandı"
+        PRESENT = "present", "Çalıştı"
+        LATE = "late", "Geç kaldı"
+        ABSENT = "absent", "Devamsız"
+        ON_LEAVE = "on_leave", "İzinli"
+        REMOTE = "remote", "Uzaktan çalıştı"
+        NON_WORKING_DAY = "non_working_day", "Çalışma dışı gün"
+
+    class Source(models.TextChoices):
+        MANUAL = "manual", "Manuel"
+        DEVICE = "device", "Cihaz"
+        IMPORT = "import", "İçe aktarma"
+        SYSTEM = "system", "Sistem"
+
+    class ApprovalStatus(models.TextChoices):
+        DRAFT = "draft", "Taslak"
+        SUBMITTED = "submitted", "Onay bekliyor"
+        APPROVED = "approved", "Onaylandı"
+        REJECTED = "rejected", "Reddedildi"
+
+    company = models.ForeignKey(
+        Company,
+        on_delete=models.PROTECT,
+        related_name="attendance_records",
+        verbose_name="Şirket",
+    )
+
+    employee = models.ForeignKey(
+        Employee,
+        on_delete=models.PROTECT,
+        related_name="attendance_records",
+        verbose_name="Personel",
+    )
+
+    schedule_assignment = models.ForeignKey(
+        EmployeeScheduleAssignment,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="attendance_records",
+        verbose_name="Çalışma takvimi ataması",
+    )
+
+    work_date = models.DateField(
+        verbose_name="Çalışma tarihi",
+    )
+
+    scheduled_start_time = models.TimeField(
+        null=True,
+        blank=True,
+        verbose_name="Planlanan başlangıç",
+    )
+
+    scheduled_end_time = models.TimeField(
+        null=True,
+        blank=True,
+        verbose_name="Planlanan bitiş",
+    )
+
+    clock_in_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="Giriş zamanı",
+    )
+
+    clock_out_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="Çıkış zamanı",
+    )
+
+    break_minutes = models.PositiveIntegerField(
+        default=0,
+        verbose_name="Mola süresi (dakika)",
+    )
+
+    worked_minutes = models.PositiveIntegerField(
+        default=0,
+        editable=False,
+        verbose_name="Çalışılan süre (dakika)",
+    )
+
+    late_minutes = models.PositiveIntegerField(
+        default=0,
+        verbose_name="Geç kalma süresi (dakika)",
+    )
+
+    overtime_minutes = models.PositiveIntegerField(
+        default=0,
+        verbose_name="Fazla çalışma süresi (dakika)",
+    )
+
+    status = models.CharField(
+        max_length=30,
+        choices=Status.choices,
+        default=Status.SCHEDULED,
+        verbose_name="Devam durumu",
+    )
+
+    source = models.CharField(
+        max_length=20,
+        choices=Source.choices,
+        default=Source.MANUAL,
+        verbose_name="Kayıt kaynağı",
+    )
+
+    approval_status = models.CharField(
+        max_length=20,
+        choices=ApprovalStatus.choices,
+        default=ApprovalStatus.DRAFT,
+        verbose_name="Onay durumu",
+    )
+
+    approved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="approved_attendance_records",
+        verbose_name="Onaylayan kullanıcı",
+    )
+
+    approved_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="Onay zamanı",
+    )
+
+    note = models.TextField(
+        blank=True,
+        verbose_name="Not",
+    )
+
+    class Meta:
+        verbose_name = "Zaman ve devam kaydı"
+        verbose_name_plural = "Zaman ve devam kayıtları"
+        ordering = [
+            "-work_date",
+            "employee__last_name",
+            "employee__first_name",
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=[
+                    "company",
+                    "employee",
+                    "work_date",
+                ],
+                name="unique_attendance_record_per_employee_day",
+            ),
+        ]
+        indexes = [
+            models.Index(
+                fields=[
+                    "company",
+                    "work_date",
+                    "status",
+                ],
+            ),
+            models.Index(
+                fields=[
+                    "employee",
+                    "work_date",
+                ],
+            ),
+            models.Index(
+                fields=[
+                    "company",
+                    "approval_status",
+                    "work_date",
+                ],
+            ),
+        ]
+
+    def clean(self):
+        errors = {}
+
+        if self.employee_id and self.company_id:
+            if self.employee.company_id != self.company_id:
+                errors["employee"] = (
+                    "Personel devam kaydındaki şirkete ait olmalıdır."
+                )
+
+        if self.schedule_assignment_id:
+            if (
+                self.schedule_assignment.employee_id
+                != self.employee_id
+            ):
+                errors["schedule_assignment"] = (
+                    "Takvim ataması devam kaydındaki personele "
+                    "ait olmalıdır."
+                )
+            elif (
+                self.schedule_assignment.company_id
+                != self.company_id
+            ):
+                errors["schedule_assignment"] = (
+                    "Takvim ataması devam kaydındaki şirkete "
+                    "ait olmalıdır."
+                )
+            elif (
+                self.work_date
+                and self.work_date
+                < self.schedule_assignment.start_date
+            ):
+                errors["work_date"] = (
+                    "Çalışma tarihi takvim atamasının başlangıcından "
+                    "önce olamaz."
+                )
+            elif (
+                self.work_date
+                and self.schedule_assignment.end_date
+                and self.work_date
+                > self.schedule_assignment.end_date
+            ):
+                errors["work_date"] = (
+                    "Çalışma tarihi takvim atamasının bitişinden "
+                    "sonra olamaz."
+                )
+
+        if (
+            self.clock_in_at
+            and self.clock_out_at
+            and self.clock_out_at <= self.clock_in_at
+        ):
+            errors["clock_out_at"] = (
+                "Çıkış zamanı giriş zamanından sonra olmalıdır."
+            )
+
+        if (
+            self.approval_status
+            == self.ApprovalStatus.APPROVED
+            and not self.approved_by
+        ):
+            errors["approved_by"] = (
+                "Onaylanan devam kaydında onaylayan kullanıcı "
+                "zorunludur."
+            )
+
+        if errors:
+            raise ValidationError(errors)
+
+    def save(self, *args, **kwargs):
+        if self.clock_in_at and self.clock_out_at:
+            total_minutes = int(
+                (
+                    self.clock_out_at - self.clock_in_at
+                ).total_seconds()
+                // 60
+            )
+
+            self.worked_minutes = max(
+                total_minutes - self.break_minutes,
+                0,
+            )
+        else:
+            self.worked_minutes = 0
+
+        self.full_clean()
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return (
+            f"{self.employee.full_name} · "
+            f"{self.work_date:%d.%m.%Y}"
+        )

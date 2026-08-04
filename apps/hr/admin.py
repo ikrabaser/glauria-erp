@@ -5,10 +5,14 @@ from .models import (
     AbsenceRequest,
     AbsenceRequestEvent,
     AbsenceType,
+    AttendanceRecord,
     Employee,
+    EmployeeScheduleAssignment,
     EmploymentAssignment,
     EmploymentAssignmentEvent,
     Position,
+    WorkSchedule,
+    WorkScheduleDay,
 )
 
 
@@ -390,3 +394,162 @@ class AbsenceRequestEventAdmin(admin.ModelAdmin):
         obj=None,
     ):
         return False
+class WorkScheduleDayInline(admin.TabularInline):
+    model = WorkScheduleDay
+    extra = 0
+    fields = (
+        "weekday",
+        "is_working_day",
+        "start_time",
+        "end_time",
+        "break_minutes",
+        "crosses_midnight",
+    )
+    ordering = (
+        "weekday",
+    )
+
+
+@admin.register(WorkSchedule)
+class WorkScheduleAdmin(admin.ModelAdmin):
+    list_display = (
+        "code",
+        "name",
+        "company",
+        "weekly_hours",
+        "timezone_name",
+        "is_active",
+    )
+    list_filter = (
+        "company",
+        "is_active",
+    )
+    search_fields = (
+        "code",
+        "name",
+        "company__name",
+    )
+    ordering = (
+        "company__name",
+        "name",
+    )
+    list_select_related = (
+        "company",
+    )
+    inlines = (
+        WorkScheduleDayInline,
+    )
+
+
+@admin.register(WorkScheduleDay)
+class WorkScheduleDayAdmin(admin.ModelAdmin):
+    list_display = (
+        "work_schedule",
+        "weekday",
+        "is_working_day",
+        "start_time",
+        "end_time",
+        "break_minutes",
+        "crosses_midnight",
+    )
+    list_filter = (
+        "work_schedule__company",
+        "work_schedule",
+        "is_working_day",
+        "weekday",
+    )
+    search_fields = (
+        "work_schedule__code",
+        "work_schedule__name",
+        "work_schedule__company__name",
+    )
+    ordering = (
+        "work_schedule__company__name",
+        "work_schedule__name",
+        "weekday",
+    )
+    list_select_related = (
+        "work_schedule",
+        "work_schedule__company",
+    )
+
+
+@admin.register(EmployeeScheduleAssignment)
+class EmployeeScheduleAssignmentAdmin(admin.ModelAdmin):
+    list_display = (
+        "employee",
+        "work_schedule",
+        "company",
+        "start_date",
+        "end_date",
+        "is_primary",
+    )
+    list_filter = (
+        "company",
+        "work_schedule",
+        "is_primary",
+        "start_date",
+        "end_date",
+    )
+    search_fields = (
+        "employee__employee_number",
+        "employee__first_name",
+        "employee__last_name",
+        "work_schedule__code",
+        "work_schedule__name",
+    )
+    ordering = (
+        "-start_date",
+        "employee__last_name",
+        "employee__first_name",
+    )
+    list_select_related = (
+        "company",
+        "employee",
+        "work_schedule",
+    )
+
+
+@admin.register(AttendanceRecord)
+class AttendanceRecordAdmin(admin.ModelAdmin):
+    list_display = (
+        "employee",
+        "work_date",
+        "status",
+        "clock_in_at",
+        "clock_out_at",
+        "worked_minutes",
+        "late_minutes",
+        "overtime_minutes",
+        "approval_status",
+    )
+    list_filter = (
+        "company",
+        "status",
+        "approval_status",
+        "source",
+        "work_date",
+    )
+    search_fields = (
+        "employee__employee_number",
+        "employee__first_name",
+        "employee__last_name",
+        "note",
+    )
+    ordering = (
+        "-work_date",
+        "employee__last_name",
+        "employee__first_name",
+    )
+    list_select_related = (
+        "company",
+        "employee",
+        "schedule_assignment",
+        "approved_by",
+    )
+    readonly_fields = (
+        "worked_minutes",
+        "approved_at",
+        "created_at",
+        "updated_at",
+    )

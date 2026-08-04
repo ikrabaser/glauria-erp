@@ -1,11 +1,12 @@
 from io import StringIO
-from datetime import date
+from datetime import date, datetime, time
 from decimal import Decimal
 
 from django.urls import reverse
 from django.core.management import call_command
 from django.core.exceptions import ValidationError
 from django.test import TestCase
+from django.utils import timezone
 
 from apps.accounts.models import OrganizationMembership, User
 from apps.organizations.models import Branch, Company, Department
@@ -19,6 +20,10 @@ from .models import (
     EmploymentAssignment,
     EmploymentAssignmentEvent,
     Position,
+    AttendanceRecord,
+    EmployeeScheduleAssignment,
+    WorkSchedule,
+    WorkScheduleDay,
 )
 from .services import (
     approve_absence_request,
@@ -1427,3 +1432,184 @@ class AbsenceViewAccessTestCase(TestCase):
         )
 
         self.assertEqual(response.status_code, 403)
+class TimeAndAttendanceModelTestCase(TestCase):
+    def setUp(self):
+        self.company = Company.objects.create(
+            name="Zaman Yönetimi Test Şirketi",
+        )
+
+        self.employee = Employee.objects.create(
+            company=self.company,
+            employee_number="TIME-0001",
+            first_name="Selin",
+            last_name="Aydın",
+            work_email="selin.time@example.com",
+            hire_date=date(2025, 1, 1),
+        )
+
+        self.approver = User.objects.create_user(
+            username="attendance_approver",
+            email="attendance.approver@example.com",
+            password="test-password",
+            user_type=User.UserType.INTERNAL,
+        )
+
+        self.schedule = WorkSchedule.objects.create(
+            company=self.company,
+            code="std-40",
+            name="Standart 40 Saat",
+            weekly_hours="40.00",
+        )
+
+        self.assignment = EmployeeScheduleAssignment.objects.create(
+            company=self.company,
+            employee=self.employee,
+            work_schedule=self.schedule,
+            start_date=date(2026, 1, 1),
+            is_primary=True,
+        )
+
+    def test_work_schedule_code_is_normalized(self):
+        self.assertEqual(
+            self.schedule.code,
+            "STD-40",
+        )
+
+    def test_non_working_day_cannot_have_working_hours(self):
+        with self.assertRaises(ValidationError):
+            WorkScheduleDay.objects.create(
+                work_schedule=self.schedule,
+                weekday=WorkScheduleDay.Weekday.SUNDAY,
+                is_working_day=False,
+                start_time=time(9, 0),
+                end_time=time(18, 0),
+            )
+
+    def test_employee_cannot_have_overlapping_primary_schedules(self):
+        second_schedule = WorkSchedule.objects.create(
+            company=self.company,
+            code="FLEX-40",
+            name="Esnek 40 Saat",
+            weekly_hours="40.00",
+        )
+
+        with self.assertRaises(ValidationError):
+            EmployeeScheduleAssignment.objects.create(
+                company=self.company,
+                employee=self.employee,
+                work_schedule=second_schedule,
+                start_date=date(2026, 6, 1),
+                is_primary=True,
+            )
+
+    def test_schedule_must_belong_to_employee_company(self):
+        other_company = Company.objects.create(
+            name="Başka Zaman Yönetimi Şirketi",
+        )
+
+        other_schedule = WorkSchedule.objects.create(
+            company=other_company,
+            code="OTHER-40",
+            name="Başka Şirket Takvimi",
+            weekly_hours="40.00",
+        )
+
+        with self.assertRaises(ValidationError):
+            EmployeeScheduleAssignment.objects.create(
+                company=self.company,
+                employee=self.employee,
+                work_schedule=other_schedule,
+                start_date=date(2025, 1, 1),
+                end_date=date(2025, 12, 31),
+                is_primary=False,
+            )
+
+    def test_attendance_record_calculates_worked_minutes(self):
+        clock_in = timezone.make_aware(
+            datetime(2026, 8, 4, 9, 0),
+        )
+        clock_out = timezone.make_aware(
+            datetime(2026, 8, 4, 18, 0),
+        )
+
+        attendance = AttendanceRecord.objects.create(
+            company=self.company,
+            employee=self.employee,
+            schedule_assignment=self.assignment,
+            work_date=date(2026, 8, 4),
+            clock_in_at=clock_in,
+            clock_out_at=clock_out,
+            break_minutes=60,
+            status=AttendanceRecord.Status.PRESENT,
+        )
+
+        self.assertEqual(
+            attendance.worked_minutes,
+            480,
+        )
+
+    def test_clock_out_must_be_after_clock_in(self):
+        clock_in = timezone.make_aware(
+            datetime(2026, 8, 4, 18, 0),
+        )
+        clock_out = timezone.make_aware(
+            datetime(2026, 8, 4, 9, 0),
+        )
+
+        with self.assertRaises(ValidationError):
+            AttendanceRecord.objects.create(
+                company=self.company,
+                employee=self.employee,
+                schedule_assignment=self.assignment,
+                work_date=date(2026, 8, 4),
+                clock_in_at=clock_in,
+                clock_out_at=clock_out,
+            )
+
+    def test_attendance_schedule_must_belong_to_employee(self):
+        other_employee = Employee.objects.create(
+            company=self.company,
+            employee_number="TIME-0002",
+            first_name="Ece",
+            last_name="Demir",
+            work_email="ece.time@example.com",
+            hire_date=date(2025, 2, 1),
+        )
+
+        with self.assertRaises(ValidationError):
+            AttendanceRecord.objects.create(
+                company=self.company,
+                employee=other_employee,
+                schedule_assignment=self.assignment,
+                work_date=date(2026, 8, 4),
+            )
+
+    def test_employee_can_have_only_one_record_per_day(self):
+        AttendanceRecord.objects.create(
+            company=self.company,
+            employee=self.employee,
+            schedule_assignment=self.assignment,
+            work_date=date(2026, 8, 4),
+        )
+
+        with self.assertRaises(ValidationError):
+            AttendanceRecord.objects.create(
+                company=self.company,
+                employee=self.employee,
+                schedule_assignment=self.assignment,
+                work_date=date(2026, 8, 4),
+            )
+
+    def test_approved_record_requires_approver(self):
+        with self.assertRaises(ValidationError):
+            AttendanceRecord.objects.create(
+                company=self.company,
+                employee=self.employee,
+                schedule_assignment=self.assignment,
+                work_date=date(2026, 8, 4),
+                approval_status=(
+                    AttendanceRecord
+                    .ApprovalStatus
+                    .APPROVED
+                ),
+            )
