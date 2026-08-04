@@ -2598,3 +2598,63 @@ html[data-theme="light"] .recruitment-requisition__meta {
         flex-direction: column;
     }
 }
+
+
+/* Job requisition screens */
+
+.requisition-action-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1.25rem;
+    padding: 1rem 1.2rem;
+    border: 1px solid rgba(229, 167, 161, 0.25);
+    border-radius: 16px;
+    background: rgba(185, 111, 120, 0.09);
+}
+
+.requisition-action-bar strong,
+.requisition-action-bar span {
+    display: block;
+}
+
+.requisition-action-bar strong {
+    color: #fff;
+    font-size: 0.9rem;
+}
+
+.requisition-action-bar span {
+    margin-top: 0.2rem;
+    color: rgba(255, 255, 255, 0.58);
+    font-size: 0.76rem;
+}
+
+.requisition-description {
+    color: rgba(255, 255, 255, 0.68);
+    font-size: 0.86rem;
+    line-height: 1.75;
+}
+
+.hr-panel > h4 {
+    margin: 1.3rem 0 0.6rem;
+    color: #fff;
+    font-size: 0.9rem;
+}
+
+html[data-theme="light"] .requisition-action-bar strong,
+html[data-theme="light"] .hr-panel > h4 {
+    color: #231f2c;
+}
+
+html[data-theme="light"] .requisition-action-bar span,
+html[data-theme="light"] .requisition-description {
+    color: rgba(43, 36, 50, 0.64);
+}
+
+@media (max-width: 720px) {
+    .requisition-action-bar {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+}

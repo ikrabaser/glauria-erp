@@ -4,6 +4,7 @@ from django.contrib.auth.decorators import login_required
 from django.db.models import Avg, Count, Prefetch, Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
+from django.urls import reverse
 from django.contrib import messages
 from django.db import transaction
 from django.http import HttpResponseForbidden
@@ -35,6 +36,7 @@ from .forms import (
     EmployeeForm,
     InitialAssignmentForm,
     PositionForm,
+    JobRequisitionForm,
 )
 from .services import (
     approve_absence_request,
@@ -42,6 +44,7 @@ from .services import (
     change_employee_assignment,
     reject_absence_request,
     submit_absence_request,
+    open_job_requisition,
 )
 
 def get_active_membership(user):
@@ -1988,5 +1991,242 @@ def recruitment_dashboard(request):
             "requisition_filter": requisition_filter,
             "can_manage_hr": can_manage_hr(membership),
         },
+    )
+
+
+@login_required
+def job_requisition_list(request):
+    membership = get_active_membership(request.user)
+
+    if not has_hr_access(membership):
+        return redirect("hr:home")
+
+    company = membership.company
+    search_query = request.GET.get("q", "").strip()
+    status_filter = request.GET.get("status", "").strip()
+    department_filter = request.GET.get(
+        "department",
+        "",
+    ).strip()
+
+    requisitions = (
+        JobRequisition.objects.filter(
+            company=company,
+        )
+        .select_related(
+            "department",
+            "department__branch",
+            "position",
+            "hiring_manager",
+            "recruiter",
+        )
+        .annotate(
+            application_count=Count(
+                "applications",
+                distinct=True,
+            )
+        )
+        .order_by(
+            "-created_at",
+            "requisition_number",
+        )
+    )
+
+    if search_query:
+        requisitions = requisitions.filter(
+            Q(requisition_number__icontains=search_query)
+            | Q(title__icontains=search_query)
+            | Q(description__icontains=search_query)
+            | Q(department__name__icontains=search_query)
+            | Q(position__title__icontains=search_query)
+        )
+
+    valid_statuses = {
+        value
+        for value, _label in JobRequisition.Status.choices
+    }
+
+    if status_filter in valid_statuses:
+        requisitions = requisitions.filter(
+            status=status_filter,
+        )
+    else:
+        status_filter = ""
+
+    if department_filter:
+        requisitions = requisitions.filter(
+            department_id=department_filter,
+        )
+
+    departments = (
+        Department.objects.filter(
+            branch__company=company,
+            is_active=True,
+        )
+        .order_by("name")
+    )
+
+    return render(
+        request,
+        "hr/job_requisition_list.html",
+        {
+            "current_membership": membership,
+            "requisitions": requisitions,
+            "departments": departments,
+            "status_choices": JobRequisition.Status.choices,
+            "search_query": search_query,
+            "status_filter": status_filter,
+            "department_filter": department_filter,
+            "can_manage_hr": can_manage_hr(membership),
+        },
+    )
+
+
+@login_required
+def job_requisition_create(request):
+    membership = get_active_membership(request.user)
+
+    if not can_manage_hr(membership):
+        return hr_management_forbidden()
+
+    company = membership.company
+
+    if request.method == "POST":
+        form = JobRequisitionForm(
+            request.POST,
+            company=company,
+        )
+
+        if form.is_valid():
+            requisition = form.save(commit=False)
+            requisition.company = company
+            requisition.created_by = request.user
+            requisition.status = JobRequisition.Status.DRAFT
+            requisition.save()
+
+            messages.success(
+                request,
+                "İşe alım talebi taslak olarak oluşturuldu.",
+            )
+
+            return redirect(
+                "hr:job_requisition_detail",
+                requisition_id=requisition.id,
+            )
+    else:
+        form = JobRequisitionForm(
+            company=company,
+        )
+
+    return render(
+        request,
+        "hr/job_requisition_form.html",
+        {
+            "current_membership": membership,
+            "form": form,
+            "page_title": "Yeni İşe Alım Talebi",
+            "page_description": (
+                "Pozisyon, kontenjan ve işe alım sorumlularını "
+                "tanımlayarak yeni bir talep oluşturun."
+            ),
+            "submit_text": "Talebi Oluştur",
+            "cancel_url": reverse(
+                "hr:job_requisition_list",
+            ),
+        },
+    )
+
+
+@login_required
+def job_requisition_detail(
+    request,
+    requisition_id,
+):
+    membership = get_active_membership(request.user)
+
+    if not has_hr_access(membership):
+        return redirect("hr:home")
+
+    requisition = get_object_or_404(
+        JobRequisition.objects.select_related(
+            "company",
+            "department",
+            "department__branch",
+            "position",
+            "hiring_manager",
+            "recruiter",
+            "created_by",
+        ).prefetch_related(
+            "applications",
+            "applications__candidate",
+        ),
+        id=requisition_id,
+        company=membership.company,
+    )
+
+    applications = (
+        requisition.applications
+        .select_related(
+            "candidate",
+            "assigned_recruiter",
+        )
+        .order_by(
+            "-applied_at",
+        )
+    )
+
+    return render(
+        request,
+        "hr/job_requisition_detail.html",
+        {
+            "current_membership": membership,
+            "requisition": requisition,
+            "applications": applications,
+            "can_manage_hr": can_manage_hr(membership),
+        },
+    )
+
+
+@login_required
+def job_requisition_open(
+    request,
+    requisition_id,
+):
+    membership = get_active_membership(request.user)
+
+    if not can_manage_hr(membership):
+        return hr_management_forbidden()
+
+    requisition = get_object_or_404(
+        JobRequisition,
+        id=requisition_id,
+        company=membership.company,
+    )
+
+    if request.method != "POST":
+        return redirect(
+            "hr:job_requisition_detail",
+            requisition_id=requisition.id,
+        )
+
+    try:
+        open_job_requisition(
+            requisition=requisition,
+            changed_by=request.user,
+        )
+    except ValidationError as error:
+        messages.error(
+            request,
+            " ".join(error.messages),
+        )
+    else:
+        messages.success(
+            request,
+            "İşe alım talebi yayına alındı.",
+        )
+
+    return redirect(
+        "hr:job_requisition_detail",
+        requisition_id=requisition.id,
     )
 
