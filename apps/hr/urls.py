@@ -13,6 +13,7 @@ from .views import (
     position_create,
     position_list,
     position_update,
+    performance_dashboard,
     employee_assignment_change,
     absence_request_cancel,
     absence_request_create,
@@ -25,6 +26,11 @@ from .views import (
 app_name = "hr"
 
 urlpatterns = [
+    path(
+        "performans/",
+        performance_dashboard,
+        name="performance_dashboard",
+    ),
     path(
         "",
         home,

@@ -218,6 +218,13 @@
             >
                 İzin ve Devamsızlık
             </a>
+
+            <a
+                href="{% url 'hr:performance_dashboard' %}"
+                class="sidebar-group__link{% if request.resolver_match.url_name == 'performance_dashboard' %} active{% endif %}"
+            >
+                Performans Yönetimi
+            </a>
         </div>
     </details>
 {% elif absence_access %}

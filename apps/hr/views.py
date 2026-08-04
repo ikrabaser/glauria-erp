@@ -1,7 +1,7 @@
 from datetime import timedelta
 
 from django.contrib.auth.decorators import login_required
-from django.db.models import Count, Prefetch, Q
+from django.db.models import Avg, Count, Prefetch, Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.contrib import messages
@@ -19,6 +19,9 @@ from .models import (
     Employee,
     EmploymentAssignment,
     Position,
+    EmployeeGoal,
+    PerformanceReview,
+    PerformanceReviewCycle,
 )
 from .forms import (
     AbsenceCancellationForm,
@@ -1668,3 +1671,152 @@ def absence_request_cancel(request, request_id):
         "hr:absence_request_detail",
         request_id=absence_request.id,
     )
+
+
+@login_required
+def performance_dashboard(request):
+    membership = get_active_membership(request.user)
+
+    if not has_hr_access(membership):
+        return redirect("hr:home")
+
+    company = membership.company
+    search_query = request.GET.get("q", "").strip()
+    status_filter = request.GET.get("status", "").strip()
+
+    cycles = PerformanceReviewCycle.objects.filter(
+        company=company,
+        is_active=True,
+    )
+
+    active_cycle = (
+        cycles.filter(
+            status=PerformanceReviewCycle.Status.OPEN,
+        )
+        .order_by(
+            "-start_date",
+            "-created_at",
+        )
+        .first()
+    )
+
+    goals = (
+        EmployeeGoal.objects.filter(
+            company=company,
+        )
+        .select_related(
+            "employee",
+            "employee__user",
+            "cycle",
+        )
+        .order_by(
+            "-cycle__start_date",
+            "employee__last_name",
+            "employee__first_name",
+            "due_date",
+        )
+    )
+
+    reviews = (
+        PerformanceReview.objects.filter(
+            company=company,
+        )
+        .select_related(
+            "employee",
+            "employee__user",
+            "manager",
+            "manager__user",
+            "cycle",
+            "completed_by",
+        )
+        .order_by(
+            "-cycle__start_date",
+            "employee__last_name",
+            "employee__first_name",
+        )
+    )
+
+    if active_cycle:
+        goals = goals.filter(cycle=active_cycle)
+        reviews = reviews.filter(cycle=active_cycle)
+
+    if search_query:
+        reviews = reviews.filter(
+            Q(employee__employee_number__icontains=search_query)
+            | Q(employee__first_name__icontains=search_query)
+            | Q(employee__last_name__icontains=search_query)
+            | Q(manager__first_name__icontains=search_query)
+            | Q(manager__last_name__icontains=search_query)
+            | Q(cycle__name__icontains=search_query)
+            | Q(cycle__code__icontains=search_query)
+        )
+
+    valid_statuses = {
+        value
+        for value, _label in PerformanceReview.Status.choices
+    }
+
+    if status_filter in valid_statuses:
+        reviews = reviews.filter(status=status_filter)
+    else:
+        status_filter = ""
+
+    review_counts = {
+        "total": reviews.count(),
+        "draft": reviews.filter(
+            status=PerformanceReview.Status.DRAFT,
+        ).count(),
+        "self_review": reviews.filter(
+            status=PerformanceReview.Status.SELF_REVIEW,
+        ).count(),
+        "manager_review": reviews.filter(
+            status=PerformanceReview.Status.MANAGER_REVIEW,
+        ).count(),
+        "completed": reviews.filter(
+            status=PerformanceReview.Status.COMPLETED,
+        ).count(),
+        "cancelled": reviews.filter(
+            status=PerformanceReview.Status.CANCELLED,
+        ).count(),
+    }
+
+    average_rating = (
+        reviews.filter(
+            status=PerformanceReview.Status.COMPLETED,
+            overall_rating__isnull=False,
+        )
+        .aggregate(value=Avg("overall_rating"))
+        .get("value")
+    )
+
+    goal_summary = goals.aggregate(
+        average_progress=Avg("progress_percentage"),
+    )
+
+    return render(
+        request,
+        "hr/performance_dashboard.html",
+        {
+            "current_membership": membership,
+            "active_cycle": active_cycle,
+            "cycle_count": cycles.count(),
+            "goals": goals[:8],
+            "goal_count": goals.count(),
+            "completed_goal_count": goals.filter(
+                status=EmployeeGoal.Status.COMPLETED,
+            ).count(),
+            "average_goal_progress": (
+                goal_summary["average_progress"] or 0
+            ),
+            "reviews": reviews,
+            "review_counts": review_counts,
+            "average_rating": average_rating or 0,
+            "performance_status_choices": (
+                PerformanceReview.Status.choices
+            ),
+            "search_query": search_query,
+            "status_filter": status_filter,
+            "can_manage_hr": can_manage_hr(membership),
+        },
+    )
+

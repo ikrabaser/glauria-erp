@@ -2206,3 +2206,231 @@ html[data-theme="light"] .hr-absence-timeline__content {
         grid-template-columns: 1fr;
     }
 }
+
+/* =========================================================
+   Performance Management
+   ========================================================= */
+
+.performance-cycle-name {
+    display: block;
+    margin-top: 0.65rem;
+    color: #fff;
+    font-size: clamp(1.15rem, 2vw, 1.65rem);
+    line-height: 1.25;
+}
+
+.performance-status-grid {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 0.85rem;
+    margin-bottom: 1.25rem;
+}
+
+.performance-status-grid article {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1rem 1.1rem;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.035);
+}
+
+.performance-status-grid span {
+    color: rgba(255, 255, 255, 0.62);
+    font-size: 0.78rem;
+    font-weight: 700;
+}
+
+.performance-status-grid strong {
+    color: #fff;
+    font-size: 1.25rem;
+}
+
+.performance-dashboard__grid {
+    grid-template-columns: minmax(0, 1.55fr) minmax(280px, 0.75fr);
+    margin-bottom: 1.25rem;
+}
+
+.performance-goal-list {
+    display: grid;
+    gap: 0.8rem;
+}
+
+.performance-goal {
+    padding: 1rem;
+    border: 1px solid rgba(255, 255, 255, 0.075);
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.025);
+}
+
+.performance-goal__heading,
+.performance-goal__meta {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.performance-goal__heading strong,
+.performance-goal__heading span {
+    display: block;
+}
+
+.performance-goal__heading strong {
+    color: #fff;
+    font-size: 0.9rem;
+}
+
+.performance-goal__heading span,
+.performance-goal__meta {
+    margin-top: 0.25rem;
+    color: rgba(255, 255, 255, 0.54);
+    font-size: 0.75rem;
+}
+
+.performance-goal__heading b {
+    color: #e4a8a1;
+    font-size: 0.95rem;
+}
+
+.performance-progress {
+    height: 7px;
+    margin: 0.85rem 0 0.65rem;
+    overflow: hidden;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.performance-progress span {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(
+        90deg,
+        #b96f78,
+        #e5a7a1
+    );
+}
+
+.performance-summary-list {
+    display: grid;
+    gap: 0.7rem;
+}
+
+.performance-summary-list div {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.9rem 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.075);
+}
+
+.performance-summary-list div:last-child {
+    border-bottom: 0;
+}
+
+.performance-summary-list span {
+    color: rgba(255, 255, 255, 0.62);
+    font-size: 0.82rem;
+}
+
+.performance-summary-list strong {
+    color: #fff;
+    font-size: 1.05rem;
+}
+
+.performance-toolbar {
+    margin-bottom: 1.25rem;
+}
+
+.performance-status {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.38rem 0.65rem;
+    border-radius: 999px;
+    font-size: 0.7rem;
+    font-weight: 800;
+    white-space: nowrap;
+}
+
+.performance-status--draft {
+    color: #d1d5db;
+    background: rgba(148, 163, 184, 0.14);
+}
+
+.performance-status--self_review {
+    color: #f7c76c;
+    background: rgba(245, 184, 70, 0.13);
+}
+
+.performance-status--manager_review {
+    color: #93c5fd;
+    background: rgba(96, 165, 250, 0.13);
+}
+
+.performance-status--completed {
+    color: #86efac;
+    background: rgba(74, 222, 128, 0.13);
+}
+
+.performance-status--cancelled {
+    color: #fca5a5;
+    background: rgba(248, 113, 113, 0.13);
+}
+
+.performance-rating {
+    color: #e7aaa3;
+    font-size: 1rem;
+}
+
+html[data-theme="light"] .performance-cycle-name,
+html[data-theme="light"] .performance-status-grid strong,
+html[data-theme="light"] .performance-goal__heading strong,
+html[data-theme="light"] .performance-summary-list strong {
+    color: #231f2c;
+}
+
+html[data-theme="light"] .performance-status-grid article,
+html[data-theme="light"] .performance-goal {
+    border-color: rgba(42, 34, 49, 0.08);
+    background: rgba(255, 255, 255, 0.72);
+}
+
+html[data-theme="light"] .performance-status-grid span,
+html[data-theme="light"] .performance-goal__heading span,
+html[data-theme="light"] .performance-goal__meta,
+html[data-theme="light"] .performance-summary-list span {
+    color: rgba(43, 36, 50, 0.62);
+}
+
+html[data-theme="light"] .performance-progress {
+    background: rgba(42, 34, 49, 0.09);
+}
+
+html[data-theme="light"] .performance-summary-list div {
+    border-color: rgba(42, 34, 49, 0.08);
+}
+
+@media (max-width: 1100px) {
+    .performance-status-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .performance-dashboard__grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 720px) {
+    .performance-status-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .performance-goal__heading,
+    .performance-goal__meta {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+}
