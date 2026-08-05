@@ -80,3 +80,12 @@ __all__ = [
     "submit_attendance_record",
     "validate_absence_request_balance",
 ]
+
+from .recruitment_ai import (
+    CandidateMatchResult,
+    extract_skills,
+    match_candidate_to_requisition,
+    normalize_text,
+    rank_candidates_for_requisition,
+    update_application_screening_score,
+)

@@ -2968,3 +2968,206 @@ class RecruitmentWorkflowTestCase(TestCase):
                 changed_by=self.recruiter_user,
                 new_stage=JobApplication.Stage.SCREENING,
             )
+
+
+class RecruitmentAIMatchingTestCase(TestCase):
+    def setUp(self):
+        from apps.hr.service_layer.recruitment_ai import (
+            match_candidate_to_requisition,
+            rank_candidates_for_requisition,
+            update_application_screening_score,
+        )
+
+        self.match_candidate = match_candidate_to_requisition
+        self.rank_candidates = rank_candidates_for_requisition
+        self.update_application_score = (
+            update_application_screening_score
+        )
+
+        self.company = Company.objects.create(
+            name="Recruitment AI Test Şirketi",
+        )
+
+        self.branch = Branch.objects.create(
+            company=self.company,
+            name="AI Test Genel Merkez",
+            code="AI-HQ",
+        )
+
+        self.department = Department.objects.create(
+            branch=self.branch,
+            name="Bilgi Teknolojileri",
+            code="TECH",
+        )
+
+        self.position = Position.objects.create(
+            company=self.company,
+            department=self.department,
+            code="BACKEND",
+            title="Backend Developer",
+        )
+
+        self.recruiter = Employee.objects.create(
+            company=self.company,
+            employee_number="AI-EMP-001",
+            first_name="Ayşe",
+            last_name="Recruiter",
+            work_email="ayse.recruiter@example.com",
+            hire_date=date(2024, 1, 1),
+        )
+
+        self.manager = Employee.objects.create(
+            company=self.company,
+            employee_number="AI-EMP-002",
+            first_name="Mehmet",
+            last_name="Manager",
+            work_email="mehmet.manager@example.com",
+            hire_date=date(2023, 1, 1),
+        )
+
+        self.requisition = JobRequisition.objects.create(
+            company=self.company,
+            department=self.department,
+            position=self.position,
+            requisition_number="REQ-AI-001",
+            title="Kıdemli Backend Developer",
+            description=(
+                "Python ve Django tabanlı kurumsal "
+                "uygulamalar geliştirilecektir."
+            ),
+            requirements=(
+                "En az 5 yıl Python, Django, PostgreSQL, "
+                "Docker, Redis ve Celery deneyimi."
+            ),
+            hiring_manager=self.manager,
+            recruiter=self.recruiter,
+            status=JobRequisition.Status.DRAFT,
+        )
+
+        self.strong_candidate = Candidate.objects.create(
+            company=self.company,
+            first_name="Selin",
+            last_name="Güçlü",
+            email="selin.guclu@example.com",
+            current_title="Kıdemli Backend Developer",
+            current_company="Demo Teknoloji",
+            years_of_experience=Decimal("7.0"),
+            notes=(
+                "Python, Django, PostgreSQL, Docker, "
+                "Redis, Celery ve Linux projelerinde çalıştı."
+            ),
+        )
+
+        self.weak_candidate = Candidate.objects.create(
+            company=self.company,
+            first_name="Can",
+            last_name="Zayıf",
+            email="can.zayif@example.com",
+            current_title="Dijital Pazarlama Uzmanı",
+            current_company="Demo Pazarlama",
+            years_of_experience=Decimal("1.0"),
+            notes=(
+                "Dijital pazarlama ve içerik üretimi deneyimi."
+            ),
+        )
+
+    def test_strong_candidate_receives_high_match_score(self):
+        result = self.match_candidate(
+            candidate=self.strong_candidate,
+            requisition=self.requisition,
+        )
+
+        self.assertGreaterEqual(
+            result.overall_score,
+            80,
+        )
+        self.assertIn(
+            "python",
+            result.matched_skills,
+        )
+        self.assertIn(
+            "django",
+            result.matched_skills,
+        )
+        self.assertEqual(
+            result.recommendation,
+            "strong_interview",
+        )
+
+    def test_missing_skills_are_explained(self):
+        result = self.match_candidate(
+            candidate=self.weak_candidate,
+            requisition=self.requisition,
+        )
+
+        self.assertLess(
+            result.overall_score,
+            50,
+        )
+        self.assertIn(
+            "python",
+            result.missing_skills,
+        )
+        self.assertIn(
+            "django",
+            result.missing_skills,
+        )
+        self.assertEqual(
+            result.recommendation,
+            "not_recommended",
+        )
+
+    def test_candidates_are_ranked_by_match_score(self):
+        ranked = self.rank_candidates(
+            requisition=self.requisition,
+            candidates=[
+                self.weak_candidate,
+                self.strong_candidate,
+            ],
+        )
+
+        self.assertEqual(
+            ranked[0][0],
+            self.strong_candidate,
+        )
+        self.assertGreater(
+            ranked[0][1].overall_score,
+            ranked[1][1].overall_score,
+        )
+
+    def test_application_screening_score_can_be_updated(self):
+        application = JobApplication.objects.create(
+            company=self.company,
+            requisition=self.requisition,
+            candidate=self.strong_candidate,
+            assigned_recruiter=self.recruiter,
+        )
+
+        result = self.update_application_score(
+            application=application,
+        )
+
+        application.refresh_from_db()
+
+        self.assertEqual(
+            application.screening_score,
+            Decimal(str(result.overall_score)),
+        )
+
+    def test_cross_company_matching_is_rejected(self):
+        other_company = Company.objects.create(
+            name="Diğer AI Şirketi",
+        )
+
+        other_candidate = Candidate.objects.create(
+            company=other_company,
+            first_name="Başka",
+            last_name="Aday",
+            email="baska.aday@example.com",
+        )
+
+        with self.assertRaises(ValidationError):
+            self.match_candidate(
+                candidate=other_candidate,
+                requisition=self.requisition,
+            )
