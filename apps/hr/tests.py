@@ -3732,3 +3732,273 @@ class RecruitmentAIAssessmentPanelTestCase(TestCase):
             response,
             "OpenAI destekli açıklanabilir analiz",
         )
+
+
+class FakeRecruitmentEmbeddingProvider:
+    def __init__(self, **kwargs):
+        self.kwargs = kwargs
+
+    def generate_embeddings(
+        self,
+        *,
+        texts,
+        model=None,
+        dimensions=1536,
+    ):
+        from apps.ai_core.services import (
+            AIEmbeddingResult,
+            AIUsage,
+        )
+
+        vectors = []
+
+        for _ in texts:
+            vector = [0.0] * dimensions
+            vector[0] = 1.0
+            vectors.append(tuple(vector))
+
+        return AIEmbeddingResult(
+            embeddings=tuple(vectors),
+            model=model or "text-embedding-3-small",
+            usage=AIUsage(),
+        )
+
+
+class RecruitmentRAGTestCase(TestCase):
+    def setUp(self):
+        from apps.hr.service_layer.recruitment_rag import (
+            build_recruitment_rag_context,
+            prepare_recruitment_knowledge,
+            upsert_candidate_knowledge_document,
+            upsert_requisition_knowledge_document,
+        )
+
+        self.build_context = (
+            build_recruitment_rag_context
+        )
+        self.prepare_knowledge = (
+            prepare_recruitment_knowledge
+        )
+        self.upsert_candidate = (
+            upsert_candidate_knowledge_document
+        )
+        self.upsert_requisition = (
+            upsert_requisition_knowledge_document
+        )
+
+        self.company = Company.objects.create(
+            name="Recruitment RAG Test Şirketi",
+        )
+
+        self.branch = Branch.objects.create(
+            company=self.company,
+            name="RAG Genel Merkez",
+            code="RAG-HQ",
+        )
+
+        self.department = Department.objects.create(
+            branch=self.branch,
+            name="Bilgi Teknolojileri",
+            code="RAG-TECH",
+        )
+
+        self.position = Position.objects.create(
+            company=self.company,
+            department=self.department,
+            code="RAG-BE",
+            title="Backend Developer",
+        )
+
+        self.recruiter = Employee.objects.create(
+            company=self.company,
+            employee_number="RAG-001",
+            first_name="Ayşe",
+            last_name="Recruiter",
+            work_email="rag.recruiter@example.com",
+            hire_date=date(2024, 1, 1),
+        )
+
+        self.manager = Employee.objects.create(
+            company=self.company,
+            employee_number="RAG-002",
+            first_name="Mehmet",
+            last_name="Manager",
+            work_email="rag.manager@example.com",
+            hire_date=date(2023, 1, 1),
+        )
+
+        self.requisition = JobRequisition.objects.create(
+            company=self.company,
+            department=self.department,
+            position=self.position,
+            requisition_number="REQ-RAG-001",
+            title="Kıdemli Backend Developer",
+            description=(
+                "Kurumsal Django uygulamaları geliştirilecek."
+            ),
+            requirements=(
+                "Python, Django, PostgreSQL ve Docker "
+                "deneyimi gereklidir."
+            ),
+            hiring_manager=self.manager,
+            recruiter=self.recruiter,
+        )
+
+        self.candidate = Candidate.objects.create(
+            company=self.company,
+            first_name="Selin",
+            last_name="RAG",
+            email="selin.rag@example.com",
+            current_title="Backend Developer",
+            current_company="Demo Teknoloji",
+            years_of_experience=Decimal("6.0"),
+            notes=(
+                "Python, Django, PostgreSQL ve Docker "
+                "projelerinde çalıştı."
+            ),
+        )
+
+    def test_candidate_document_is_created_from_erp_record(self):
+        from apps.ai_core.models import (
+            AIKnowledgeDocument,
+        )
+
+        document = self.upsert_candidate(
+            candidate=self.candidate,
+        )
+
+        self.assertEqual(
+            document.document_type,
+            AIKnowledgeDocument
+            .DocumentType
+            .CANDIDATE_RESUME,
+        )
+        self.assertEqual(
+            document.source_reference,
+            f"candidate:{self.candidate.id}",
+        )
+        self.assertIn(
+            "Python",
+            document.content_text,
+        )
+
+    def test_requisition_document_is_created_from_erp_record(self):
+        from apps.ai_core.models import (
+            AIKnowledgeDocument,
+        )
+
+        document = self.upsert_requisition(
+            requisition=self.requisition,
+        )
+
+        self.assertEqual(
+            document.document_type,
+            AIKnowledgeDocument
+            .DocumentType
+            .JOB_REQUISITION,
+        )
+        self.assertEqual(
+            document.source_reference,
+            f"job_requisition:{self.requisition.id}",
+        )
+        self.assertIn(
+            "Django",
+            document.content_text,
+        )
+
+    def test_prepare_knowledge_indexes_both_documents(self):
+        from apps.ai_core.models import (
+            AIKnowledgeDocument,
+        )
+
+        (
+            candidate_document,
+            requisition_document,
+        ) = self.prepare_knowledge(
+            candidate=self.candidate,
+            requisition=self.requisition,
+            provider_class=FakeRecruitmentEmbeddingProvider,
+        )
+
+        self.assertEqual(
+            candidate_document.status,
+            AIKnowledgeDocument.Status.INDEXED,
+        )
+        self.assertEqual(
+            requisition_document.status,
+            AIKnowledgeDocument.Status.INDEXED,
+        )
+        self.assertGreater(
+            candidate_document.chunks.count(),
+            0,
+        )
+        self.assertGreater(
+            requisition_document.chunks.count(),
+            0,
+        )
+
+    def test_rag_context_returns_relevant_sources(self):
+        context = self.build_context(
+            candidate=self.candidate,
+            requisition=self.requisition,
+            search_limit=6,
+            provider_class=FakeRecruitmentEmbeddingProvider,
+            search_provider_class=(
+                FakeRecruitmentEmbeddingProvider
+            ),
+        )
+
+        self.assertGreaterEqual(
+            context.source_count,
+            2,
+        )
+
+        source_types = {
+            result.document.document_type
+            for result in context.search_results
+        }
+
+        from apps.ai_core.models import (
+            AIKnowledgeDocument,
+        )
+
+        self.assertIn(
+            AIKnowledgeDocument
+            .DocumentType
+            .CANDIDATE_RESUME,
+            source_types,
+        )
+        self.assertIn(
+            AIKnowledgeDocument
+            .DocumentType
+            .JOB_REQUISITION,
+            source_types,
+        )
+
+    def test_candidate_update_refreshes_knowledge_content(self):
+        document = self.upsert_candidate(
+            candidate=self.candidate,
+        )
+
+        self.candidate.notes = (
+            "Python, Django ve Kubernetes deneyimi."
+        )
+        self.candidate.save(
+            update_fields=[
+                "notes",
+                "updated_at",
+            ]
+        )
+
+        updated_document = self.upsert_candidate(
+            candidate=self.candidate,
+        )
+
+        self.assertEqual(
+            updated_document.id,
+            document.id,
+        )
+        self.assertIn(
+            "Kubernetes",
+            updated_document.content_text,
+        )

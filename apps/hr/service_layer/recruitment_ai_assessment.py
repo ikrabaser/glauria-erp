@@ -15,6 +15,9 @@ from .recruitment_ai import (
     CandidateMatchResult,
     match_candidate_to_requisition,
 )
+from .recruitment_rag import (
+    build_recruitment_rag_context,
+)
 
 
 @dataclass(frozen=True)
@@ -149,6 +152,7 @@ def assess_candidate_with_ai(
     requisition: JobRequisition,
     requested_by=None,
     provider_class=OpenAIProvider,
+    rag_context_builder=build_recruitment_rag_context,
 ) -> CandidateAIAssessment:
     if candidate.company_id != requisition.company_id:
         raise ValidationError(
@@ -162,6 +166,18 @@ def assess_candidate_with_ai(
         )
     )
 
+    rag_context = None
+    rag_error = ""
+
+    try:
+        rag_context = rag_context_builder(
+            candidate=candidate,
+            requisition=requisition,
+            requested_by=requested_by,
+        )
+    except Exception as error:
+        rag_error = str(error)[:1000]
+
     input_payload = {
         "candidate": _build_candidate_snapshot(
             candidate=candidate,
@@ -171,6 +187,15 @@ def assess_candidate_with_ai(
         ),
         "deterministic_analysis": (
             deterministic_result.as_dict()
+        ),
+        "rag_context": (
+            rag_context.as_dict()
+            if rag_context
+            else {
+                "source_count": 0,
+                "sources": [],
+                "error": rag_error,
+            }
         ),
     }
 
@@ -189,6 +214,9 @@ Kurallar:
 - matched_skills ve missing_skills alanlarını verilen deterministik
   analizle tutarlı üret.
 - recommendation alanını yalnızca izin verilen değerlerden seç.
+- RAG kaynakları varsa değerlendirmeyi bu kaynaklarla destekle.
+- Kaynaklarda bulunmayan beceri veya deneyimi uydurma.
+- RAG kaynağı bulunmaması durumunda deterministik analizle devam et.
 - Yanıtı Türkçe üret.
 """.strip()
 

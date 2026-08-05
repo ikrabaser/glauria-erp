@@ -100,3 +100,14 @@ from .recruitment_ai_context import (
     build_candidate_application_ai_context,
     queue_recruitment_ai_assessment,
 )
+
+from .recruitment_rag import (
+    RecruitmentRAGContext,
+    build_candidate_knowledge_text,
+    build_recruitment_rag_context,
+    build_recruitment_rag_query,
+    build_requisition_knowledge_text,
+    prepare_recruitment_knowledge,
+    upsert_candidate_knowledge_document,
+    upsert_requisition_knowledge_document,
+)
