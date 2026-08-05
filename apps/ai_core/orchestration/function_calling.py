@@ -3,11 +3,15 @@ from dataclasses import dataclass
 from time import monotonic
 from typing import Any
 
-from apps.ai_core.models import AIRequestLog
+from apps.ai_core.models import (
+    AIKnowledgeDocument,
+    AIRequestLog,
+)
 from apps.ai_core.services import (
     AIConfigurationError,
     AIProviderError,
     OpenAIProvider,
+    semantic_search,
 )
 from apps.ai_core.tools import (
     ERPToolExecutionContext,
@@ -19,6 +23,8 @@ from apps.ai_core.tools import (
 from apps.ai_core.tools.definitions import (
     register_core_erp_tools,
 )
+
+from .retrievers import format_knowledge_results
 
 
 DEFAULT_MAX_TOOL_ROUNDS = 5
@@ -160,6 +166,13 @@ class FunctionCallingRuntime:
                 "AI asistan mesajı boş olamaz."
             )
 
+        resolved_instructions = (
+            self._build_rag_instructions(
+                user_message=normalized_message,
+                base_instructions=instructions,
+            )
+        )
+
         tools = self.registry.as_openai_tools(
             modules=self.context.allowed_modules,
             read_only_only=True,
@@ -186,7 +199,7 @@ class FunctionCallingRuntime:
         ):
             response = self._create_response(
                 model_name=model_name,
-                instructions=instructions,
+                instructions=resolved_instructions,
                 input_value=current_input,
                 tools=tools,
                 previous_response_id=(
@@ -277,6 +290,61 @@ class FunctionCallingRuntime:
         raise FunctionCallingLimitError(
             "AI aracı izin verilen maksimum çağrı turunu "
             "aştı."
+        )
+
+    def _build_rag_instructions(
+        self,
+        *,
+        user_message: str,
+        base_instructions: str,
+    ) -> str:
+        """
+        Şirketin indekslenmiş bilgi tabanı varsa kullanıcı
+        sorusuna en yakın parçaları sistem talimatlarına ekler.
+
+        Bilgi tabanı boş olduğunda mevcut function calling
+        davranışını değiştirmez.
+        """
+
+        has_indexed_documents = (
+            AIKnowledgeDocument.objects.filter(
+                company=self.company,
+                status=(
+                    AIKnowledgeDocument.Status.INDEXED
+                ),
+            ).exists()
+        )
+
+        if not has_indexed_documents:
+            return base_instructions
+
+        search_results = semantic_search(
+            company=self.company,
+            query=user_message,
+            requested_by=self.requested_by,
+            limit=5,
+        )
+
+        retrieved_context = format_knowledge_results(
+            search_results
+        )
+
+        if retrieved_context.source_count == 0:
+            return base_instructions
+
+        return (
+            f"{base_instructions}\n\n"
+            "BİLGİ TABANI BAĞLAMI:\n"
+            f"{retrieved_context.text}\n\n"
+            "Bilgi tabanı kullanım kuralları:\n"
+            "- Yalnızca soruyla ilgili kaynakları kullan.\n"
+            "- Kaynaklarda bulunmayan bilgiyi uydurma.\n"
+            "- ERP araç sonucu ile bilgi tabanı çelişirse, "
+            "canlı ERP araç sonucunu esas al.\n"
+            "- Politika ve prosedür açıklamalarında ilgili "
+            "doküman başlığını belirt.\n"
+            "- Bilgi tabanı bağlamını nihai cevapta ham metin "
+            "olarak tekrar etme."
         )
 
     def _create_response(
