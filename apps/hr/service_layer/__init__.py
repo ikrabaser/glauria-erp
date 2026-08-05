@@ -89,3 +89,8 @@ from .recruitment_ai import (
     rank_candidates_for_requisition,
     update_application_screening_score,
 )
+
+from .recruitment_ai_assessment import (
+    CandidateAIAssessment,
+    assess_candidate_with_ai,
+)

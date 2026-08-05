@@ -3171,3 +3171,217 @@ class RecruitmentAIMatchingTestCase(TestCase):
                 candidate=other_candidate,
                 requisition=self.requisition,
             )
+
+
+class RecruitmentAIAssessmentTestCase(TestCase):
+    def setUp(self):
+        from apps.hr.service_layer.recruitment_ai_assessment import (
+            assess_candidate_with_ai,
+        )
+
+        self.assess_candidate = assess_candidate_with_ai
+
+        self.company = Company.objects.create(
+            name="Recruitment Assessment Test Şirketi",
+        )
+
+        self.branch = Branch.objects.create(
+            company=self.company,
+            name="Assessment Genel Merkez",
+            code="ASSESS-HQ",
+        )
+
+        self.department = Department.objects.create(
+            branch=self.branch,
+            name="Bilgi Teknolojileri",
+            code="ASSESS-TECH",
+        )
+
+        self.position = Position.objects.create(
+            company=self.company,
+            department=self.department,
+            code="ASSESS-BE",
+            title="Backend Developer",
+        )
+
+        self.recruiter = Employee.objects.create(
+            company=self.company,
+            employee_number="ASSESS-001",
+            first_name="Ayşe",
+            last_name="Recruiter",
+            work_email="assessment.recruiter@example.com",
+            hire_date=date(2024, 1, 1),
+        )
+
+        self.manager = Employee.objects.create(
+            company=self.company,
+            employee_number="ASSESS-002",
+            first_name="Mehmet",
+            last_name="Manager",
+            work_email="assessment.manager@example.com",
+            hire_date=date(2023, 1, 1),
+        )
+
+        self.requisition = JobRequisition.objects.create(
+            company=self.company,
+            department=self.department,
+            position=self.position,
+            requisition_number="REQ-ASSESS-001",
+            title="Kıdemli Backend Developer",
+            description=(
+                "Python ve Django tabanlı uygulamalar geliştirilecek."
+            ),
+            requirements=(
+                "En az 5 yıl Python, Django, PostgreSQL ve "
+                "Docker deneyimi."
+            ),
+            hiring_manager=self.manager,
+            recruiter=self.recruiter,
+            status=JobRequisition.Status.DRAFT,
+        )
+
+        self.candidate = Candidate.objects.create(
+            company=self.company,
+            first_name="Selin",
+            last_name="Değerlendirme",
+            email="selin.assessment@example.com",
+            current_title="Kıdemli Backend Developer",
+            years_of_experience=Decimal("7.0"),
+            notes=(
+                "Python, Django, PostgreSQL ve Docker "
+                "deneyimine sahiptir."
+            ),
+        )
+
+    def test_ai_assessment_uses_structured_provider_result(self):
+        class FakeResult:
+            data = {
+                "overall_score": 100,
+                "strengths": [
+                    "Backend teknoloji yığınıyla güçlü uyum.",
+                ],
+                "risks": [],
+                "matched_skills": [
+                    "python",
+                    "django",
+                    "postgresql",
+                    "docker",
+                ],
+                "missing_skills": [],
+                "recommendation": "strong_interview",
+                "summary": (
+                    "Aday teknik görüşme için güçlü bir profildir."
+                ),
+            }
+
+        class FakeProvider:
+            def __init__(self, **kwargs):
+                self.kwargs = kwargs
+
+            def generate_structured(self, **kwargs):
+                return FakeResult()
+
+        assessment = self.assess_candidate(
+            candidate=self.candidate,
+            requisition=self.requisition,
+            provider_class=FakeProvider,
+        )
+
+        self.assertTrue(assessment.ai_used)
+        self.assertEqual(
+            assessment.overall_score,
+            100,
+        )
+        self.assertEqual(
+            assessment.recommendation,
+            "strong_interview",
+        )
+        self.assertIn(
+            "Backend teknoloji",
+            assessment.strengths[0],
+        )
+
+    def test_provider_failure_returns_deterministic_fallback(self):
+        from apps.ai_core.services import AIProviderError
+
+        class FailingProvider:
+            def __init__(self, **kwargs):
+                pass
+
+            def generate_structured(self, **kwargs):
+                raise AIProviderError(
+                    "Provider geçici olarak kullanılamıyor."
+                )
+
+        assessment = self.assess_candidate(
+            candidate=self.candidate,
+            requisition=self.requisition,
+            provider_class=FailingProvider,
+        )
+
+        self.assertFalse(assessment.ai_used)
+        self.assertGreaterEqual(
+            assessment.overall_score,
+            80,
+        )
+        self.assertEqual(
+            assessment.recommendation,
+            "strong_interview",
+        )
+        self.assertIn(
+            "Provider geçici",
+            assessment.ai_error,
+        )
+
+    def test_ai_cannot_override_deterministic_score(self):
+        class InvalidResult:
+            data = {
+                "overall_score": 42,
+                "strengths": [],
+                "risks": [],
+                "matched_skills": [],
+                "missing_skills": [],
+                "recommendation": "review",
+                "summary": "Tutarsız değerlendirme.",
+            }
+
+        class InvalidProvider:
+            def __init__(self, **kwargs):
+                pass
+
+            def generate_structured(self, **kwargs):
+                return InvalidResult()
+
+        assessment = self.assess_candidate(
+            candidate=self.candidate,
+            requisition=self.requisition,
+            provider_class=InvalidProvider,
+        )
+
+        self.assertFalse(assessment.ai_used)
+        self.assertEqual(
+            assessment.overall_score,
+            100,
+        )
+        self.assertIn(
+            "deterministik skoru",
+            assessment.ai_error,
+        )
+
+    def test_cross_company_ai_assessment_is_rejected(self):
+        other_company = Company.objects.create(
+            name="Başka Assessment Şirketi",
+        )
+
+        other_candidate = Candidate.objects.create(
+            company=other_company,
+            first_name="Başka",
+            last_name="Aday",
+            email="other.assessment@example.com",
+        )
+
+        with self.assertRaises(ValidationError):
+            self.assess_candidate(
+                candidate=other_candidate,
+                requisition=self.requisition,
+            )
