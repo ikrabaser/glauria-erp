@@ -22,4 +22,15 @@ __all__ = [
     "AITextResult",
     "AIUsage",
     "OpenAIProvider",
+    "KnowledgeIndexResult",
+    "KnowledgeSearchResult",
+    "index_knowledge_document",
+    "semantic_search",
 ]
+
+from .knowledge import (
+    KnowledgeIndexResult,
+    KnowledgeSearchResult,
+    index_knowledge_document,
+    semantic_search,
+)

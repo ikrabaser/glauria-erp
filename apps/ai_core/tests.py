@@ -1,4 +1,5 @@
 from django.test import TestCase
+from django.utils import timezone
 
 from apps.accounts.models import User
 from apps.organizations.models import Company
@@ -783,4 +784,418 @@ class AIEmbeddingProviderTestCase(TestCase):
         self.assertEqual(
             log.error_type,
             "AIProviderError",
+        )
+
+
+class FakeKnowledgeEmbeddingProvider:
+    call_count = 0
+
+    def __init__(self, **kwargs):
+        self.kwargs = kwargs
+
+    def generate_embeddings(
+        self,
+        *,
+        texts,
+        model=None,
+        dimensions=1536,
+    ):
+        from apps.ai_core.services import (
+            AIEmbeddingResult,
+            AIUsage,
+        )
+
+        type(self).call_count += 1
+
+        vectors = []
+
+        for index, _ in enumerate(texts):
+            vector = [0.0] * dimensions
+            vector[index % dimensions] = 1.0
+            vectors.append(tuple(vector))
+
+        return AIEmbeddingResult(
+            embeddings=tuple(vectors),
+            model=model or "text-embedding-3-small",
+            usage=AIUsage(
+                input_tokens=10,
+                total_tokens=10,
+            ),
+        )
+
+
+class FixedQueryEmbeddingProvider:
+    def __init__(self, **kwargs):
+        self.kwargs = kwargs
+
+    def generate_embeddings(
+        self,
+        *,
+        texts,
+        model=None,
+        dimensions=1536,
+    ):
+        from apps.ai_core.services import (
+            AIEmbeddingResult,
+            AIUsage,
+        )
+
+        vector = [0.0] * dimensions
+        vector[0] = 1.0
+
+        return AIEmbeddingResult(
+            embeddings=(tuple(vector),),
+            model=model or "text-embedding-3-small",
+            usage=AIUsage(),
+        )
+
+
+class AIKnowledgeIndexingTestCase(TestCase):
+    def setUp(self):
+        from apps.ai_core.models import (
+            AIKnowledgeDocument,
+        )
+
+        self.document_model = AIKnowledgeDocument
+
+        self.company = Company.objects.create(
+            name="Knowledge Index Test Şirketi",
+        )
+
+        self.user = User.objects.create_user(
+            username="knowledge.index.user",
+            email="knowledge.index@example.com",
+            password="test-password",
+            user_type=User.UserType.INTERNAL,
+        )
+
+        FakeKnowledgeEmbeddingProvider.call_count = 0
+
+    def test_document_is_chunked_embedded_and_indexed(self):
+        from apps.ai_core.services import (
+            index_knowledge_document,
+        )
+
+        document = self.document_model.objects.create(
+            company=self.company,
+            created_by=self.user,
+            document_type=(
+                self.document_model.DocumentType.HR_POLICY
+            ),
+            source_type=(
+                self.document_model.SourceType.MANUAL
+            ),
+            title="İK Yetkinlik Politikası",
+            content_text=(
+                "Python ve Django deneyimi önemlidir. "
+                * 500
+            ),
+        )
+
+        result = index_knowledge_document(
+            document=document,
+            requested_by=self.user,
+            provider_class=FakeKnowledgeEmbeddingProvider,
+        )
+
+        document.refresh_from_db()
+
+        self.assertEqual(
+            document.status,
+            self.document_model.Status.INDEXED,
+        )
+        self.assertTrue(document.content_hash)
+        self.assertIsNotNone(document.indexed_at)
+        self.assertGreater(result.chunk_count, 1)
+        self.assertEqual(
+            document.chunks.count(),
+            result.chunk_count,
+        )
+
+        first_chunk = document.chunks.first()
+
+        self.assertEqual(
+            len(first_chunk.embedding),
+            1536,
+        )
+        self.assertEqual(
+            first_chunk.embedding_model,
+            "text-embedding-3-small",
+        )
+
+    def test_unchanged_document_reuses_existing_index(self):
+        from apps.ai_core.services import (
+            index_knowledge_document,
+        )
+
+        document = self.document_model.objects.create(
+            company=self.company,
+            document_type=(
+                self.document_model.DocumentType.ERP_HELP
+            ),
+            title="ERP Yardım",
+            content_text="Satış siparişi ve fatura yönetimi.",
+        )
+
+        first = index_knowledge_document(
+            document=document,
+            provider_class=FakeKnowledgeEmbeddingProvider,
+        )
+
+        document.refresh_from_db()
+
+        second = index_knowledge_document(
+            document=document,
+            provider_class=FakeKnowledgeEmbeddingProvider,
+        )
+
+        self.assertFalse(first.reused_existing_index)
+        self.assertTrue(second.reused_existing_index)
+        self.assertEqual(
+            FakeKnowledgeEmbeddingProvider.call_count,
+            1,
+        )
+
+    def test_content_change_replaces_existing_chunks(self):
+        from apps.ai_core.services import (
+            index_knowledge_document,
+        )
+
+        document = self.document_model.objects.create(
+            company=self.company,
+            document_type=(
+                self.document_model.DocumentType.OTHER
+            ),
+            title="Değişen Doküman",
+            content_text="İlk içerik.",
+        )
+
+        index_knowledge_document(
+            document=document,
+            provider_class=FakeKnowledgeEmbeddingProvider,
+        )
+
+        first_hash = document.chunks.get().content_hash
+
+        document.content_text = (
+            "Tamamen güncellenmiş ikinci içerik."
+        )
+        document.save(
+            update_fields=[
+                "content_text",
+                "updated_at",
+            ]
+        )
+
+        index_knowledge_document(
+            document=document,
+            provider_class=FakeKnowledgeEmbeddingProvider,
+        )
+
+        document.refresh_from_db()
+
+        self.assertEqual(document.chunks.count(), 1)
+        self.assertNotEqual(
+            document.chunks.get().content_hash,
+            first_hash,
+        )
+        self.assertEqual(
+            FakeKnowledgeEmbeddingProvider.call_count,
+            2,
+        )
+
+    def test_empty_document_is_rejected(self):
+        from apps.ai_core.services import (
+            index_knowledge_document,
+        )
+
+        document = self.document_model.objects.create(
+            company=self.company,
+            document_type=(
+                self.document_model.DocumentType.OTHER
+            ),
+            title="Boş Doküman",
+            content_text="",
+        )
+
+        with self.assertRaises(ValueError):
+            index_knowledge_document(
+                document=document,
+                provider_class=FakeKnowledgeEmbeddingProvider,
+            )
+
+
+class AIKnowledgeSemanticSearchTestCase(TestCase):
+    def setUp(self):
+        from apps.ai_core.models import (
+            AIKnowledgeChunk,
+            AIKnowledgeDocument,
+        )
+
+        self.chunk_model = AIKnowledgeChunk
+        self.document_model = AIKnowledgeDocument
+
+        self.company = Company.objects.create(
+            name="Semantic Search Test Şirketi",
+        )
+
+        self.other_company = Company.objects.create(
+            name="Semantic Search Diğer Şirket",
+        )
+
+    def create_indexed_document(
+        self,
+        *,
+        company,
+        title,
+        content,
+        vector,
+        document_type=None,
+    ):
+        document = self.document_model.objects.create(
+            company=company,
+            document_type=(
+                document_type
+                or self.document_model.DocumentType.OTHER
+            ),
+            title=title,
+            content_text=content,
+            content_hash="a" * 64,
+            status=self.document_model.Status.INDEXED,
+            indexed_at=timezone.now(),
+        )
+
+        self.chunk_model.objects.create(
+            document=document,
+            company=company,
+            chunk_index=0,
+            content=content,
+            content_hash="b" * 64,
+            token_count=10,
+            embedding_model="text-embedding-3-small",
+            embedding=vector,
+            embedded_at=timezone.now(),
+        )
+
+        return document
+
+    def test_semantic_search_orders_by_cosine_distance(self):
+        from apps.ai_core.services import semantic_search
+
+        close_vector = [0.0] * 1536
+        close_vector[0] = 1.0
+
+        distant_vector = [0.0] * 1536
+        distant_vector[1] = 1.0
+
+        close_document = self.create_indexed_document(
+            company=self.company,
+            title="Python Backend Rehberi",
+            content="Python ve Django backend geliştirme.",
+            vector=close_vector,
+        )
+
+        self.create_indexed_document(
+            company=self.company,
+            title="Finans Rehberi",
+            content="Bütçe ve nakit akışı yönetimi.",
+            vector=distant_vector,
+        )
+
+        results = semantic_search(
+            company=self.company,
+            query="Backend geliştirme",
+            limit=2,
+            provider_class=FixedQueryEmbeddingProvider,
+        )
+
+        self.assertEqual(len(results), 2)
+        self.assertEqual(
+            results[0].document,
+            close_document,
+        )
+        self.assertGreater(
+            results[0].similarity,
+            results[1].similarity,
+        )
+
+    def test_semantic_search_is_company_isolated(self):
+        from apps.ai_core.services import semantic_search
+
+        matching_vector = [0.0] * 1536
+        matching_vector[0] = 1.0
+
+        own_document = self.create_indexed_document(
+            company=self.company,
+            title="Şirket İçi Belge",
+            content="Şirket içi bilgi.",
+            vector=matching_vector,
+        )
+
+        self.create_indexed_document(
+            company=self.other_company,
+            title="Başka Şirket Belgesi",
+            content="Başka şirkete ait bilgi.",
+            vector=matching_vector,
+        )
+
+        results = semantic_search(
+            company=self.company,
+            query="Şirket bilgisi",
+            limit=5,
+            provider_class=FixedQueryEmbeddingProvider,
+        )
+
+        self.assertEqual(len(results), 1)
+        self.assertEqual(
+            results[0].document,
+            own_document,
+        )
+
+    def test_semantic_search_can_filter_document_type(self):
+        from apps.ai_core.services import semantic_search
+
+        vector = [0.0] * 1536
+        vector[0] = 1.0
+
+        resume = self.create_indexed_document(
+            company=self.company,
+            title="Aday CV",
+            content="Python geliştirici öz geçmişi.",
+            vector=vector,
+            document_type=(
+                self.document_model
+                .DocumentType
+                .CANDIDATE_RESUME
+            ),
+        )
+
+        self.create_indexed_document(
+            company=self.company,
+            title="Finans Politikası",
+            content="Finans politikası.",
+            vector=vector,
+            document_type=(
+                self.document_model
+                .DocumentType
+                .FINANCE_POLICY
+            ),
+        )
+
+        results = semantic_search(
+            company=self.company,
+            query="Python geliştirici",
+            document_types=[
+                self.document_model
+                .DocumentType
+                .CANDIDATE_RESUME
+            ],
+            limit=5,
+            provider_class=FixedQueryEmbeddingProvider,
+        )
+
+        self.assertEqual(len(results), 1)
+        self.assertEqual(
+            results[0].document,
+            resume,
         )
