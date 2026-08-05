@@ -586,6 +586,10 @@ def finance_ai_analysis_create(request):
             "Hazır olduğunda bildirim alacaksınız."
         ),
     )
+
+    return redirect("finance:home")
+
+
 @login_required
 @require_POST
 def finance_ai_chat_send(request):
