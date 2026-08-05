@@ -1199,3 +1199,155 @@ class AIKnowledgeSemanticSearchTestCase(TestCase):
             results[0].document,
             resume,
         )
+
+
+class FakeLangChainStructuredResult:
+    def __init__(self, data):
+        self.data = data
+
+
+class FakeLangChainProvider:
+    calls = []
+
+    def __init__(self, **kwargs):
+        self.kwargs = kwargs
+
+    def generate_structured(self, **kwargs):
+        type(self).calls.append(kwargs)
+
+        return FakeLangChainStructuredResult(
+            {
+                "overall_score": 88,
+                "strengths": [
+                    "Backend geliştirme deneyimi güçlü.",
+                ],
+                "risks": [
+                    "Bulut deneyimi doğrulanmalıdır.",
+                ],
+                "matched_skills": [
+                    "python",
+                    "django",
+                ],
+                "missing_skills": [
+                    "aws",
+                ],
+                "recommendation": "strong_interview",
+                "summary": (
+                    "Aday teknik görüşme için güçlüdür."
+                ),
+            }
+        )
+
+
+class AILangChainOrchestrationTestCase(TestCase):
+    def setUp(self):
+        from apps.ai_core.orchestration import (
+            RecruitmentAssessmentChain,
+        )
+
+        self.chain_class = RecruitmentAssessmentChain
+
+        self.company = Company.objects.create(
+            name="LangChain Test Şirketi",
+        )
+
+        self.user = User.objects.create_user(
+            username="langchain.test.user",
+            email="langchain.test@example.com",
+            password="test-password",
+            user_type=User.UserType.INTERNAL,
+        )
+
+        FakeLangChainProvider.calls = []
+
+    def test_recruitment_chain_uses_prompt_and_provider(self):
+        chain = self.chain_class(
+            company=self.company,
+            requested_by=self.user,
+            provider_class=FakeLangChainProvider,
+        )
+
+        result = chain.invoke(
+            candidate_context={
+                "full_name": "Selin Test",
+                "current_title": "Backend Developer",
+            },
+            requisition_context={
+                "title": "Kıdemli Backend Developer",
+            },
+            deterministic_context={
+                "overall_score": 88,
+            },
+            rag_context={
+                "source_count": 1,
+                "sources": [
+                    {
+                        "chunk_id": "chunk-test-1",
+                        "content": (
+                            "Python ve Django deneyimi."
+                        ),
+                    }
+                ],
+            },
+            schema_name="candidate_assessment",
+            schema={
+                "type": "object",
+                "properties": {
+                    "overall_score": {
+                        "type": "integer",
+                    },
+                },
+                "required": [
+                    "overall_score",
+                ],
+                "additionalProperties": True,
+            },
+        )
+
+        self.assertEqual(
+            result.data["overall_score"],
+            88,
+        )
+        self.assertEqual(result.source_count, 1)
+        self.assertEqual(
+            result.source_ids,
+            ("chunk-test-1",),
+        )
+
+        self.assertEqual(
+            len(FakeLangChainProvider.calls),
+            1,
+        )
+
+        call = FakeLangChainProvider.calls[0]
+
+        self.assertIn(
+            "Selin Test",
+            call["input_text"],
+        )
+        self.assertIn(
+            "Kıdemli Backend Developer",
+            call["input_text"],
+        )
+        self.assertIn(
+            "Python ve Django",
+            call["input_text"],
+        )
+
+    def test_prompt_contains_recruitment_safety_rules(self):
+        from apps.ai_core.orchestration import (
+            RECRUITMENT_ASSESSMENT_SYSTEM_PROMPT,
+        )
+
+        self.assertIn(
+            "Deterministik puanı değiştirme",
+            RECRUITMENT_ASSESSMENT_SYSTEM_PROMPT,
+        )
+        self.assertIn(
+            "Hassas kişisel özelliklere",
+            RECRUITMENT_ASSESSMENT_SYSTEM_PROMPT,
+        )
+        self.assertIn(
+            "Nihai işe alım kararı verme",
+            RECRUITMENT_ASSESSMENT_SYSTEM_PROMPT,
+        )
