@@ -1,0 +1,249 @@
+from django.contrib.auth.decorators import login_required
+from django.shortcuts import render
+from django.urls import reverse
+from apps import dashboard
+from apps.dashboard.service_layer.overview import (
+    DashboardOverviewService,
+)
+
+
+@login_required
+def home(request):
+    # Üst bölümde bulunan KPI kartları
+    # Bu kartların template'i SVG kullanmadığı için ikonlar sembol olarak kalıyor.
+    dashboard = DashboardOverviewService(request)
+    dashboard_context = dashboard.build_context()
+    stats = dashboard_context["stats"]
+    metrics = dashboard_context["dashboard_metrics"]
+
+    # ERP Module Center kartları
+    # Bu kartlarda SVG ikonlar module_card.html içinde |safe ile gösteriliyor.
+    module_cards = [
+        {
+            "title": "CRM",
+            "eyebrow": "Müşteri Yönetimi",
+            "description": (
+                "Müşteri kayıtlarını, iletişim bilgilerini "
+                "ve satış ilişkilerini yönetin."
+            ),
+            "icon": """
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path>
+                    <circle cx="9" cy="7" r="4"></circle>
+                    <path d="M22 21v-2a4 4 0 0 0-3-3.87"></path>
+                    <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                </svg>
+            """,
+            "badge": "Aktif",
+            "url": reverse("crm:home"),
+            "metrics": [
+                {
+                    "label": "Toplam müşteri",
+                    "value": "1",
+                },
+                {
+                    "label": "Aktif müşteri",
+                    "value": "1",
+                },
+                {
+                    "label": "Açık fırsat",
+                    "value": "0",
+                },
+            ],
+        },
+        {
+            "title": "Satış Yönetimi",
+            "eyebrow": "Satış Operasyonları",
+            "description": (
+                "Teklifleri, siparişleri ve satış süreçlerini "
+                "tek merkezden takip edin."
+            ),
+            "icon": """
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M3 3v18h18"></path>
+                    <path d="m7 16 4-4 3 3 5-6"></path>
+                    <path d="M15 9h4v4"></path>
+                </svg>
+            """,
+            "badge": "Aktif",
+            "url": reverse("sales:home"),
+            "metrics": [
+                {
+                    "label": "Açık teklif",
+                    "value": "0",
+                },
+                {
+                    "label": "Aktif sipariş",
+                    "value": "0",
+                },
+                {
+                    "label": "Bu ay satış",
+                    "value": "₺0",
+                },
+            ],
+        },
+        {
+            "title": "Satın Alma",
+            "eyebrow": "Tedarik Yönetimi",
+            "description": (
+                "Tedarikçileri, satın alma taleplerini "
+                "ve sipariş süreçlerini yönetin."
+            ),
+            "icon": """
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <circle cx="9" cy="20" r="1"></circle>
+                    <circle cx="19" cy="20" r="1"></circle>
+                    <path d="M3 4h2l2.4 11.2a2 2 0 0 0 2 1.6h8.8a2 2 0 0 0 2-1.6L22 8H7"></path>
+                </svg>
+            """,
+            "badge": "Aktif",
+            "url": reverse("purchasing:home"),
+            "metrics": [
+                {
+                    "label": "Aktif tedarikçi",
+                    "value": "0",
+                },
+                {
+                    "label": "Açık talep",
+                    "value": "0",
+                },
+                {
+                    "label": "Bekleyen sipariş",
+                    "value": "0",
+                },
+            ],
+        },
+        {
+            "title": "Stok Yönetimi",
+            "eyebrow": "Depo ve Envanter",
+            "description": (
+                "Ürünleri, depoları, stok hareketlerini "
+                "ve envanter seviyelerini izleyin."
+            ),
+            "icon": """
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="m21 8-9-5-9 5 9 5 9-5Z"></path>
+                    <path d="m3 12 9 5 9-5"></path>
+                    <path d="m3 16 9 5 9-5"></path>
+                </svg>
+            """,
+            "badge": "Aktif",
+            "url": reverse("inventory:home"),
+            "metrics": [
+                {
+                    "label": "Toplam ürün",
+                    "value": "0",
+                },
+                {
+                    "label": "Depo",
+                    "value": "0",
+                },
+                {
+                    "label": "Kritik stok",
+                    "value": "0",
+                },
+            ],
+        },
+        {
+            "title": "Üretim Yönetimi",
+            "eyebrow": "Üretim Operasyonları",
+            "description": (
+                "Ürün reçetelerini, üretim emirlerini "
+                "ve operasyon süreçlerini yönetin."
+            ),
+            "icon": """
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <circle cx="12" cy="12" r="3"></circle>
+                    <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.83 2.83-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1.4 1.6V21h-4v-.09A1.7 1.7 0 0 0 8.6 19.4a1.7 1.7 0 0 0-1.88.34l-.06.06-2.83-2.83.06-.06A1.7 1.7 0 0 0 4.6 15 1.7 1.7 0 0 0 3 13.6V10.4A1.7 1.7 0 0 0 4.6 9a1.7 1.7 0 0 0-.34-1.88l-.06-.06 2.83-2.83.06.06A1.7 1.7 0 0 0 9 4.6 1.7 1.7 0 0 0 10.4 3h3.2A1.7 1.7 0 0 0 15 4.6a1.7 1.7 0 0 0 1.88-.34l.06-.06 2.83 2.83-.06.06A1.7 1.7 0 0 0 19.4 9 1.7 1.7 0 0 0 21 10.4v3.2A1.7 1.7 0 0 0 19.4 15Z"></path>
+                </svg>
+            """,
+            "badge": "Aktif",
+            "url": reverse("manufacturing:home"),
+            "metrics": [
+                {
+                    "label": "Aktif iş emri",
+                    "value": "0",
+                },
+                {
+                    "label": "Bekleyen",
+                    "value": "0",
+                },
+                {
+                    "label": "Tamamlanan",
+                    "value": "0",
+                },
+            ],
+        },
+        {
+            "title": "Finans Yönetimi",
+            "eyebrow": "Finansal Yönetim",
+            "description": (
+                "Gelir, gider, fatura, banka ve cari hesap "
+                "süreçlerini takip edin."
+            ),
+            "icon": """
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <rect x="2" y="5" width="20" height="14" rx="2"></rect>
+                    <path d="M16 12h4"></path>
+                    <path d="M2 10h20"></path>
+                </svg>
+            """,
+            "badge": "Aktif",
+            "url": reverse("finance:home"),
+            "metrics": [
+                {
+                    "label": "Açık fatura",
+                    "value": "0",
+                },
+                {
+                    "label": "Bekleyen tahsilat",
+                    "value": "₺0",
+                },
+                {
+                    "label": "Bu ay gider",
+                    "value": "₺0",
+                },
+            ],
+        },
+        {
+            "title": "İnsan Kaynakları",
+            "eyebrow": "İnsan ve Organizasyon",
+            "description": (
+                "Personel, departman, izin ve performans "
+                "süreçlerini yönetin."
+            ),
+            "icon": """
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <circle cx="12" cy="8" r="4"></circle>
+                    <path d="M4 21a8 8 0 0 1 16 0"></path>
+                </svg>
+            """,
+            "badge": "Aktif",
+            "url": reverse("hr:home"),
+            "metrics": [
+                {
+                    "label": "Toplam personel",
+                    "value": "0",
+                },
+                {
+                    "label": "İzinli personel",
+                    "value": "0",
+                },
+                {
+                    "label": "Açık pozisyon",
+                    "value": "0",
+                },
+            ],
+        },
+    ]
+
+    context = {
+        "stats": stats,
+        "module_cards": module_cards,
+    }
+
+    return render(
+        request,
+        "dashboard/home.html",
+        context,
+    )
