@@ -1,3 +1,4 @@
+from unittest.mock import patch
 from datetime import date, timedelta
 from decimal import Decimal
 from django.test import TestCase
@@ -2700,3 +2701,218 @@ class AIFunctionCallingRuntimeTestCase(TestCase):
             runtime.invoke(
                 user_message="Müşteriyi getir.",
             )
+
+
+class FakeEnterpriseAssistantToolCall:
+    def __init__(
+        self,
+        *,
+        tool_name="get_customer_balance",
+        latency_ms=8,
+    ):
+        self.tool_name = tool_name
+        self.latency_ms = latency_ms
+
+
+class FakeEnterpriseAssistantResult:
+    content = "Nova Kozmetik'in cari bakiyesi 12.500 TRY'dir."
+    tool_calls = (
+        FakeEnterpriseAssistantToolCall(),
+    )
+    round_count = 2
+
+
+class FakeEnterpriseAssistantRuntime:
+    calls = []
+
+    def __init__(self, **kwargs):
+        type(self).calls.append(
+            {
+                "init": kwargs,
+            }
+        )
+
+    def invoke(self, **kwargs):
+        type(self).calls.append(
+            {
+                "invoke": kwargs,
+            }
+        )
+
+        return FakeEnterpriseAssistantResult()
+
+
+class EnterpriseAIAssistantViewTestCase(TestCase):
+    def setUp(self):
+        from apps.accounts.models import (
+            OrganizationMembership,
+        )
+        from apps.organizations.models import (
+            Branch,
+            Department,
+        )
+
+        self.membership_model = (
+            OrganizationMembership
+        )
+
+        self.company = Company.objects.create(
+            name="Enterprise AI Test Şirketi",
+        )
+
+        self.branch = Branch.objects.create(
+            company=self.company,
+            code="AI-HQ",
+            name="AI Genel Merkez",
+        )
+
+        self.department = Department.objects.create(
+            branch=self.branch,
+            code="AI-DEPT",
+            name="Dijital Dönüşüm",
+        )
+
+        self.user = User.objects.create_user(
+            username="enterprise.ai.user",
+            email="enterprise.ai@example.com",
+            password="test-password",
+            user_type=User.UserType.INTERNAL,
+        )
+
+        FakeEnterpriseAssistantRuntime.calls = []
+
+    def create_membership(
+        self,
+        *,
+        permissions=None,
+    ):
+        return self.membership_model.objects.create(
+            user=self.user,
+            company=self.company,
+            branch=self.branch,
+            department=self.department,
+            role=self.membership_model.Role.MEMBER,
+            permissions=permissions or [],
+            is_primary=True,
+            is_active=True,
+        )
+
+    def test_assistant_requires_login(self):
+        response = self.client.get("/ai/")
+
+        self.assertEqual(response.status_code, 302)
+        self.assertIn(
+            "/accounts/login",
+            response.url,
+        )
+
+    def test_assistant_rejects_user_without_membership(self):
+        self.client.force_login(self.user)
+
+        response = self.client.get("/ai/")
+
+        self.assertEqual(response.status_code, 403)
+        self.assertContains(
+            response,
+            "Aktif çalışma alanı üyeliğiniz bulunmuyor",
+            status_code=403,
+        )
+
+    def test_assistant_rejects_membership_without_tool_access(self):
+        self.create_membership()
+
+        self.client.force_login(self.user)
+
+        response = self.client.get("/ai/")
+
+        self.assertEqual(response.status_code, 403)
+        self.assertContains(
+            response,
+            "bir ERP modülüne erişiminiz bulunmuyor",
+            status_code=403,
+        )
+
+    @patch(
+        "apps.ai_core.views.FunctionCallingRuntime",
+        FakeEnterpriseAssistantRuntime,
+    )
+    def test_assistant_runs_runtime_with_allowed_modules(self):
+        self.create_membership(
+            permissions=[
+                self.membership_model
+                .Permission
+                .ACCESS_CRM,
+                self.membership_model
+                .Permission
+                .ACCESS_FINANCE,
+            ]
+        )
+
+        self.client.force_login(self.user)
+
+        response = self.client.post(
+            "/ai/",
+            {
+                "message": (
+                    "Nova Kozmetik'in bakiyesini göster."
+                ),
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+
+        self.assertContains(
+            response,
+            "12.500 TRY",
+        )
+        self.assertContains(
+            response,
+            "get_customer_balance",
+        )
+
+        init_call = (
+            FakeEnterpriseAssistantRuntime
+            .calls[0]["init"]
+        )
+
+        self.assertEqual(
+            init_call["company"],
+            self.company,
+        )
+        self.assertEqual(
+            init_call["requested_by"],
+            self.user,
+        )
+        self.assertEqual(
+            init_call["allowed_modules"],
+            frozenset(
+                {
+                    "crm",
+                    "finance",
+                }
+            ),
+        )
+
+    def test_assistant_rejects_empty_message(self):
+        self.create_membership(
+            permissions=[
+                self.membership_model
+                .Permission
+                .ACCESS_CRM,
+            ]
+        )
+
+        self.client.force_login(self.user)
+
+        response = self.client.post(
+            "/ai/",
+            {
+                "message": "   ",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(
+            response,
+            "bir mesaj yazmalısınız",
+        )

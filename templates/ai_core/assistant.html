@@ -1,0 +1,473 @@
+{% extends "base.html" %}
+
+{% block title %}Glauria AI{% endblock %}
+
+{% block content %}
+<section class="glauria-ai">
+    <header class="glauria-ai__hero">
+        <div>
+            <span class="glauria-ai__eyebrow">
+                ENTERPRISE INTELLIGENCE
+            </span>
+
+            <h1>
+                Glauria AI
+                <span>✦</span>
+            </h1>
+
+            <p>
+                Yetkili olduğunuz ERP modüllerindeki verileri
+                güvenli araç çağrılarıyla sorgulayın.
+            </p>
+        </div>
+
+        {% if current_membership %}
+            <div class="glauria-ai__company">
+                <small>AKTİF ÇALIŞMA ALANI</small>
+                <strong>
+                    {{ current_membership.company.name }}
+                </strong>
+            </div>
+        {% endif %}
+    </header>
+
+    {% if access_error %}
+        <div class="glauria-ai__alert glauria-ai__alert--error">
+            {{ access_error }}
+        </div>
+    {% else %}
+        <div class="glauria-ai__layout">
+            <main class="glauria-ai__chat">
+                <section class="glauria-ai__welcome">
+                    <span class="glauria-ai__orb">✦</span>
+
+                    <div>
+                        <h2>Kurumsal asistanınız hazır</h2>
+
+                        <p>
+                            CRM, finans, stok ve işe alım
+                            verilerinizi doğal dille sorgulayın.
+                        </p>
+                    </div>
+                </section>
+
+                {% if form.message.value %}
+                    <article class="glauria-ai__message glauria-ai__message--user">
+                        <div class="glauria-ai__message-label">
+                            SİZ
+                        </div>
+
+                        <div class="glauria-ai__bubble">
+                            {{ form.message.value }}
+                        </div>
+                    </article>
+                {% endif %}
+
+                {% if assistant_answer %}
+                    <article class="glauria-ai__message glauria-ai__message--assistant">
+                        <div class="glauria-ai__message-label">
+                            GLAURIA AI
+                        </div>
+
+                        <div class="glauria-ai__bubble">
+                            {{ assistant_answer|linebreaksbr }}
+                        </div>
+
+                        <div class="glauria-ai__metadata">
+                            {{ tool_call_count }} araç çağrısı ·
+                            {{ round_count }} AI turu
+                        </div>
+                    </article>
+                {% endif %}
+
+                {% if assistant_error %}
+                    <div class="glauria-ai__alert glauria-ai__alert--error">
+                        <strong>Yanıt oluşturulamadı.</strong>
+                        {{ assistant_error }}
+                    </div>
+                {% endif %}
+
+                {% if form.message.errors %}
+                    <div class="glauria-ai__alert glauria-ai__alert--error">
+                        {{ form.message.errors|striptags }}
+                    </div>
+                {% endif %}
+
+                <form
+                    method="post"
+                    class="glauria-ai__composer"
+                >
+                    {% csrf_token %}
+
+                    <label for="{{ form.message.id_for_label }}">
+                        Glauria AI'ya sorun
+                    </label>
+
+                    {{ form.message }}
+
+                    <div class="glauria-ai__composer-footer">
+                        <span>
+                            Yanıtlar erişim yetkilerinizle
+                            sınırlandırılır.
+                        </span>
+
+                        <button type="submit">
+                            Yanıt Oluştur
+                            <span>✦</span>
+                        </button>
+                    </div>
+                </form>
+            </main>
+
+            <aside class="glauria-ai__side">
+                <section class="glauria-ai__panel">
+                    <span class="glauria-ai__panel-label">
+                        ERİŞİLEBİLEN MODÜLLER
+                    </span>
+
+                    <div class="glauria-ai__modules">
+                        {% for module in allowed_modules %}
+                            <span>{{ module|upper }}</span>
+                        {% empty %}
+                            <span>Modül bulunmuyor</span>
+                        {% endfor %}
+                    </div>
+                </section>
+
+                <section class="glauria-ai__panel">
+                    <span class="glauria-ai__panel-label">
+                        ÖRNEK SORULAR
+                    </span>
+
+                    <p>
+                        Nova Kozmetik'in açık faturalarını
+                        ve cari bakiyesini özetle.
+                    </p>
+
+                    <p>
+                        SERUM-001 ürününün kullanılabilir
+                        stok miktarı nedir?
+                    </p>
+
+                    <p>
+                        İşe alım pipeline'ındaki aktif
+                        başvuruları göster.
+                    </p>
+                </section>
+
+                {% if tool_calls %}
+                    <section class="glauria-ai__panel">
+                        <span class="glauria-ai__panel-label">
+                            KULLANILAN ARAÇLAR
+                        </span>
+
+                        {% for call in tool_calls %}
+                            <div class="glauria-ai__tool">
+                                <strong>
+                                    {{ call.tool_name }}
+                                </strong>
+
+                                <small>
+                                    {{ call.latency_ms }} ms
+                                </small>
+                            </div>
+                        {% endfor %}
+                    </section>
+                {% endif %}
+            </aside>
+        </div>
+    {% endif %}
+</section>
+
+<style>
+.glauria-ai {
+    display: grid;
+    gap: 24px;
+}
+
+.glauria-ai__hero {
+    display: flex;
+    justify-content: space-between;
+    gap: 24px;
+    padding: 30px;
+    border: 1px solid rgba(219, 172, 181, .2);
+    border-radius: 24px;
+    background:
+        radial-gradient(
+            circle at top right,
+            rgba(195, 130, 148, .18),
+            transparent 42%
+        ),
+        rgba(24, 18, 27, .88);
+}
+
+.glauria-ai__eyebrow,
+.glauria-ai__panel-label,
+.glauria-ai__message-label {
+    color: #d7a8b4;
+    font-size: .72rem;
+    font-weight: 700;
+    letter-spacing: .18em;
+}
+
+.glauria-ai__hero h1 {
+    margin: 8px 0;
+    font-size: clamp(2rem, 4vw, 3.4rem);
+}
+
+.glauria-ai__hero h1 span {
+    color: #e2aebb;
+}
+
+.glauria-ai__hero p {
+    max-width: 720px;
+    margin: 0;
+    color: rgba(255, 255, 255, .67);
+}
+
+.glauria-ai__company {
+    min-width: 220px;
+    align-self: center;
+    padding: 18px;
+    border: 1px solid rgba(219, 172, 181, .18);
+    border-radius: 16px;
+    background: rgba(255, 255, 255, .035);
+}
+
+.glauria-ai__company small,
+.glauria-ai__company strong {
+    display: block;
+}
+
+.glauria-ai__company small {
+    margin-bottom: 7px;
+    color: rgba(255, 255, 255, .45);
+}
+
+.glauria-ai__layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 310px;
+    gap: 20px;
+}
+
+.glauria-ai__chat,
+.glauria-ai__panel {
+    border: 1px solid rgba(219, 172, 181, .16);
+    background: rgba(24, 18, 27, .78);
+}
+
+.glauria-ai__chat {
+    min-height: 580px;
+    padding: 24px;
+    border-radius: 22px;
+}
+
+.glauria-ai__welcome {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding-bottom: 22px;
+    border-bottom: 1px solid rgba(255, 255, 255, .07);
+}
+
+.glauria-ai__orb {
+    display: grid;
+    width: 48px;
+    height: 48px;
+    place-items: center;
+    border-radius: 50%;
+    color: #f0c8d1;
+    background: rgba(211, 151, 166, .13);
+    box-shadow: 0 0 35px rgba(210, 143, 161, .18);
+}
+
+.glauria-ai__welcome h2,
+.glauria-ai__welcome p {
+    margin: 0;
+}
+
+.glauria-ai__welcome p {
+    margin-top: 4px;
+    color: rgba(255, 255, 255, .56);
+}
+
+.glauria-ai__message {
+    display: grid;
+    gap: 8px;
+    margin-top: 24px;
+}
+
+.glauria-ai__message--user {
+    justify-items: end;
+}
+
+.glauria-ai__bubble {
+    max-width: 84%;
+    padding: 16px 18px;
+    border-radius: 17px;
+    line-height: 1.65;
+}
+
+.glauria-ai__message--user .glauria-ai__bubble {
+    background: linear-gradient(
+        135deg,
+        rgba(196, 130, 149, .35),
+        rgba(128, 79, 105, .3)
+    );
+}
+
+.glauria-ai__message--assistant .glauria-ai__bubble {
+    border: 1px solid rgba(219, 172, 181, .16);
+    background: rgba(255, 255, 255, .045);
+}
+
+.glauria-ai__metadata {
+    color: rgba(255, 255, 255, .38);
+    font-size: .78rem;
+}
+
+.glauria-ai__composer {
+    display: grid;
+    gap: 12px;
+    margin-top: 28px;
+    padding-top: 22px;
+    border-top: 1px solid rgba(255, 255, 255, .07);
+}
+
+.glauria-ai__composer label {
+    font-weight: 650;
+}
+
+.glauria-ai__textarea {
+    width: 100%;
+    resize: vertical;
+    padding: 15px;
+    border: 1px solid rgba(219, 172, 181, .2);
+    border-radius: 15px;
+    color: #fff;
+    background: rgba(6, 5, 8, .5);
+    outline: none;
+}
+
+.glauria-ai__textarea:focus {
+    border-color: rgba(226, 174, 187, .55);
+    box-shadow: 0 0 0 3px rgba(226, 174, 187, .08);
+}
+
+.glauria-ai__composer-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 18px;
+}
+
+.glauria-ai__composer-footer > span {
+    color: rgba(255, 255, 255, .4);
+    font-size: .78rem;
+}
+
+.glauria-ai__composer button {
+    padding: 12px 18px;
+    border: 0;
+    border-radius: 13px;
+    color: #241820;
+    font-weight: 750;
+    cursor: pointer;
+    background: linear-gradient(
+        135deg,
+        #efc6d0,
+        #c98e9f
+    );
+}
+
+.glauria-ai__side {
+    display: grid;
+    align-content: start;
+    gap: 16px;
+}
+
+.glauria-ai__panel {
+    padding: 19px;
+    border-radius: 18px;
+}
+
+.glauria-ai__panel p {
+    margin: 14px 0 0;
+    color: rgba(255, 255, 255, .64);
+    line-height: 1.55;
+}
+
+.glauria-ai__modules {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 14px;
+}
+
+.glauria-ai__modules span {
+    padding: 7px 10px;
+    border: 1px solid rgba(219, 172, 181, .18);
+    border-radius: 999px;
+    color: #e7bdc7;
+    font-size: .72rem;
+}
+
+.glauria-ai__tool {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 13px;
+    padding: 11px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, .06);
+}
+
+.glauria-ai__tool small {
+    color: rgba(255, 255, 255, .4);
+}
+
+.glauria-ai__alert {
+    padding: 15px 17px;
+    border-radius: 14px;
+}
+
+.glauria-ai__alert--error {
+    border: 1px solid rgba(218, 105, 125, .27);
+    color: #f3b5c0;
+    background: rgba(145, 49, 70, .13);
+}
+
+@media (max-width: 980px) {
+    .glauria-ai__layout {
+        grid-template-columns: 1fr;
+    }
+
+    .glauria-ai__hero {
+        display: grid;
+    }
+
+    .glauria-ai__company {
+        min-width: 0;
+    }
+}
+
+@media (max-width: 620px) {
+    .glauria-ai__hero,
+    .glauria-ai__chat {
+        padding: 18px;
+    }
+
+    .glauria-ai__composer-footer {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .glauria-ai__composer button {
+        width: 100%;
+    }
+
+    .glauria-ai__bubble {
+        max-width: 100%;
+    }
+}
+</style>
+{% endblock %}

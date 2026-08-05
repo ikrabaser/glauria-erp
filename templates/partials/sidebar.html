@@ -242,5 +242,16 @@
         İzinlerim
     </a>
 {% endif %}
-    </nav>
+    
+        {% if module_access.crm or module_access.finance or module_access.inventory or module_access.hr %}
+            <a
+                href="{% url 'ai_core:assistant' %}"
+                class="sidebar-link{% if request.resolver_match.namespace == 'ai_core' %} active{% endif %}"
+            >
+                <span>✦</span>
+                <span>Glauria AI</span>
+            </a>
+        {% endif %}
+
+</nav>
 </aside>
