@@ -94,3 +94,9 @@ from .recruitment_ai_assessment import (
     CandidateAIAssessment,
     assess_candidate_with_ai,
 )
+
+from .recruitment_ai_context import (
+    CandidateApplicationAIContext,
+    build_candidate_application_ai_context,
+    queue_recruitment_ai_assessment,
+)

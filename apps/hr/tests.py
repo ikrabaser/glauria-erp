@@ -33,6 +33,7 @@ from .models import (
     JobApplication,
     JobRequisition,
     RecruitmentEvent,
+    RecruitmentAIAssessment,
 )
 from .services import (
     approve_absence_request,
@@ -3385,3 +3386,186 @@ class RecruitmentAIAssessmentTestCase(TestCase):
                 candidate=other_candidate,
                 requisition=self.requisition,
             )
+
+
+class RecruitmentAIContextServiceTestCase(TestCase):
+    def setUp(self):
+        from apps.hr.service_layer.recruitment_ai_context import (
+            build_candidate_application_ai_context,
+            queue_recruitment_ai_assessment,
+        )
+
+        self.build_context = (
+            build_candidate_application_ai_context
+        )
+        self.queue_assessment = (
+            queue_recruitment_ai_assessment
+        )
+
+        self.company = Company.objects.create(
+            name="AI Context Test Şirketi",
+        )
+
+        self.branch = Branch.objects.create(
+            company=self.company,
+            name="AI Context Merkez",
+            code="AI-CONTEXT-HQ",
+        )
+
+        self.department = Department.objects.create(
+            branch=self.branch,
+            name="Bilgi Teknolojileri",
+            code="AI-CONTEXT-TECH",
+        )
+
+        self.position = Position.objects.create(
+            company=self.company,
+            department=self.department,
+            code="AI-CONTEXT-BE",
+            title="Backend Developer",
+        )
+
+        self.user = User.objects.create_user(
+            username="ai.context.user",
+            email="ai.context@example.com",
+            password="test-password",
+            user_type=User.UserType.INTERNAL,
+        )
+
+        self.recruiter = Employee.objects.create(
+            company=self.company,
+            employee_number="AI-CONTEXT-001",
+            first_name="Ayşe",
+            last_name="Recruiter",
+            work_email="ai.context.recruiter@example.com",
+            hire_date=date(2024, 1, 1),
+        )
+
+        self.manager = Employee.objects.create(
+            company=self.company,
+            employee_number="AI-CONTEXT-002",
+            first_name="Mehmet",
+            last_name="Manager",
+            work_email="ai.context.manager@example.com",
+            hire_date=date(2023, 1, 1),
+        )
+
+        self.requisition = JobRequisition.objects.create(
+            company=self.company,
+            department=self.department,
+            position=self.position,
+            requisition_number="REQ-AI-CONTEXT-001",
+            title="Backend Developer",
+            description="Backend uygulamalar geliştirilecek.",
+            requirements="Python ve Django deneyimi.",
+            hiring_manager=self.manager,
+            recruiter=self.recruiter,
+        )
+
+        self.candidate = Candidate.objects.create(
+            company=self.company,
+            first_name="Selin",
+            last_name="Context",
+            email="selin.context@example.com",
+        )
+
+        self.application = JobApplication.objects.create(
+            company=self.company,
+            requisition=self.requisition,
+            candidate=self.candidate,
+            assigned_recruiter=self.recruiter,
+        )
+
+    def test_context_supports_application_without_assessment(self):
+        rows = self.build_context(
+            applications=[self.application],
+            can_request_analysis=True,
+        )
+
+        self.assertEqual(len(rows), 1)
+        self.assertFalse(rows[0].has_assessment)
+        self.assertTrue(rows[0].can_request_analysis)
+
+    def test_completed_assessment_is_exposed_in_context(self):
+        assessment = RecruitmentAIAssessment.objects.create(
+            application=self.application,
+            company=self.company,
+            requested_by=self.user,
+            status=RecruitmentAIAssessment.Status.COMPLETED,
+            overall_score=84,
+        )
+
+        application = (
+            JobApplication.objects
+            .select_related("ai_assessment")
+            .get(id=self.application.id)
+        )
+
+        rows = self.build_context(
+            applications=[application],
+            can_request_analysis=True,
+        )
+
+        self.assertTrue(rows[0].has_assessment)
+        self.assertTrue(rows[0].is_completed)
+        self.assertEqual(
+            rows[0].assessment,
+            assessment,
+        )
+
+    def test_queue_service_creates_pending_assessment(self):
+        with self.captureOnCommitCallbacks(
+            execute=False,
+        ) as callbacks:
+            assessment, created = self.queue_assessment(
+                application=self.application,
+                requested_by=self.user,
+            )
+
+        self.assertTrue(created)
+        self.assertEqual(
+            assessment.status,
+            RecruitmentAIAssessment.Status.PENDING,
+        )
+        self.assertEqual(
+            assessment.company,
+            self.company,
+        )
+        self.assertEqual(len(callbacks), 1)
+
+    def test_queue_service_resets_existing_failed_assessment(self):
+        assessment = RecruitmentAIAssessment.objects.create(
+            application=self.application,
+            company=self.company,
+            requested_by=self.user,
+            status=RecruitmentAIAssessment.Status.FAILED,
+            ai_error="Eski hata",
+            completed_at=timezone.now(),
+        )
+
+        with self.captureOnCommitCallbacks(
+            execute=False,
+        ):
+            queued_assessment, created = self.queue_assessment(
+                application=self.application,
+                requested_by=self.user,
+            )
+
+        queued_assessment.refresh_from_db()
+
+        self.assertFalse(created)
+        self.assertEqual(
+            queued_assessment.id,
+            assessment.id,
+        )
+        self.assertEqual(
+            queued_assessment.status,
+            RecruitmentAIAssessment.Status.PENDING,
+        )
+        self.assertEqual(
+            queued_assessment.ai_error,
+            "",
+        )
+        self.assertIsNone(
+            queued_assessment.completed_at
+        )

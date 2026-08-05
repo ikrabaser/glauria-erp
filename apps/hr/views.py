@@ -9,6 +9,7 @@ from django.contrib import messages
 from django.db import transaction
 from django.http import HttpResponseForbidden
 from django.core.exceptions import ValidationError
+from django.views.decorators.http import require_POST
 
 from apps.accounts.models import OrganizationMembership
 from apps.organizations.models import Department
@@ -26,6 +27,7 @@ from .models import (
     Candidate,
     JobApplication,
     JobRequisition,
+    RecruitmentAIAssessment,
 )
 from .forms import (
     AbsenceCancellationForm,
@@ -46,6 +48,11 @@ from .services import (
     reject_absence_request,
     submit_absence_request,
     open_job_requisition,
+)
+
+from .service_layer import (
+    build_candidate_application_ai_context,
+    queue_recruitment_ai_assessment,
 )
 
 def get_active_membership(user):
@@ -2373,7 +2380,7 @@ def candidate_detail(
         company=membership.company,
     )
 
-    applications = (
+    applications = list(
         JobApplication.objects.filter(
             company=membership.company,
             candidate=candidate,
@@ -2383,12 +2390,22 @@ def candidate_detail(
             "requisition__department",
             "requisition__position",
             "assigned_recruiter",
+            "ai_assessment",
         )
         .prefetch_related(
             "events",
         )
         .order_by(
             "-applied_at",
+        )
+    )
+
+    can_manage = can_manage_hr(membership)
+
+    application_ai_rows = (
+        build_candidate_application_ai_context(
+            applications=applications,
+            can_request_analysis=can_manage,
         )
     )
 
@@ -2399,7 +2416,61 @@ def candidate_detail(
             "current_membership": membership,
             "candidate": candidate,
             "applications": applications,
-            "can_manage_hr": can_manage_hr(membership),
+            "application_ai_rows": application_ai_rows,
+            "can_manage_hr": can_manage,
         },
+    )
+
+
+@login_required
+@require_POST
+def candidate_application_ai_assessment_create(
+    request,
+    candidate_id,
+    application_id,
+):
+    membership = get_active_membership(request.user)
+
+    if not has_hr_access(membership):
+        return redirect("hr:home")
+
+    if not can_manage_hr(membership):
+        return hr_management_forbidden()
+
+    candidate = get_object_or_404(
+        Candidate,
+        id=candidate_id,
+        company=membership.company,
+    )
+
+    application = get_object_or_404(
+        JobApplication.objects.select_related(
+            "candidate",
+            "requisition",
+        ),
+        id=application_id,
+        candidate=candidate,
+        company=membership.company,
+    )
+
+    _, created = queue_recruitment_ai_assessment(
+        application=application,
+        requested_by=request.user,
+    )
+
+    if created:
+        messages.success(
+            request,
+            "AI aday değerlendirmesi kuyruğa alındı.",
+        )
+    else:
+        messages.success(
+            request,
+            "AI aday değerlendirmesi yeniden kuyruğa alındı.",
+        )
+
+    return redirect(
+        "hr:candidate_detail",
+        candidate_id=candidate.id,
     )
 
