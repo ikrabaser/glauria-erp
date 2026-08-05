@@ -586,6 +586,10 @@ def finance_ai_analysis_create(request):
             "Hazır olduğunda bildirim alacaksınız."
         ),
     )
+
+    return redirect("finance:home")
+
+
 @login_required
 @require_POST
 def finance_ai_chat_send(request):
@@ -1040,6 +1044,7 @@ def budget_reports(request):
             "active_budget_totals": active_budget_totals,
             "active_budget_net_total": active_budget_net_total,
             "status_counts": status_counts,
+            "budget_count": sum(status_counts.values()),
             "budget_portfolio_chart": budget_portfolio_chart,
         },
     )

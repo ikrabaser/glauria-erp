@@ -3449,3 +3449,165 @@ class RecruitmentEvent(BaseModel):
             f"{self.application.candidate.full_name} · "
             f"{self.get_event_type_display()}"
         )
+
+
+class RecruitmentAIAssessment(BaseModel):
+    """
+    Belirli bir iş başvurusu için üretilen açıklanabilir AI
+    değerlendirmesini saklar.
+    """
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "Bekliyor"
+        PROCESSING = "processing", "Analiz ediliyor"
+        COMPLETED = "completed", "Tamamlandı"
+        FAILED = "failed", "Başarısız"
+
+    application = models.OneToOneField(
+        JobApplication,
+        on_delete=models.CASCADE,
+        related_name="ai_assessment",
+        verbose_name="İş başvurusu",
+    )
+
+    company = models.ForeignKey(
+        Company,
+        on_delete=models.PROTECT,
+        related_name="recruitment_ai_assessments",
+        verbose_name="Şirket",
+    )
+
+    requested_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="requested_recruitment_ai_assessments",
+        verbose_name="Analizi isteyen kullanıcı",
+    )
+
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.PENDING,
+        verbose_name="Analiz durumu",
+    )
+
+    overall_score = models.PositiveSmallIntegerField(
+        default=0,
+        verbose_name="Genel uyum puanı",
+    )
+
+    skill_score = models.PositiveSmallIntegerField(
+        default=0,
+        verbose_name="Beceri uyum puanı",
+    )
+
+    title_score = models.PositiveSmallIntegerField(
+        default=0,
+        verbose_name="Unvan uyum puanı",
+    )
+
+    experience_score = models.PositiveSmallIntegerField(
+        default=0,
+        verbose_name="Deneyim uyum puanı",
+    )
+
+    strengths = models.JSONField(
+        default=list,
+        blank=True,
+        verbose_name="Güçlü yönler",
+    )
+
+    risks = models.JSONField(
+        default=list,
+        blank=True,
+        verbose_name="Riskler",
+    )
+
+    matched_skills = models.JSONField(
+        default=list,
+        blank=True,
+        verbose_name="Eşleşen beceriler",
+    )
+
+    missing_skills = models.JSONField(
+        default=list,
+        blank=True,
+        verbose_name="Eksik beceriler",
+    )
+
+    recommendation = models.CharField(
+        max_length=40,
+        blank=True,
+        verbose_name="Öneri",
+    )
+
+    summary = models.TextField(
+        blank=True,
+        verbose_name="AI değerlendirme özeti",
+    )
+
+    ai_used = models.BooleanField(
+        default=False,
+        verbose_name="AI sağlayıcısı kullanıldı mı?",
+    )
+
+    ai_error = models.TextField(
+        blank=True,
+        verbose_name="AI hata özeti",
+    )
+
+    completed_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="Tamamlanma zamanı",
+    )
+
+    class Meta:
+        ordering = ["-updated_at"]
+        verbose_name = "Recruitment AI değerlendirmesi"
+        verbose_name_plural = "Recruitment AI değerlendirmeleri"
+        indexes = [
+            models.Index(
+                fields=["company", "status", "updated_at"],
+            ),
+        ]
+
+    def clean(self):
+        errors = {}
+
+        if (
+            self.application_id
+            and self.company_id
+            and self.application.company_id != self.company_id
+        ):
+            errors["company"] = (
+                "AI değerlendirmesi başvurunun şirketine ait olmalıdır."
+            )
+
+        for field_name in (
+            "overall_score",
+            "skill_score",
+            "title_score",
+            "experience_score",
+        ):
+            value = getattr(self, field_name)
+
+            if value < 0 or value > 100:
+                errors[field_name] = (
+                    "Değerlendirme puanı 0 ile 100 arasında olmalıdır."
+                )
+
+        if errors:
+            raise ValidationError(errors)
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return (
+            f"{self.application} · "
+            f"{self.get_status_display()}"
+        )

@@ -93,8 +93,89 @@ Bütçe ve Raporlar | Glauria ERP
     </div>
 
     <div class="finance-budget-portfolio__grid">
-        <div class="finance-budget-portfolio__chart">
-            <canvas id="finance-budget-portfolio-chart"></canvas>
+        <div class="finance-budget-portfolio__summary">
+            <div class="finance-budget-portfolio__total">
+                <span>TOPLAM PORTFÖY</span>
+
+                <strong>
+                    {% widthratio status_counts.draft|default:0 1 1 as draft_total %}
+                    {% widthratio status_counts.pending_approval|default:0 1 1 as pending_total %}
+                    {% widthratio status_counts.active|default:0 1 1 as active_total %}
+                    {% widthratio status_counts.closed|default:0 1 1 as closed_total %}
+
+                    {{ budget_count|default:0 }}
+                </strong>
+
+                <small>
+                    Kayıtlı bütçe planı
+                </small>
+            </div>
+
+            <div class="finance-budget-portfolio__distribution">
+                <div class="finance-budget-portfolio__distribution-heading">
+                    <span>Portföy dağılımı</span>
+                    <small>Durum bazlı görünüm</small>
+                </div>
+
+                <div
+                    class="finance-budget-portfolio__track"
+                    aria-label="Bütçe durum dağılımı"
+                >
+                    {% if status_counts.draft %}
+                        <span
+                            class="is-draft"
+                            style="flex-grow: {{ status_counts.draft }};"
+                            title="Taslak: {{ status_counts.draft }}"
+                        ></span>
+                    {% endif %}
+
+                    {% if status_counts.pending_approval %}
+                        <span
+                            class="is-pending"
+                            style="flex-grow: {{ status_counts.pending_approval }};"
+                            title="Onay bekliyor: {{ status_counts.pending_approval }}"
+                        ></span>
+                    {% endif %}
+
+                    {% if status_counts.active %}
+                        <span
+                            class="is-active"
+                            style="flex-grow: {{ status_counts.active }};"
+                            title="Aktif: {{ status_counts.active }}"
+                        ></span>
+                    {% endif %}
+
+                    {% if status_counts.closed %}
+                        <span
+                            class="is-closed"
+                            style="flex-grow: {{ status_counts.closed }};"
+                            title="Kapandı: {{ status_counts.closed }}"
+                        ></span>
+                    {% endif %}
+                </div>
+
+                <div class="finance-budget-portfolio__distribution-labels">
+                    <span>
+                        <i class="is-draft"></i>
+                        Taslak
+                    </span>
+
+                    <span>
+                        <i class="is-pending"></i>
+                        Onay bekliyor
+                    </span>
+
+                    <span>
+                        <i class="is-active"></i>
+                        Aktif
+                    </span>
+
+                    <span>
+                        <i class="is-closed"></i>
+                        Kapandı
+                    </span>
+                </div>
+            </div>
         </div>
 
         <div class="finance-budget-portfolio__statuses">
@@ -284,89 +365,183 @@ Bütçe ve Raporlar | Glauria ERP
 </section>
 {% endblock %}
 {% block extra_js %}
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
-
-<script>
-    const portfolioChartDataElement = document.getElementById(
-        "finance-budget-portfolio-chart-data"
-    );
-
-    const portfolioChartCanvas = document.getElementById(
-        "finance-budget-portfolio-chart"
-    );
-
-    if (portfolioChartDataElement && portfolioChartCanvas) {
-        const portfolioChartData = JSON.parse(
-            portfolioChartDataElement.textContent
-        );
-
-        const isLightTheme = (
-            document.documentElement.dataset.theme === "light"
-        );
-
-        new Chart(
-            portfolioChartCanvas,
-            {
-                type: "doughnut",
-                data: {
-                    labels: portfolioChartData.labels,
-                    datasets: [
-                        {
-                            data: portfolioChartData.values,
-                            backgroundColor: [
-                                "#b982d3",
-                                "#e5a77f",
-                                "#53c5cc",
-                                "#6d6875",
-                            ],
-                            borderColor: isLightTheme
-                                ? "#ffffff"
-                                : "#17131c",
-                            borderWidth: 5,
-                            hoverOffset: 8,
-                        },
-                    ],
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    cutout: "67%",
-                    plugins: {
-                        legend: {
-                            position: "bottom",
-                            labels: {
-                                color: isLightTheme
-                                    ? "#3b2530"
-                                    : "rgba(255, 255, 255, 0.72)",
-                                boxWidth: 10,
-                                boxHeight: 10,
-                                padding: 16,
-                                font: {
-                                    size: 12,
-                                    weight: "700",
-                                },
-                            },
-                        },
-                        tooltip: {
-                            backgroundColor: "#211a2a",
-                            titleColor: "#ffffff",
-                            bodyColor: "#f4d9cd",
-                            padding: 12,
-                            callbacks: {
-                                label(context) {
-                                    return (
-                                        context.label
-                                        + ": "
-                                        + context.parsed
-                                        + " bütçe"
-                                    );
-                                },
-                            },
-                        },
-                    },
-                },
-            }
-        );
+<style>
+    .finance-budget-portfolio__summary {
+        min-height: 250px;
+        padding: 32px;
+        border: 1px solid rgba(113, 73, 91, 0.12);
+        border-radius: 22px;
+        background:
+            linear-gradient(
+                135deg,
+                rgba(255, 255, 255, 0.82),
+                rgba(250, 241, 239, 0.64)
+            );
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        gap: 30px;
     }
-</script>
+
+    .finance-budget-portfolio__total {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .finance-budget-portfolio__total span {
+        margin-bottom: 9px;
+        color: rgba(109, 67, 85, 0.64);
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: 0.14em;
+    }
+
+    .finance-budget-portfolio__total strong {
+        color: #2f1f28;
+        font-size: clamp(42px, 4vw, 62px);
+        font-weight: 650;
+        line-height: 1;
+        letter-spacing: -0.045em;
+    }
+
+    .finance-budget-portfolio__total small {
+        margin-top: 10px;
+        color: rgba(81, 57, 68, 0.62);
+        font-size: 13px;
+    }
+
+    .finance-budget-portfolio__distribution {
+        display: flex;
+        flex-direction: column;
+        gap: 13px;
+    }
+
+    .finance-budget-portfolio__distribution-heading {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 15px;
+    }
+
+    .finance-budget-portfolio__distribution-heading span {
+        color: #3a2831;
+        font-size: 13px;
+        font-weight: 750;
+    }
+
+    .finance-budget-portfolio__distribution-heading small {
+        color: rgba(81, 57, 68, 0.52);
+        font-size: 11px;
+    }
+
+    .finance-budget-portfolio__track {
+        width: 100%;
+        height: 13px;
+        padding: 2px;
+        border: 1px solid rgba(113, 73, 91, 0.12);
+        border-radius: 999px;
+        background: rgba(112, 78, 94, 0.07);
+        display: flex;
+        gap: 3px;
+        overflow: hidden;
+    }
+
+    .finance-budget-portfolio__track span {
+        min-width: 7px;
+        height: 100%;
+        border-radius: 999px;
+        transition:
+            flex-grow 280ms ease,
+            opacity 180ms ease;
+    }
+
+    .finance-budget-portfolio__track span:hover {
+        opacity: 0.78;
+    }
+
+    .finance-budget-portfolio__track .is-draft,
+    .finance-budget-portfolio__distribution-labels i.is-draft {
+        background: #d9c8d8;
+    }
+
+    .finance-budget-portfolio__track .is-pending,
+    .finance-budget-portfolio__distribution-labels i.is-pending {
+        background: #dfa88e;
+    }
+
+    .finance-budget-portfolio__track .is-active,
+    .finance-budget-portfolio__distribution-labels i.is-active {
+        background: #ae5676;
+    }
+
+    .finance-budget-portfolio__track .is-closed,
+    .finance-budget-portfolio__distribution-labels i.is-closed {
+        background: #49323e;
+    }
+
+    .finance-budget-portfolio__distribution-labels {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px 20px;
+    }
+
+    .finance-budget-portfolio__distribution-labels span {
+        color: rgba(67, 46, 56, 0.72);
+        font-size: 11px;
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+    }
+
+    .finance-budget-portfolio__distribution-labels i {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        display: inline-block;
+    }
+
+    [data-theme="dark"] .finance-budget-portfolio__summary {
+        border-color: rgba(255, 219, 224, 0.1);
+        background:
+            linear-gradient(
+                135deg,
+                rgba(38, 29, 40, 0.88),
+                rgba(28, 23, 32, 0.92)
+            );
+    }
+
+    [data-theme="dark"] .finance-budget-portfolio__total strong,
+    [data-theme="dark"]
+    .finance-budget-portfolio__distribution-heading span {
+        color: #fff3ee;
+    }
+
+    [data-theme="dark"] .finance-budget-portfolio__total span,
+    [data-theme="dark"] .finance-budget-portfolio__total small,
+    [data-theme="dark"]
+    .finance-budget-portfolio__distribution-heading small,
+    [data-theme="dark"]
+    .finance-budget-portfolio__distribution-labels span {
+        color: rgba(255, 232, 228, 0.62);
+    }
+
+    [data-theme="dark"] .finance-budget-portfolio__track {
+        border-color: rgba(255, 219, 224, 0.1);
+        background: rgba(255, 255, 255, 0.055);
+    }
+
+    @media (max-width: 720px) {
+        .finance-budget-portfolio__summary {
+            min-height: auto;
+            padding: 24px;
+        }
+
+        .finance-budget-portfolio__distribution-heading {
+            align-items: flex-start;
+            flex-direction: column;
+            gap: 3px;
+        }
+    }
+</style>
 {% endblock %}

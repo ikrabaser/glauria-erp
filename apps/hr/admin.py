@@ -22,6 +22,7 @@ from .models import (
     JobApplication,
     JobRequisition,
     RecruitmentEvent,
+    RecruitmentAIAssessment,
 )
 
 
@@ -1047,3 +1048,78 @@ class RecruitmentEventAdmin(admin.ModelAdmin):
     ):
         return False
 
+
+
+@admin.register(RecruitmentAIAssessment)
+class RecruitmentAIAssessmentAdmin(admin.ModelAdmin):
+    list_display = (
+        "application",
+        "company",
+        "status",
+        "overall_score",
+        "recommendation",
+        "ai_used",
+        "completed_at",
+    )
+
+    list_filter = (
+        "company",
+        "status",
+        "recommendation",
+        "ai_used",
+    )
+
+    search_fields = (
+        "application__candidate__first_name",
+        "application__candidate__last_name",
+        "application__candidate__email",
+        "application__requisition__title",
+        "summary",
+    )
+
+    list_select_related = (
+        "application",
+        "application__candidate",
+        "application__requisition",
+        "company",
+        "requested_by",
+    )
+
+    readonly_fields = (
+        "application",
+        "company",
+        "requested_by",
+        "status",
+        "overall_score",
+        "skill_score",
+        "title_score",
+        "experience_score",
+        "strengths",
+        "risks",
+        "matched_skills",
+        "missing_skills",
+        "recommendation",
+        "summary",
+        "ai_used",
+        "ai_error",
+        "completed_at",
+        "created_at",
+        "updated_at",
+    )
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(
+        self,
+        request,
+        obj=None,
+    ):
+        return False
+
+    def has_delete_permission(
+        self,
+        request,
+        obj=None,
+    ):
+        return False

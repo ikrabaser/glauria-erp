@@ -2763,3 +2763,309 @@ html[data-theme="light"] .candidate-profile-hero__identity p {
         width: 100%;
     }
 }
+
+
+/* Recruitment AI Assessment */
+
+.candidate-ai-application-list {
+    display: grid;
+    gap: 1rem;
+}
+
+.candidate-ai-application {
+    padding: 1.1rem;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 18px;
+    background:
+        radial-gradient(
+            circle at top right,
+            rgba(229, 167, 161, 0.09),
+            transparent 34%
+        ),
+        rgba(255, 255, 255, 0.025);
+}
+
+.candidate-ai-application__header,
+.candidate-ai-application__footer,
+.candidate-ai-summary,
+.candidate-ai-score-breakdown,
+.candidate-ai-application__statuses {
+    display: flex;
+    align-items: center;
+}
+
+.candidate-ai-application__header {
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.candidate-ai-application__title {
+    color: #fff;
+    font-size: 1rem;
+    font-weight: 800;
+    text-decoration: none;
+}
+
+.candidate-ai-application__title:hover {
+    color: #e5a7a1;
+}
+
+.candidate-ai-application__meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem 0.85rem;
+    margin-top: 0.35rem;
+    color: rgba(255, 255, 255, 0.52);
+    font-size: 0.73rem;
+}
+
+.candidate-ai-application__statuses {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 0.5rem;
+}
+
+.candidate-ai-status {
+    display: inline-flex;
+    padding: 0.38rem 0.65rem;
+    border-radius: 999px;
+    color: #cbd5e1;
+    background: rgba(148, 163, 184, 0.13);
+    font-size: 0.68rem;
+    font-weight: 800;
+}
+
+.candidate-ai-status--pending,
+.candidate-ai-status--processing {
+    color: #f7c76c;
+    background: rgba(245, 184, 70, 0.13);
+}
+
+.candidate-ai-status--completed {
+    color: #86efac;
+    background: rgba(74, 222, 128, 0.13);
+}
+
+.candidate-ai-status--failed {
+    color: #fca5a5;
+    background: rgba(248, 113, 113, 0.13);
+}
+
+.candidate-ai-summary {
+    gap: 1rem;
+    margin-top: 1rem;
+    padding: 1rem;
+    border: 1px solid rgba(229, 167, 161, 0.17);
+    border-radius: 16px;
+    background: rgba(185, 111, 120, 0.07);
+}
+
+.candidate-ai-score {
+    min-width: 126px;
+}
+
+.candidate-ai-score span,
+.candidate-ai-recommendation span,
+.candidate-ai-score-breakdown span {
+    display: block;
+    color: rgba(255, 255, 255, 0.52);
+    font-size: 0.68rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+.candidate-ai-score strong {
+    color: #fff;
+    font-size: 2rem;
+    line-height: 1;
+}
+
+.candidate-ai-score small {
+    color: rgba(255, 255, 255, 0.45);
+    font-size: 0.75rem;
+}
+
+.candidate-ai-score-breakdown {
+    flex: 1;
+    justify-content: space-around;
+    gap: 0.75rem;
+}
+
+.candidate-ai-score-breakdown div {
+    min-width: 78px;
+    text-align: center;
+}
+
+.candidate-ai-score-breakdown strong,
+.candidate-ai-recommendation strong {
+    display: block;
+    margin-top: 0.3rem;
+    color: #fff;
+    font-size: 0.95rem;
+}
+
+.candidate-ai-recommendation {
+    min-width: 170px;
+}
+
+.candidate-ai-text {
+    margin: 1rem 0 0;
+    color: rgba(255, 255, 255, 0.7);
+    line-height: 1.7;
+}
+
+.candidate-ai-detail-grid,
+.candidate-ai-skills {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.candidate-ai-detail-grid section,
+.candidate-ai-skills section {
+    padding: 0.95rem;
+    border: 1px solid rgba(255, 255, 255, 0.065);
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.025);
+}
+
+.candidate-ai-detail-grid h4,
+.candidate-ai-skills h4 {
+    margin: 0 0 0.65rem;
+    color: #fff;
+    font-size: 0.8rem;
+}
+
+.candidate-ai-detail-grid ul {
+    margin: 0;
+    padding-left: 1.1rem;
+    color: rgba(255, 255, 255, 0.67);
+    line-height: 1.65;
+}
+
+.candidate-ai-detail-grid p {
+    margin: 0;
+    color: rgba(255, 255, 255, 0.52);
+    font-size: 0.78rem;
+}
+
+.candidate-ai-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.45rem;
+}
+
+.candidate-ai-tags span {
+    padding: 0.34rem 0.58rem;
+    border-radius: 999px;
+    color: #86efac;
+    background: rgba(74, 222, 128, 0.11);
+    font-size: 0.68rem;
+    font-weight: 800;
+}
+
+.candidate-ai-tags--missing span {
+    color: #fca5a5;
+    background: rgba(248, 113, 113, 0.11);
+}
+
+.candidate-ai-tags span.is-muted {
+    color: rgba(255, 255, 255, 0.45);
+    background: rgba(148, 163, 184, 0.11);
+}
+
+.candidate-ai-state {
+    margin-top: 1rem;
+    padding: 1rem;
+    border: 1px dashed rgba(255, 255, 255, 0.12);
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.candidate-ai-state strong {
+    color: #fff;
+    font-size: 0.86rem;
+}
+
+.candidate-ai-state p {
+    margin: 0.35rem 0 0;
+    color: rgba(255, 255, 255, 0.55);
+    font-size: 0.77rem;
+    line-height: 1.6;
+}
+
+.candidate-ai-state--error {
+    border-color: rgba(248, 113, 113, 0.2);
+    background: rgba(248, 113, 113, 0.05);
+}
+
+.candidate-ai-action {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 1rem;
+}
+
+.candidate-ai-application__footer {
+    justify-content: space-between;
+    gap: 1rem;
+    margin-top: 1rem;
+    padding-top: 0.8rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    color: rgba(255, 255, 255, 0.45);
+    font-size: 0.68rem;
+}
+
+html[data-theme="light"] .candidate-ai-application,
+html[data-theme="light"] .candidate-ai-detail-grid section,
+html[data-theme="light"] .candidate-ai-skills section,
+html[data-theme="light"] .candidate-ai-state {
+    border-color: rgba(42, 34, 49, 0.08);
+    background: rgba(255, 255, 255, 0.7);
+}
+
+html[data-theme="light"] .candidate-ai-application__title,
+html[data-theme="light"] .candidate-ai-score strong,
+html[data-theme="light"] .candidate-ai-score-breakdown strong,
+html[data-theme="light"] .candidate-ai-recommendation strong,
+html[data-theme="light"] .candidate-ai-detail-grid h4,
+html[data-theme="light"] .candidate-ai-skills h4,
+html[data-theme="light"] .candidate-ai-state strong {
+    color: #231f2c;
+}
+
+html[data-theme="light"] .candidate-ai-application__meta,
+html[data-theme="light"] .candidate-ai-score span,
+html[data-theme="light"] .candidate-ai-recommendation span,
+html[data-theme="light"] .candidate-ai-score-breakdown span,
+html[data-theme="light"] .candidate-ai-text,
+html[data-theme="light"] .candidate-ai-detail-grid ul,
+html[data-theme="light"] .candidate-ai-detail-grid p,
+html[data-theme="light"] .candidate-ai-state p,
+html[data-theme="light"] .candidate-ai-application__footer {
+    color: rgba(43, 36, 50, 0.62);
+}
+
+@media (max-width: 850px) {
+    .candidate-ai-application__header,
+    .candidate-ai-summary,
+    .candidate-ai-application__footer {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .candidate-ai-application__statuses {
+        justify-content: flex-start;
+    }
+
+    .candidate-ai-score-breakdown {
+        justify-content: flex-start;
+        width: 100%;
+    }
+
+    .candidate-ai-detail-grid,
+    .candidate-ai-skills {
+        grid-template-columns: 1fr;
+    }
+}

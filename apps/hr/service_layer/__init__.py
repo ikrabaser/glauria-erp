@@ -80,3 +80,34 @@ __all__ = [
     "submit_attendance_record",
     "validate_absence_request_balance",
 ]
+
+from .recruitment_ai import (
+    CandidateMatchResult,
+    extract_skills,
+    match_candidate_to_requisition,
+    normalize_text,
+    rank_candidates_for_requisition,
+    update_application_screening_score,
+)
+
+from .recruitment_ai_assessment import (
+    CandidateAIAssessment,
+    assess_candidate_with_ai,
+)
+
+from .recruitment_ai_context import (
+    CandidateApplicationAIContext,
+    build_candidate_application_ai_context,
+    queue_recruitment_ai_assessment,
+)
+
+from .recruitment_rag import (
+    RecruitmentRAGContext,
+    build_candidate_knowledge_text,
+    build_recruitment_rag_context,
+    build_recruitment_rag_query,
+    build_requisition_knowledge_text,
+    prepare_recruitment_knowledge,
+    upsert_candidate_knowledge_document,
+    upsert_requisition_knowledge_document,
+)

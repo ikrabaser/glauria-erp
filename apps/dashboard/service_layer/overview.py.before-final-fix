@@ -1,0 +1,235 @@
+from decimal import Decimal
+
+from django.db.models import Sum
+
+from apps.accounts.data_access import filter_company_records
+from apps.inventory.models import InventoryLot
+from apps.manufacturing.models import ProductionOrder
+from apps.finance.views import get_active_membership
+from apps.sales.models import SalesOrder
+from apps.crm.models import Customer, Opportunity
+from apps.inventory.models import Product, Warehouse
+from apps.purchasing.models import (
+    Supplier,
+    PurchaseRequest,
+    PurchaseOrder,
+)
+from apps.hr.models import (
+    Employee,
+    JobRequisition,
+    AbsenceRequest,
+)
+from apps.sales.models import (
+    SalesQuote,
+    SalesOrder,
+    Invoice,
+)
+
+class DashboardOverviewService:
+
+    def __init__(self, request):
+        self.request = request
+        self.membership = get_active_membership(
+            request.user
+        )
+
+    def build_context(self):
+        return {
+    "stats": self.build_stats(),
+    "dashboard_metrics": self.build_module_cards(),
+}
+
+    def build_stats(self):
+
+        if not self.membership:
+            return []
+
+        sales_orders = filter_company_records(
+            SalesOrder.objects.all(),
+            self.membership,
+            "owner",
+        )
+
+        inventory_lots = (
+            InventoryLot.objects.select_related("product")
+            .filter(
+                warehouse__company=self.membership.company,
+            )
+        )
+
+        production_orders = filter_company_records(
+            ProductionOrder.objects.all(),
+            self.membership,
+            "owner",
+        )
+
+        total_sales = (
+            sales_orders.aggregate(
+                total=Sum("total_amount")
+            )["total"]
+            or Decimal("0.00")
+        )
+
+        active_orders = sales_orders.exclude(
+            status=SalesOrder.Status.COMPLETED,
+        ).exclude(
+            status=SalesOrder.Status.CANCELLED,
+        ).count()
+
+        critical_stock = sum(
+            1
+            for lot in inventory_lots
+            if (
+                lot.available_quantity
+                <= lot.product.reorder_level
+            )
+        )
+
+        active_production = production_orders.exclude(
+            status=ProductionOrder.Status.COMPLETED,
+        ).count()
+
+        return [
+            {
+                "title": "Toplam Satış",
+                "value": f"₺{total_sales:,.2f}",
+                "change": "",
+                "change_class": "neutral",
+                "description": "Gerçek satış toplamı",
+                "icon": "₺",
+            },
+            {
+                "title": "Aktif Sipariş",
+                "value": str(active_orders),
+                "change": "",
+                "change_class": "neutral",
+                "description": "Devam eden sipariş",
+                "icon": "↗",
+            },
+            {
+                "title": "Kritik Stok",
+                "value": str(critical_stock),
+                "change": "",
+                "change_class": "warning",
+                "description": "Minimum stok seviyesi",
+                "icon": "!",
+            },
+            {
+                "title": "Üretim Emri",
+                "value": str(active_production),
+                "change": "",
+                "change_class": "neutral",
+                "description": "Aktif üretim",
+                "icon": "◆",
+            },
+                ]
+
+
+    def build_module_cards(self):
+
+        if not self.membership:
+            return []
+
+        customers = filter_company_records(
+            Customer.objects.all(),
+            self.membership,
+            "created_by",
+        )
+
+        opportunities = filter_company_records(
+            Opportunity.objects.all(),
+            self.membership,
+            "owner",
+        )
+
+        quotes = filter_company_records(
+            SalesQuote.objects.all(),
+            self.membership,
+            "owner",
+        )
+
+        orders = filter_company_records(
+            SalesOrder.objects.all(),
+            self.membership,
+            "owner",
+        )
+
+        invoices = filter_company_records(
+            Invoice.objects.all(),
+            self.membership,
+            "created_by",
+        )
+
+        suppliers = filter_company_records(
+            Supplier.objects.all(),
+            self.membership,
+            "created_by",
+        )
+
+        purchase_requests = filter_company_records(
+            PurchaseRequest.objects.all(),
+            self.membership,
+            "created_by",
+        )
+
+        purchase_orders = filter_company_records(
+            PurchaseOrder.objects.all(),
+            self.membership,
+            "created_by",
+        )
+
+        products = Product.objects.filter(
+            company=self.membership.company
+        )
+
+        warehouses = Warehouse.objects.filter(
+            company=self.membership.company
+        )
+
+        employees = filter_company_records(
+            Employee.objects.all(),
+            self.membership,
+            "created_by",
+        )
+
+        requisitions = filter_company_records(
+            JobRequisition.objects.all(),
+            self.membership,
+            "created_by",
+        )
+
+        absences = filter_company_records(
+            AbsenceRequest.objects.all(),
+            self.membership,
+            "created_by",
+        )
+
+        return {
+            "crm": {
+                "customers": customers.count(),
+                "active_customers": customers.filter(
+                    status=Customer.Status.ACTIVE
+                ).count(),
+                "opportunities": opportunities.count(),
+            },
+            "sales": {
+                "quotes": quotes.count(),
+                "orders": orders.count(),
+                "invoices": invoices.count(),
+            },
+            "inventory": {
+                "products": products.count(),
+                "warehouses": warehouses.count(),
+                "critical_stock": self.build_stats()[2]["value"],
+            },
+            "purchasing": {
+                "suppliers": suppliers.count(),
+                "requests": purchase_requests.count(),
+                "orders": purchase_orders.count(),
+            },
+            "hr": {
+                "employees": employees.count(),
+                "absences": absences.count(),
+                "requisitions": requisitions.count(),
+            },
+        }

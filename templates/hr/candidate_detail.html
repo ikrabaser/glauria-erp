@@ -8,7 +8,7 @@
 {% block extra_css %}
 <link
     rel="stylesheet"
-    href="{% static 'css/hr.css' %}?v=hr-candidate-detail-v1"
+    href="{% static 'css/hr.css' %}?v=hr-candidate-detail-ai-v1"
 >
 {% endblock %}
 
@@ -168,7 +168,7 @@
         <div class="hr-panel__heading">
             <div>
                 <span class="hr-panel__eyebrow">
-                    BAŞVURU GEÇMİŞİ
+                    BAŞVURU GEÇMİŞİ · AI DEĞERLENDİRME
                 </span>
                 <h3 class="hr-panel__title">
                     Adayın Başvuruları
@@ -176,61 +176,223 @@
             </div>
 
             <span class="hr-panel__count">
-                {{ applications|length }} başvuru
+                {{ application_ai_rows|length }} başvuru
             </span>
         </div>
 
-        {% if applications %}
-            <div class="table-responsive">
-                <table class="data-table hr-directory-table">
-                    <thead>
-                        <tr>
-                            <th>İlan</th>
-                            <th>Departman</th>
-                            <th>Aşama</th>
-                            <th>Durum</th>
-                            <th>Puan</th>
-                            <th>Başvuru Tarihi</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for application in applications %}
-                            <tr>
-                                <td>
-                                    <strong>
-                                        {{ application.requisition.title }}
-                                    </strong>
-                                    <div class="hr-muted">
-                                        {{ application.requisition.requisition_number }}
-                                    </div>
-                                </td>
-                                <td>
-                                    {{ application.requisition.department.name }}
-                                </td>
-                                <td>
-                                    <span class="recruitment-stage recruitment-stage--{{ application.stage }}">
-                                        {{ application.get_stage_display }}
+        {% if application_ai_rows %}
+            <div class="candidate-ai-application-list">
+                {% for row in application_ai_rows %}
+                    <article class="candidate-ai-application">
+                        <header class="candidate-ai-application__header">
+                            <div>
+                                <a
+                                    href="{% url 'hr:job_requisition_detail' row.application.requisition.id %}"
+                                    class="candidate-ai-application__title"
+                                >
+                                    {{ row.application.requisition.title }}
+                                </a>
+
+                                <div class="candidate-ai-application__meta">
+                                    <span>
+                                        {{ row.application.requisition.requisition_number }}
                                     </span>
-                                </td>
-                                <td>
-                                    {{ application.get_status_display }}
-                                </td>
-                                <td>
-                                    {{ application.screening_score|default:"—" }}
-                                </td>
-                                <td>
-                                    {{ application.applied_at|date:"d.m.Y H:i" }}
-                                </td>
-                            </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+                                    <span>
+                                        {{ row.application.requisition.department.name }}
+                                    </span>
+                                    <span>
+                                        {{ row.application.applied_at|date:"d.m.Y H:i" }}
+                                    </span>
+                                </div>
+                            </div>
+
+                            <div class="candidate-ai-application__statuses">
+                                <span class="recruitment-stage recruitment-stage--{{ row.application.stage }}">
+                                    {{ row.application.get_stage_display }}
+                                </span>
+
+                                <span class="candidate-ai-status candidate-ai-status--{{ row.assessment.status|default:'idle' }}">
+                                    {% if row.is_pending %}
+                                        AI bekliyor
+                                    {% elif row.is_processing %}
+                                        AI analiz ediyor
+                                    {% elif row.is_completed %}
+                                        AI tamamlandı
+                                    {% elif row.is_failed %}
+                                        AI başarısız
+                                    {% else %}
+                                        AI analizi yok
+                                    {% endif %}
+                                </span>
+                            </div>
+                        </header>
+
+                        {% if row.is_completed %}
+                            <div class="candidate-ai-summary">
+                                <div class="candidate-ai-score">
+                                    <span>AI Uyum Puanı</span>
+                                    <strong>{{ row.assessment.overall_score }}</strong>
+                                    <small>/100</small>
+                                </div>
+
+                                <div class="candidate-ai-score-breakdown">
+                                    <div>
+                                        <span>Beceri</span>
+                                        <strong>{{ row.assessment.skill_score }}</strong>
+                                    </div>
+                                    <div>
+                                        <span>Unvan</span>
+                                        <strong>{{ row.assessment.title_score }}</strong>
+                                    </div>
+                                    <div>
+                                        <span>Deneyim</span>
+                                        <strong>{{ row.assessment.experience_score }}</strong>
+                                    </div>
+                                </div>
+
+                                <div class="candidate-ai-recommendation">
+                                    <span>Öneri</span>
+                                    <strong>
+                                        {% if row.assessment.recommendation == "strong_interview" %}
+                                            Güçlü mülakat adayı
+                                        {% elif row.assessment.recommendation == "interview" %}
+                                            Mülakat önerilir
+                                        {% elif row.assessment.recommendation == "review" %}
+                                            Manuel inceleme gerekli
+                                        {% else %}
+                                            Öncelikli önerilmiyor
+                                        {% endif %}
+                                    </strong>
+                                </div>
+                            </div>
+
+                            <p class="candidate-ai-text">
+                                {{ row.assessment.summary|default:"AI değerlendirme özeti bulunmuyor." }}
+                            </p>
+
+                            <div class="candidate-ai-detail-grid">
+                                <section>
+                                    <h4>Güçlü Yönler</h4>
+                                    {% if row.assessment.strengths %}
+                                        <ul>
+                                            {% for item in row.assessment.strengths %}
+                                                <li>{{ item }}</li>
+                                            {% endfor %}
+                                        </ul>
+                                    {% else %}
+                                        <p>Belirgin güçlü yön kaydı bulunmuyor.</p>
+                                    {% endif %}
+                                </section>
+
+                                <section>
+                                    <h4>Riskler</h4>
+                                    {% if row.assessment.risks %}
+                                        <ul>
+                                            {% for item in row.assessment.risks %}
+                                                <li>{{ item }}</li>
+                                            {% endfor %}
+                                        </ul>
+                                    {% else %}
+                                        <p>Belirgin risk kaydı bulunmuyor.</p>
+                                    {% endif %}
+                                </section>
+                            </div>
+
+                            <div class="candidate-ai-skills">
+                                <section>
+                                    <h4>Eşleşen Beceriler</h4>
+                                    <div class="candidate-ai-tags">
+                                        {% for skill in row.assessment.matched_skills %}
+                                            <span>{{ skill }}</span>
+                                        {% empty %}
+                                            <span class="is-muted">Eşleşme bulunamadı</span>
+                                        {% endfor %}
+                                    </div>
+                                </section>
+
+                                <section>
+                                    <h4>Eksik Beceriler</h4>
+                                    <div class="candidate-ai-tags candidate-ai-tags--missing">
+                                        {% for skill in row.assessment.missing_skills %}
+                                            <span>{{ skill }}</span>
+                                        {% empty %}
+                                            <span class="is-muted">Eksik beceri bulunmuyor</span>
+                                        {% endfor %}
+                                    </div>
+                                </section>
+                            </div>
+
+                            <footer class="candidate-ai-application__footer">
+                                <span>
+                                    {% if row.assessment.ai_used %}
+                                        OpenAI destekli açıklanabilir analiz
+                                    {% else %}
+                                        Deterministik fallback analizi
+                                    {% endif %}
+                                </span>
+
+                                {% if row.assessment.completed_at %}
+                                    <span>
+                                        {{ row.assessment.completed_at|date:"d.m.Y H:i" }}
+                                    </span>
+                                {% endif %}
+                            </footer>
+                        {% elif row.is_pending or row.is_processing %}
+                            <div class="candidate-ai-state">
+                                <strong>
+                                    AI değerlendirmesi hazırlanıyor
+                                </strong>
+                                <p>
+                                    Sonuç hazır olduğunda bu başvuru kartında
+                                    uyum puanı ve açıklamalar gösterilecektir.
+                                </p>
+                            </div>
+                        {% elif row.is_failed %}
+                            <div class="candidate-ai-state candidate-ai-state--error">
+                                <strong>
+                                    AI değerlendirmesi tamamlanamadı
+                                </strong>
+                                <p>
+                                    {{ row.assessment.ai_error|default:"Teknik bir hata oluştu." }}
+                                </p>
+                            </div>
+                        {% else %}
+                            <div class="candidate-ai-state">
+                                <strong>
+                                    Bu başvuru henüz AI ile değerlendirilmedi
+                                </strong>
+                                <p>
+                                    Adayın ilanla beceri, unvan ve deneyim
+                                    uyumunu analiz edebilirsiniz.
+                                </p>
+                            </div>
+                        {% endif %}
+
+                        {% if row.can_request_analysis %}
+                            <form
+                                method="post"
+                                action="{% url 'hr:candidate_application_ai_assessment_create' candidate.id row.application.id %}"
+                                class="candidate-ai-action"
+                            >
+                                {% csrf_token %}
+                                <button type="submit" class="btn-primary">
+                                    {% if row.has_assessment %}
+                                        AI Analizini Yenile
+                                    {% else %}
+                                        AI Analizi Oluştur
+                                    {% endif %}
+                                </button>
+                            </form>
+                        {% endif %}
+                    </article>
+                {% endfor %}
             </div>
         {% else %}
             <div class="hr-panel__empty">
                 Bu adaya ait iş başvurusu bulunmuyor.
             </div>
         {% endif %}
+    </section>
     </section>
 </section>
 {% endblock %}

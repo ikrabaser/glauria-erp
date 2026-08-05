@@ -2,48 +2,19 @@ from django.contrib.auth.decorators import login_required
 from django.shortcuts import render
 from django.urls import reverse
 
+from apps.dashboard.service_layer.overview import (
+    DashboardOverviewService,
+)
+
 
 @login_required
 def home(request):
-    # Üst bölümde bulunan KPI kartları
-    # Bu kartların template'i SVG kullanmadığı için ikonlar sembol olarak kalıyor.
-    stats = [
-        {
-            "title": "Toplam Satış",
-            "value": "₺2.450.000",
-            "change": "+12,4%",
-            "change_class": "positive",
-            "description": "Geçen aya göre",
-            "icon": "₺",
-        },
-        {
-            "title": "Aktif Sipariş",
-            "value": "1.284",
-            "change": "+48",
-            "change_class": "positive",
-            "description": "Bu hafta eklenen",
-            "icon": "↗",
-        },
-        {
-            "title": "Kritik Stok",
-            "value": "84",
-            "change": "Dikkat",
-            "change_class": "warning",
-            "description": "Minimum seviyenin altında",
-            "icon": "!",
-        },
-        {
-            "title": "Üretim Emri",
-            "value": "27",
-            "change": "9 aktif",
-            "change_class": "neutral",
-            "description": "Planlanan iş emri",
-            "icon": "◆",
-        },
-    ]
+    dashboard_context = DashboardOverviewService(
+        request
+    ).build_context()
 
-    # ERP Module Center kartları
-    # Bu kartlarda SVG ikonlar module_card.html içinde |safe ile gösteriliyor.
+    metrics = dashboard_context["dashboard_metrics"]
+
     module_cards = [
         {
             "title": "CRM",
@@ -57,7 +28,6 @@ def home(request):
                     <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path>
                     <circle cx="9" cy="7" r="4"></circle>
                     <path d="M22 21v-2a4 4 0 0 0-3-3.87"></path>
-                    <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
                 </svg>
             """,
             "badge": "Aktif",
@@ -65,15 +35,21 @@ def home(request):
             "metrics": [
                 {
                     "label": "Toplam müşteri",
-                    "value": "1",
+                    "value": str(
+                        metrics["crm"]["customers"]
+                    ),
                 },
                 {
                     "label": "Aktif müşteri",
-                    "value": "1",
+                    "value": str(
+                        metrics["crm"]["active_customers"]
+                    ),
                 },
                 {
                     "label": "Açık fırsat",
-                    "value": "0",
+                    "value": str(
+                        metrics["crm"]["opportunities"]
+                    ),
                 },
             ],
         },
@@ -95,16 +71,20 @@ def home(request):
             "url": reverse("sales:home"),
             "metrics": [
                 {
-                    "label": "Açık teklif",
-                    "value": "0",
+                    "label": "Toplam teklif",
+                    "value": str(
+                        metrics["sales"]["quotes"]
+                    ),
                 },
                 {
                     "label": "Aktif sipariş",
-                    "value": "0",
+                    "value": str(
+                        metrics["sales"]["orders"]
+                    ),
                 },
                 {
-                    "label": "Bu ay satış",
-                    "value": "₺0",
+                    "label": "Toplam satış",
+                    "value": metrics["sales"]["sales_total"],
                 },
             ],
         },
@@ -119,23 +99,29 @@ def home(request):
                 <svg viewBox="0 0 24 24" aria-hidden="true">
                     <circle cx="9" cy="20" r="1"></circle>
                     <circle cx="19" cy="20" r="1"></circle>
-                    <path d="M3 4h2l2.4 11.2a2 2 0 0 0 2 1.6h8.8a2 2 0 0 0 2-1.6L22 8H7"></path>
+                    <path d="M3 4h2l2.4 11.2h11L22 8H7"></path>
                 </svg>
             """,
             "badge": "Aktif",
             "url": reverse("purchasing:home"),
             "metrics": [
                 {
-                    "label": "Aktif tedarikçi",
-                    "value": "0",
+                    "label": "Tedarikçi",
+                    "value": str(
+                        metrics["purchasing"]["suppliers"]
+                    ),
                 },
                 {
-                    "label": "Açık talep",
-                    "value": "0",
+                    "label": "Satın alma talebi",
+                    "value": str(
+                        metrics["purchasing"]["requests"]
+                    ),
                 },
                 {
-                    "label": "Bekleyen sipariş",
-                    "value": "0",
+                    "label": "Satın alma siparişi",
+                    "value": str(
+                        metrics["purchasing"]["orders"]
+                    ),
                 },
             ],
         },
@@ -158,15 +144,21 @@ def home(request):
             "metrics": [
                 {
                     "label": "Toplam ürün",
-                    "value": "0",
+                    "value": str(
+                        metrics["inventory"]["products"]
+                    ),
                 },
                 {
                     "label": "Depo",
-                    "value": "0",
+                    "value": str(
+                        metrics["inventory"]["warehouses"]
+                    ),
                 },
                 {
                     "label": "Kritik stok",
-                    "value": "0",
+                    "value": str(
+                        metrics["inventory"]["critical_stock"]
+                    ),
                 },
             ],
         },
@@ -180,7 +172,8 @@ def home(request):
             "icon": """
                 <svg viewBox="0 0 24 24" aria-hidden="true">
                     <circle cx="12" cy="12" r="3"></circle>
-                    <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.83 2.83-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1.4 1.6V21h-4v-.09A1.7 1.7 0 0 0 8.6 19.4a1.7 1.7 0 0 0-1.88.34l-.06.06-2.83-2.83.06-.06A1.7 1.7 0 0 0 4.6 15 1.7 1.7 0 0 0 3 13.6V10.4A1.7 1.7 0 0 0 4.6 9a1.7 1.7 0 0 0-.34-1.88l-.06-.06 2.83-2.83.06.06A1.7 1.7 0 0 0 9 4.6 1.7 1.7 0 0 0 10.4 3h3.2A1.7 1.7 0 0 0 15 4.6a1.7 1.7 0 0 0 1.88-.34l.06-.06 2.83 2.83-.06.06A1.7 1.7 0 0 0 19.4 9 1.7 1.7 0 0 0 21 10.4v3.2A1.7 1.7 0 0 0 19.4 15Z"></path>
+                    <path d="M12 2v3M12 19v3M2 12h3M19 12h3"></path>
+                    <path d="m4.9 4.9 2.1 2.1M17 17l2.1 2.1"></path>
                 </svg>
             """,
             "badge": "Aktif",
@@ -188,15 +181,21 @@ def home(request):
             "metrics": [
                 {
                     "label": "Aktif iş emri",
-                    "value": "0",
+                    "value": str(
+                        metrics["manufacturing"]["active"]
+                    ),
                 },
                 {
-                    "label": "Bekleyen",
-                    "value": "0",
+                    "label": "Planlanan",
+                    "value": str(
+                        metrics["manufacturing"]["planned"]
+                    ),
                 },
                 {
                     "label": "Tamamlanan",
-                    "value": "0",
+                    "value": str(
+                        metrics["manufacturing"]["completed"]
+                    ),
                 },
             ],
         },
@@ -219,15 +218,21 @@ def home(request):
             "metrics": [
                 {
                     "label": "Açık fatura",
-                    "value": "0",
+                    "value": str(
+                        metrics["finance"]["open_invoices"]
+                    ),
                 },
                 {
-                    "label": "Bekleyen tahsilat",
-                    "value": "₺0",
+                    "label": "Cari hesap",
+                    "value": str(
+                        metrics["finance"]["customer_accounts"]
+                    ),
                 },
                 {
-                    "label": "Bu ay gider",
-                    "value": "₺0",
+                    "label": "Ödeme planı",
+                    "value": str(
+                        metrics["finance"]["payment_plans"]
+                    ),
                 },
             ],
         },
@@ -249,27 +254,31 @@ def home(request):
             "metrics": [
                 {
                     "label": "Toplam personel",
-                    "value": "0",
+                    "value": str(
+                        metrics["hr"]["employees"]
+                    ),
                 },
                 {
-                    "label": "İzinli personel",
-                    "value": "0",
+                    "label": "İzin talebi",
+                    "value": str(
+                        metrics["hr"]["absences"]
+                    ),
                 },
                 {
-                    "label": "Açık pozisyon",
-                    "value": "0",
+                    "label": "İşe alım talebi",
+                    "value": str(
+                        metrics["hr"]["requisitions"]
+                    ),
                 },
             ],
         },
     ]
 
-    context = {
-        "stats": stats,
-        "module_cards": module_cards,
-    }
-
     return render(
         request,
         "dashboard/home.html",
-        context,
+        {
+            "stats": dashboard_context["stats"],
+            "module_cards": module_cards,
+        },
     )

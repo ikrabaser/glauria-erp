@@ -54,6 +54,7 @@ LOCAL_APPS = [
      "apps.inventory",
      "apps.manufacturing",
      "apps.finance",
+     "apps.ai_core.apps.AICoreConfig",
      "apps.hr",
      
 ]

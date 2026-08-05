@@ -17,6 +17,7 @@ from .views import (
     recruitment_dashboard,
     candidate_create,
     candidate_detail,
+    candidate_application_ai_assessment_create,
     candidate_list,
     job_requisition_create,
     job_requisition_detail,
@@ -48,6 +49,14 @@ urlpatterns = [
         "ise-alim/adaylar/<uuid:candidate_id>/",
         candidate_detail,
         name="candidate_detail",
+    ),
+    path(
+        (
+            "ise-alim/adaylar/<uuid:candidate_id>/"
+            "basvurular/<uuid:application_id>/ai-analizi/"
+        ),
+        candidate_application_ai_assessment_create,
+        name="candidate_application_ai_assessment_create",
     ),
     path(
         "ise-alim/talepler/",

@@ -33,6 +33,7 @@ from .models import (
     JobApplication,
     JobRequisition,
     RecruitmentEvent,
+    RecruitmentAIAssessment,
 )
 from .services import (
     approve_absence_request,
@@ -2968,3 +2969,1036 @@ class RecruitmentWorkflowTestCase(TestCase):
                 changed_by=self.recruiter_user,
                 new_stage=JobApplication.Stage.SCREENING,
             )
+
+
+class RecruitmentAIMatchingTestCase(TestCase):
+    def setUp(self):
+        from apps.hr.service_layer.recruitment_ai import (
+            match_candidate_to_requisition,
+            rank_candidates_for_requisition,
+            update_application_screening_score,
+        )
+
+        self.match_candidate = match_candidate_to_requisition
+        self.rank_candidates = rank_candidates_for_requisition
+        self.update_application_score = (
+            update_application_screening_score
+        )
+
+        self.company = Company.objects.create(
+            name="Recruitment AI Test Şirketi",
+        )
+
+        self.branch = Branch.objects.create(
+            company=self.company,
+            name="AI Test Genel Merkez",
+            code="AI-HQ",
+        )
+
+        self.department = Department.objects.create(
+            branch=self.branch,
+            name="Bilgi Teknolojileri",
+            code="TECH",
+        )
+
+        self.position = Position.objects.create(
+            company=self.company,
+            department=self.department,
+            code="BACKEND",
+            title="Backend Developer",
+        )
+
+        self.recruiter = Employee.objects.create(
+            company=self.company,
+            employee_number="AI-EMP-001",
+            first_name="Ayşe",
+            last_name="Recruiter",
+            work_email="ayse.recruiter@example.com",
+            hire_date=date(2024, 1, 1),
+        )
+
+        self.manager = Employee.objects.create(
+            company=self.company,
+            employee_number="AI-EMP-002",
+            first_name="Mehmet",
+            last_name="Manager",
+            work_email="mehmet.manager@example.com",
+            hire_date=date(2023, 1, 1),
+        )
+
+        self.requisition = JobRequisition.objects.create(
+            company=self.company,
+            department=self.department,
+            position=self.position,
+            requisition_number="REQ-AI-001",
+            title="Kıdemli Backend Developer",
+            description=(
+                "Python ve Django tabanlı kurumsal "
+                "uygulamalar geliştirilecektir."
+            ),
+            requirements=(
+                "En az 5 yıl Python, Django, PostgreSQL, "
+                "Docker, Redis ve Celery deneyimi."
+            ),
+            hiring_manager=self.manager,
+            recruiter=self.recruiter,
+            status=JobRequisition.Status.DRAFT,
+        )
+
+        self.strong_candidate = Candidate.objects.create(
+            company=self.company,
+            first_name="Selin",
+            last_name="Güçlü",
+            email="selin.guclu@example.com",
+            current_title="Kıdemli Backend Developer",
+            current_company="Demo Teknoloji",
+            years_of_experience=Decimal("7.0"),
+            notes=(
+                "Python, Django, PostgreSQL, Docker, "
+                "Redis, Celery ve Linux projelerinde çalıştı."
+            ),
+        )
+
+        self.weak_candidate = Candidate.objects.create(
+            company=self.company,
+            first_name="Can",
+            last_name="Zayıf",
+            email="can.zayif@example.com",
+            current_title="Dijital Pazarlama Uzmanı",
+            current_company="Demo Pazarlama",
+            years_of_experience=Decimal("1.0"),
+            notes=(
+                "Dijital pazarlama ve içerik üretimi deneyimi."
+            ),
+        )
+
+    def test_strong_candidate_receives_high_match_score(self):
+        result = self.match_candidate(
+            candidate=self.strong_candidate,
+            requisition=self.requisition,
+        )
+
+        self.assertGreaterEqual(
+            result.overall_score,
+            80,
+        )
+        self.assertIn(
+            "python",
+            result.matched_skills,
+        )
+        self.assertIn(
+            "django",
+            result.matched_skills,
+        )
+        self.assertEqual(
+            result.recommendation,
+            "strong_interview",
+        )
+
+    def test_missing_skills_are_explained(self):
+        result = self.match_candidate(
+            candidate=self.weak_candidate,
+            requisition=self.requisition,
+        )
+
+        self.assertLess(
+            result.overall_score,
+            50,
+        )
+        self.assertIn(
+            "python",
+            result.missing_skills,
+        )
+        self.assertIn(
+            "django",
+            result.missing_skills,
+        )
+        self.assertEqual(
+            result.recommendation,
+            "not_recommended",
+        )
+
+    def test_candidates_are_ranked_by_match_score(self):
+        ranked = self.rank_candidates(
+            requisition=self.requisition,
+            candidates=[
+                self.weak_candidate,
+                self.strong_candidate,
+            ],
+        )
+
+        self.assertEqual(
+            ranked[0][0],
+            self.strong_candidate,
+        )
+        self.assertGreater(
+            ranked[0][1].overall_score,
+            ranked[1][1].overall_score,
+        )
+
+    def test_application_screening_score_can_be_updated(self):
+        application = JobApplication.objects.create(
+            company=self.company,
+            requisition=self.requisition,
+            candidate=self.strong_candidate,
+            assigned_recruiter=self.recruiter,
+        )
+
+        result = self.update_application_score(
+            application=application,
+        )
+
+        application.refresh_from_db()
+
+        self.assertEqual(
+            application.screening_score,
+            Decimal(str(result.overall_score)),
+        )
+
+    def test_cross_company_matching_is_rejected(self):
+        other_company = Company.objects.create(
+            name="Diğer AI Şirketi",
+        )
+
+        other_candidate = Candidate.objects.create(
+            company=other_company,
+            first_name="Başka",
+            last_name="Aday",
+            email="baska.aday@example.com",
+        )
+
+        with self.assertRaises(ValidationError):
+            self.match_candidate(
+                candidate=other_candidate,
+                requisition=self.requisition,
+            )
+
+
+class RecruitmentAIAssessmentTestCase(TestCase):
+    def setUp(self):
+        from apps.hr.service_layer.recruitment_ai_assessment import (
+            assess_candidate_with_ai,
+        )
+
+        self.assess_candidate = assess_candidate_with_ai
+
+        self.company = Company.objects.create(
+            name="Recruitment Assessment Test Şirketi",
+        )
+
+        self.branch = Branch.objects.create(
+            company=self.company,
+            name="Assessment Genel Merkez",
+            code="ASSESS-HQ",
+        )
+
+        self.department = Department.objects.create(
+            branch=self.branch,
+            name="Bilgi Teknolojileri",
+            code="ASSESS-TECH",
+        )
+
+        self.position = Position.objects.create(
+            company=self.company,
+            department=self.department,
+            code="ASSESS-BE",
+            title="Backend Developer",
+        )
+
+        self.recruiter = Employee.objects.create(
+            company=self.company,
+            employee_number="ASSESS-001",
+            first_name="Ayşe",
+            last_name="Recruiter",
+            work_email="assessment.recruiter@example.com",
+            hire_date=date(2024, 1, 1),
+        )
+
+        self.manager = Employee.objects.create(
+            company=self.company,
+            employee_number="ASSESS-002",
+            first_name="Mehmet",
+            last_name="Manager",
+            work_email="assessment.manager@example.com",
+            hire_date=date(2023, 1, 1),
+        )
+
+        self.requisition = JobRequisition.objects.create(
+            company=self.company,
+            department=self.department,
+            position=self.position,
+            requisition_number="REQ-ASSESS-001",
+            title="Kıdemli Backend Developer",
+            description=(
+                "Python ve Django tabanlı uygulamalar geliştirilecek."
+            ),
+            requirements=(
+                "En az 5 yıl Python, Django, PostgreSQL ve "
+                "Docker deneyimi."
+            ),
+            hiring_manager=self.manager,
+            recruiter=self.recruiter,
+            status=JobRequisition.Status.DRAFT,
+        )
+
+        self.candidate = Candidate.objects.create(
+            company=self.company,
+            first_name="Selin",
+            last_name="Değerlendirme",
+            email="selin.assessment@example.com",
+            current_title="Kıdemli Backend Developer",
+            years_of_experience=Decimal("7.0"),
+            notes=(
+                "Python, Django, PostgreSQL ve Docker "
+                "deneyimine sahiptir."
+            ),
+        )
+
+    def test_ai_assessment_uses_structured_provider_result(self):
+        class FakeResult:
+            data = {
+                "overall_score": 100,
+                "strengths": [
+                    "Backend teknoloji yığınıyla güçlü uyum.",
+                ],
+                "risks": [],
+                "matched_skills": [
+                    "python",
+                    "django",
+                    "postgresql",
+                    "docker",
+                ],
+                "missing_skills": [],
+                "recommendation": "strong_interview",
+                "summary": (
+                    "Aday teknik görüşme için güçlü bir profildir."
+                ),
+            }
+
+        class FakeProvider:
+            def __init__(self, **kwargs):
+                self.kwargs = kwargs
+
+            def generate_structured(self, **kwargs):
+                return FakeResult()
+
+        assessment = self.assess_candidate(
+            candidate=self.candidate,
+            requisition=self.requisition,
+            provider_class=FakeProvider,
+        )
+
+        self.assertTrue(assessment.ai_used)
+        self.assertEqual(
+            assessment.overall_score,
+            100,
+        )
+        self.assertEqual(
+            assessment.recommendation,
+            "strong_interview",
+        )
+        self.assertIn(
+            "Backend teknoloji",
+            assessment.strengths[0],
+        )
+
+    def test_provider_failure_returns_deterministic_fallback(self):
+        from apps.ai_core.services import AIProviderError
+
+        class FailingProvider:
+            def __init__(self, **kwargs):
+                pass
+
+            def generate_structured(self, **kwargs):
+                raise AIProviderError(
+                    "Provider geçici olarak kullanılamıyor."
+                )
+
+        assessment = self.assess_candidate(
+            candidate=self.candidate,
+            requisition=self.requisition,
+            provider_class=FailingProvider,
+        )
+
+        self.assertFalse(assessment.ai_used)
+        self.assertGreaterEqual(
+            assessment.overall_score,
+            80,
+        )
+        self.assertEqual(
+            assessment.recommendation,
+            "strong_interview",
+        )
+        self.assertIn(
+            "Provider geçici",
+            assessment.ai_error,
+        )
+
+    def test_ai_cannot_override_deterministic_score(self):
+        class InvalidResult:
+            data = {
+                "overall_score": 42,
+                "strengths": [],
+                "risks": [],
+                "matched_skills": [],
+                "missing_skills": [],
+                "recommendation": "review",
+                "summary": "Tutarsız değerlendirme.",
+            }
+
+        class InvalidProvider:
+            def __init__(self, **kwargs):
+                pass
+
+            def generate_structured(self, **kwargs):
+                return InvalidResult()
+
+        assessment = self.assess_candidate(
+            candidate=self.candidate,
+            requisition=self.requisition,
+            provider_class=InvalidProvider,
+        )
+
+        self.assertFalse(assessment.ai_used)
+        self.assertEqual(
+            assessment.overall_score,
+            100,
+        )
+        self.assertIn(
+            "deterministik skoru",
+            assessment.ai_error,
+        )
+
+    def test_cross_company_ai_assessment_is_rejected(self):
+        other_company = Company.objects.create(
+            name="Başka Assessment Şirketi",
+        )
+
+        other_candidate = Candidate.objects.create(
+            company=other_company,
+            first_name="Başka",
+            last_name="Aday",
+            email="other.assessment@example.com",
+        )
+
+        with self.assertRaises(ValidationError):
+            self.assess_candidate(
+                candidate=other_candidate,
+                requisition=self.requisition,
+            )
+
+
+class RecruitmentAIContextServiceTestCase(TestCase):
+    def setUp(self):
+        from apps.hr.service_layer.recruitment_ai_context import (
+            build_candidate_application_ai_context,
+            queue_recruitment_ai_assessment,
+        )
+
+        self.build_context = (
+            build_candidate_application_ai_context
+        )
+        self.queue_assessment = (
+            queue_recruitment_ai_assessment
+        )
+
+        self.company = Company.objects.create(
+            name="AI Context Test Şirketi",
+        )
+
+        self.branch = Branch.objects.create(
+            company=self.company,
+            name="AI Context Merkez",
+            code="AI-CONTEXT-HQ",
+        )
+
+        self.department = Department.objects.create(
+            branch=self.branch,
+            name="Bilgi Teknolojileri",
+            code="AI-CONTEXT-TECH",
+        )
+
+        self.position = Position.objects.create(
+            company=self.company,
+            department=self.department,
+            code="AI-CONTEXT-BE",
+            title="Backend Developer",
+        )
+
+        self.user = User.objects.create_user(
+            username="ai.context.user",
+            email="ai.context@example.com",
+            password="test-password",
+            user_type=User.UserType.INTERNAL,
+        )
+
+        self.recruiter = Employee.objects.create(
+            company=self.company,
+            employee_number="AI-CONTEXT-001",
+            first_name="Ayşe",
+            last_name="Recruiter",
+            work_email="ai.context.recruiter@example.com",
+            hire_date=date(2024, 1, 1),
+        )
+
+        self.manager = Employee.objects.create(
+            company=self.company,
+            employee_number="AI-CONTEXT-002",
+            first_name="Mehmet",
+            last_name="Manager",
+            work_email="ai.context.manager@example.com",
+            hire_date=date(2023, 1, 1),
+        )
+
+        self.requisition = JobRequisition.objects.create(
+            company=self.company,
+            department=self.department,
+            position=self.position,
+            requisition_number="REQ-AI-CONTEXT-001",
+            title="Backend Developer",
+            description="Backend uygulamalar geliştirilecek.",
+            requirements="Python ve Django deneyimi.",
+            hiring_manager=self.manager,
+            recruiter=self.recruiter,
+        )
+
+        self.candidate = Candidate.objects.create(
+            company=self.company,
+            first_name="Selin",
+            last_name="Context",
+            email="selin.context@example.com",
+        )
+
+        self.application = JobApplication.objects.create(
+            company=self.company,
+            requisition=self.requisition,
+            candidate=self.candidate,
+            assigned_recruiter=self.recruiter,
+        )
+
+    def test_context_supports_application_without_assessment(self):
+        rows = self.build_context(
+            applications=[self.application],
+            can_request_analysis=True,
+        )
+
+        self.assertEqual(len(rows), 1)
+        self.assertFalse(rows[0].has_assessment)
+        self.assertTrue(rows[0].can_request_analysis)
+
+    def test_completed_assessment_is_exposed_in_context(self):
+        assessment = RecruitmentAIAssessment.objects.create(
+            application=self.application,
+            company=self.company,
+            requested_by=self.user,
+            status=RecruitmentAIAssessment.Status.COMPLETED,
+            overall_score=84,
+        )
+
+        application = (
+            JobApplication.objects
+            .select_related("ai_assessment")
+            .get(id=self.application.id)
+        )
+
+        rows = self.build_context(
+            applications=[application],
+            can_request_analysis=True,
+        )
+
+        self.assertTrue(rows[0].has_assessment)
+        self.assertTrue(rows[0].is_completed)
+        self.assertEqual(
+            rows[0].assessment,
+            assessment,
+        )
+
+    def test_queue_service_creates_pending_assessment(self):
+        with self.captureOnCommitCallbacks(
+            execute=False,
+        ) as callbacks:
+            assessment, created = self.queue_assessment(
+                application=self.application,
+                requested_by=self.user,
+            )
+
+        self.assertTrue(created)
+        self.assertEqual(
+            assessment.status,
+            RecruitmentAIAssessment.Status.PENDING,
+        )
+        self.assertEqual(
+            assessment.company,
+            self.company,
+        )
+        self.assertEqual(len(callbacks), 1)
+
+    def test_queue_service_resets_existing_failed_assessment(self):
+        assessment = RecruitmentAIAssessment.objects.create(
+            application=self.application,
+            company=self.company,
+            requested_by=self.user,
+            status=RecruitmentAIAssessment.Status.FAILED,
+            ai_error="Eski hata",
+            completed_at=timezone.now(),
+        )
+
+        with self.captureOnCommitCallbacks(
+            execute=False,
+        ):
+            queued_assessment, created = self.queue_assessment(
+                application=self.application,
+                requested_by=self.user,
+            )
+
+        queued_assessment.refresh_from_db()
+
+        self.assertFalse(created)
+        self.assertEqual(
+            queued_assessment.id,
+            assessment.id,
+        )
+        self.assertEqual(
+            queued_assessment.status,
+            RecruitmentAIAssessment.Status.PENDING,
+        )
+        self.assertEqual(
+            queued_assessment.ai_error,
+            "",
+        )
+        self.assertIsNone(
+            queued_assessment.completed_at
+        )
+
+
+class RecruitmentAIAssessmentPanelTestCase(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="ai.panel.user",
+            email="ai.panel@example.com",
+            password="test-password",
+            user_type=User.UserType.INTERNAL,
+        )
+
+        self.company = Company.objects.create(
+            name="AI Panel Test Şirketi",
+        )
+
+        self.branch = Branch.objects.create(
+            company=self.company,
+            name="AI Panel Genel Merkez",
+            code="AI-PANEL-HQ",
+        )
+
+        self.department = Department.objects.create(
+            branch=self.branch,
+            name="Bilgi Teknolojileri",
+            code="AI-PANEL-TECH",
+        )
+
+        self.membership = OrganizationMembership.objects.create(
+            user=self.user,
+            company=self.company,
+            branch=self.branch,
+            department=self.department,
+            role=OrganizationMembership.Role.MANAGER,
+            is_active=True,
+            permissions=[
+                OrganizationMembership.Permission.ACCESS_HR,
+                OrganizationMembership.Permission.MANAGE_MEMBERS,
+            ],
+        )
+
+        self.position = Position.objects.create(
+            company=self.company,
+            department=self.department,
+            code="AI-PANEL-BE",
+            title="Backend Developer",
+        )
+
+        self.recruiter = Employee.objects.create(
+            company=self.company,
+            employee_number="AI-PANEL-001",
+            first_name="Ayşe",
+            last_name="Recruiter",
+            work_email="ai.panel.recruiter@example.com",
+            hire_date=date(2024, 1, 1),
+        )
+
+        self.manager = Employee.objects.create(
+            company=self.company,
+            employee_number="AI-PANEL-002",
+            first_name="Mehmet",
+            last_name="Manager",
+            work_email="ai.panel.manager@example.com",
+            hire_date=date(2023, 1, 1),
+        )
+
+        self.requisition = JobRequisition.objects.create(
+            company=self.company,
+            department=self.department,
+            position=self.position,
+            requisition_number="REQ-AI-PANEL-001",
+            title="Backend Developer",
+            description="Backend uygulamalar geliştirilecek.",
+            requirements="Python ve Django deneyimi.",
+            hiring_manager=self.manager,
+            recruiter=self.recruiter,
+        )
+
+        self.candidate = Candidate.objects.create(
+            company=self.company,
+            first_name="Selin",
+            last_name="Panel",
+            email="selin.panel@example.com",
+        )
+
+        self.application = JobApplication.objects.create(
+            company=self.company,
+            requisition=self.requisition,
+            candidate=self.candidate,
+            assigned_recruiter=self.recruiter,
+        )
+
+        self.client.force_login(self.user)
+
+    def test_candidate_detail_shows_ai_analysis_button(self):
+        response = self.client.get(
+            reverse(
+                "hr:candidate_detail",
+                kwargs={
+                    "candidate_id": self.candidate.id,
+                },
+            )
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "AI Analizi Oluştur")
+        self.assertContains(
+            response,
+            "Bu başvuru henüz AI ile değerlendirilmedi",
+        )
+
+    def test_completed_assessment_is_rendered(self):
+        RecruitmentAIAssessment.objects.create(
+            application=self.application,
+            company=self.company,
+            requested_by=self.user,
+            status=RecruitmentAIAssessment.Status.COMPLETED,
+            overall_score=91,
+            skill_score=88,
+            title_score=95,
+            experience_score=90,
+            strengths=[
+                "Backend teknoloji yığınıyla güçlü uyum.",
+            ],
+            risks=[
+                "Bulut platformu deneyimi belirtilmemiş.",
+            ],
+            matched_skills=[
+                "python",
+                "django",
+            ],
+            missing_skills=[
+                "aws",
+            ],
+            recommendation="strong_interview",
+            summary=(
+                "Aday teknik görüşme için güçlü bir profildir."
+            ),
+            ai_used=True,
+            completed_at=timezone.now(),
+        )
+
+        response = self.client.get(
+            reverse(
+                "hr:candidate_detail",
+                kwargs={
+                    "candidate_id": self.candidate.id,
+                },
+            )
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "AI Uyum Puanı")
+        self.assertContains(response, "91")
+        self.assertContains(
+            response,
+            "Güçlü mülakat adayı",
+        )
+        self.assertContains(response, "python")
+        self.assertContains(response, "aws")
+        self.assertContains(
+            response,
+            "OpenAI destekli açıklanabilir analiz",
+        )
+
+
+class FakeRecruitmentEmbeddingProvider:
+    def __init__(self, **kwargs):
+        self.kwargs = kwargs
+
+    def generate_embeddings(
+        self,
+        *,
+        texts,
+        model=None,
+        dimensions=1536,
+    ):
+        from apps.ai_core.services import (
+            AIEmbeddingResult,
+            AIUsage,
+        )
+
+        vectors = []
+
+        for _ in texts:
+            vector = [0.0] * dimensions
+            vector[0] = 1.0
+            vectors.append(tuple(vector))
+
+        return AIEmbeddingResult(
+            embeddings=tuple(vectors),
+            model=model or "text-embedding-3-small",
+            usage=AIUsage(),
+        )
+
+
+class RecruitmentRAGTestCase(TestCase):
+    def setUp(self):
+        from apps.hr.service_layer.recruitment_rag import (
+            build_recruitment_rag_context,
+            prepare_recruitment_knowledge,
+            upsert_candidate_knowledge_document,
+            upsert_requisition_knowledge_document,
+        )
+
+        self.build_context = (
+            build_recruitment_rag_context
+        )
+        self.prepare_knowledge = (
+            prepare_recruitment_knowledge
+        )
+        self.upsert_candidate = (
+            upsert_candidate_knowledge_document
+        )
+        self.upsert_requisition = (
+            upsert_requisition_knowledge_document
+        )
+
+        self.company = Company.objects.create(
+            name="Recruitment RAG Test Şirketi",
+        )
+
+        self.branch = Branch.objects.create(
+            company=self.company,
+            name="RAG Genel Merkez",
+            code="RAG-HQ",
+        )
+
+        self.department = Department.objects.create(
+            branch=self.branch,
+            name="Bilgi Teknolojileri",
+            code="RAG-TECH",
+        )
+
+        self.position = Position.objects.create(
+            company=self.company,
+            department=self.department,
+            code="RAG-BE",
+            title="Backend Developer",
+        )
+
+        self.recruiter = Employee.objects.create(
+            company=self.company,
+            employee_number="RAG-001",
+            first_name="Ayşe",
+            last_name="Recruiter",
+            work_email="rag.recruiter@example.com",
+            hire_date=date(2024, 1, 1),
+        )
+
+        self.manager = Employee.objects.create(
+            company=self.company,
+            employee_number="RAG-002",
+            first_name="Mehmet",
+            last_name="Manager",
+            work_email="rag.manager@example.com",
+            hire_date=date(2023, 1, 1),
+        )
+
+        self.requisition = JobRequisition.objects.create(
+            company=self.company,
+            department=self.department,
+            position=self.position,
+            requisition_number="REQ-RAG-001",
+            title="Kıdemli Backend Developer",
+            description=(
+                "Kurumsal Django uygulamaları geliştirilecek."
+            ),
+            requirements=(
+                "Python, Django, PostgreSQL ve Docker "
+                "deneyimi gereklidir."
+            ),
+            hiring_manager=self.manager,
+            recruiter=self.recruiter,
+        )
+
+        self.candidate = Candidate.objects.create(
+            company=self.company,
+            first_name="Selin",
+            last_name="RAG",
+            email="selin.rag@example.com",
+            current_title="Backend Developer",
+            current_company="Demo Teknoloji",
+            years_of_experience=Decimal("6.0"),
+            notes=(
+                "Python, Django, PostgreSQL ve Docker "
+                "projelerinde çalıştı."
+            ),
+        )
+
+    def test_candidate_document_is_created_from_erp_record(self):
+        from apps.ai_core.models import (
+            AIKnowledgeDocument,
+        )
+
+        document = self.upsert_candidate(
+            candidate=self.candidate,
+        )
+
+        self.assertEqual(
+            document.document_type,
+            AIKnowledgeDocument
+            .DocumentType
+            .CANDIDATE_RESUME,
+        )
+        self.assertEqual(
+            document.source_reference,
+            f"candidate:{self.candidate.id}",
+        )
+        self.assertIn(
+            "Python",
+            document.content_text,
+        )
+
+    def test_requisition_document_is_created_from_erp_record(self):
+        from apps.ai_core.models import (
+            AIKnowledgeDocument,
+        )
+
+        document = self.upsert_requisition(
+            requisition=self.requisition,
+        )
+
+        self.assertEqual(
+            document.document_type,
+            AIKnowledgeDocument
+            .DocumentType
+            .JOB_REQUISITION,
+        )
+        self.assertEqual(
+            document.source_reference,
+            f"job_requisition:{self.requisition.id}",
+        )
+        self.assertIn(
+            "Django",
+            document.content_text,
+        )
+
+    def test_prepare_knowledge_indexes_both_documents(self):
+        from apps.ai_core.models import (
+            AIKnowledgeDocument,
+        )
+
+        (
+            candidate_document,
+            requisition_document,
+        ) = self.prepare_knowledge(
+            candidate=self.candidate,
+            requisition=self.requisition,
+            provider_class=FakeRecruitmentEmbeddingProvider,
+        )
+
+        self.assertEqual(
+            candidate_document.status,
+            AIKnowledgeDocument.Status.INDEXED,
+        )
+        self.assertEqual(
+            requisition_document.status,
+            AIKnowledgeDocument.Status.INDEXED,
+        )
+        self.assertGreater(
+            candidate_document.chunks.count(),
+            0,
+        )
+        self.assertGreater(
+            requisition_document.chunks.count(),
+            0,
+        )
+
+    def test_rag_context_returns_relevant_sources(self):
+        context = self.build_context(
+            candidate=self.candidate,
+            requisition=self.requisition,
+            search_limit=6,
+            provider_class=FakeRecruitmentEmbeddingProvider,
+            search_provider_class=(
+                FakeRecruitmentEmbeddingProvider
+            ),
+        )
+
+        self.assertGreaterEqual(
+            context.source_count,
+            2,
+        )
+
+        source_types = {
+            result.document.document_type
+            for result in context.search_results
+        }
+
+        from apps.ai_core.models import (
+            AIKnowledgeDocument,
+        )
+
+        self.assertIn(
+            AIKnowledgeDocument
+            .DocumentType
+            .CANDIDATE_RESUME,
+            source_types,
+        )
+        self.assertIn(
+            AIKnowledgeDocument
+            .DocumentType
+            .JOB_REQUISITION,
+            source_types,
+        )
+
+    def test_candidate_update_refreshes_knowledge_content(self):
+        document = self.upsert_candidate(
+            candidate=self.candidate,
+        )
+
+        self.candidate.notes = (
+            "Python, Django ve Kubernetes deneyimi."
+        )
+        self.candidate.save(
+            update_fields=[
+                "notes",
+                "updated_at",
+            ]
+        )
+
+        updated_document = self.upsert_candidate(
+            candidate=self.candidate,
+        )
+
+        self.assertEqual(
+            updated_document.id,
+            document.id,
+        )
+        self.assertIn(
+            "Kubernetes",
+            updated_document.content_text,
+        )
