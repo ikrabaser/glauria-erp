@@ -765,3 +765,302 @@ class SeedDemoCommandTests(TestCase):
             output_text,
         )
 
+
+
+class SeedEnterpriseDemoCommandTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.owner = User.objects.create_user(
+            username="ikra",
+            email="ikra@enterprise-test.glauria.local",
+            password="owner-test-password",
+            user_type=User.UserType.INTERNAL,
+        )
+
+        cls.output = StringIO()
+
+        call_command(
+            "seed_enterprise_demo",
+            owner=cls.owner.username,
+            stdout=cls.output,
+        )
+
+        cls.company = Company.objects.get(
+            name="Glauria Demo A.Ş.",
+        )
+
+    def test_seed_enterprise_demo_creates_workforce_structure(self):
+        self.assertEqual(
+            self.company.branches.get(
+                code="DMO-HQ",
+            ).departments.count(),
+            10,
+        )
+
+        self.assertEqual(
+            Position.objects.filter(
+                company=self.company,
+            ).count(),
+            34,
+        )
+
+        self.assertEqual(
+            Employee.objects.filter(
+                company=self.company,
+            ).count(),
+            48,
+        )
+
+        self.assertEqual(
+            EmploymentAssignment.objects.filter(
+                employee__company=self.company,
+                is_primary=True,
+                end_date__isnull=True,
+            ).count(),
+            48,
+        )
+
+        self.assertEqual(
+            EmploymentAssignment.objects.filter(
+                employee__company=self.company,
+                is_department_manager=True,
+                end_date__isnull=True,
+            ).count(),
+            10,
+        )
+
+    def test_seed_enterprise_demo_creates_users_and_memberships(self):
+        self.assertEqual(
+            User.objects.filter(
+                username__startswith="enterprise.",
+            ).count(),
+            41,
+        )
+
+        self.assertEqual(
+            OrganizationMembership.objects.filter(
+                company=self.company,
+                user__username__startswith="enterprise.",
+            ).count(),
+            41,
+        )
+
+        self.assertEqual(
+            OrganizationMembership.objects.filter(
+                company=self.company,
+                is_active=True,
+            ).count(),
+            49,
+        )
+
+        for user in User.objects.filter(
+            username__startswith="enterprise.",
+        ):
+            self.assertFalse(user.has_usable_password())
+
+    def test_seed_enterprise_demo_creates_expected_hierarchy(self):
+        tech_manager_assignment = (
+            EmploymentAssignment.objects.select_related(
+                "employee",
+                "employee__user",
+                "manager",
+                "manager__user",
+                "department",
+                "position",
+            ).get(
+                employee__company=self.company,
+                employee__user__username=(
+                    "enterprise.tech.manager"
+                ),
+                is_primary=True,
+                end_date__isnull=True,
+            )
+        )
+
+        self.assertEqual(
+            tech_manager_assignment.department.code,
+            "TECH",
+        )
+        self.assertEqual(
+            tech_manager_assignment.position.code,
+            "TECH-MGR",
+        )
+        self.assertEqual(
+            tech_manager_assignment.manager.user.username,
+            "demo.ceo",
+        )
+        self.assertTrue(
+            tech_manager_assignment.is_department_manager,
+        )
+
+        backend_assignment = (
+            EmploymentAssignment.objects.select_related(
+                "employee",
+                "employee__user",
+                "manager",
+                "manager__user",
+                "department",
+                "position",
+            ).get(
+                employee__company=self.company,
+                employee__user__username=(
+                    "enterprise.tech.backend2"
+                ),
+                is_primary=True,
+                end_date__isnull=True,
+            )
+        )
+
+        self.assertEqual(
+            backend_assignment.department.code,
+            "TECH",
+        )
+        self.assertEqual(
+            backend_assignment.position.code,
+            "TECH-BE",
+        )
+        self.assertEqual(
+            backend_assignment.manager.user.username,
+            "enterprise.tech.manager",
+        )
+        self.assertFalse(
+            backend_assignment.is_department_manager,
+        )
+
+    def test_seed_enterprise_demo_preserves_light_demo_data(self):
+        self.assertEqual(
+            User.objects.filter(
+                username__startswith="demo.",
+            ).count(),
+            7,
+        )
+
+        self.assertEqual(
+            Candidate.objects.filter(
+                company=self.company,
+            ).count(),
+            200,
+        )
+
+        self.assertEqual(
+            JobRequisition.objects.filter(
+                company=self.company,
+            ).count(),
+            30,
+        )
+
+        self.assertEqual(
+            JobApplication.objects.filter(
+                company=self.company,
+            ).count(),
+            1000,
+        )
+
+    def test_seed_enterprise_demo_is_idempotent(self):
+        second_output = StringIO()
+
+        call_command(
+            "seed_enterprise_demo",
+            owner=self.owner.username,
+            stdout=second_output,
+        )
+
+        self.assertEqual(
+            self.company.branches.get(
+                code="DMO-HQ",
+            ).departments.count(),
+            10,
+        )
+
+        self.assertEqual(
+            Position.objects.filter(
+                company=self.company,
+            ).count(),
+            34,
+        )
+
+        self.assertEqual(
+            Employee.objects.filter(
+                company=self.company,
+            ).count(),
+            48,
+        )
+
+        self.assertEqual(
+            EmploymentAssignment.objects.filter(
+                employee__company=self.company,
+                is_primary=True,
+                end_date__isnull=True,
+            ).count(),
+            48,
+        )
+
+        self.assertEqual(
+            User.objects.filter(
+                username__startswith="enterprise.",
+            ).count(),
+            41,
+        )
+
+        self.assertEqual(
+            OrganizationMembership.objects.filter(
+                company=self.company,
+                user__username__startswith="enterprise.",
+            ).count(),
+            41,
+        )
+
+        output_text = second_output.getvalue()
+
+        self.assertIn(
+            "Yeni departman sayısı: 0",
+            output_text,
+        )
+        self.assertIn(
+            "Yeni pozisyon sayısı: 0",
+            output_text,
+        )
+        self.assertIn(
+            "Yeni enterprise kullanıcı sayısı: 0",
+            output_text,
+        )
+        self.assertIn(
+            "Yeni enterprise üyelik sayısı: 0",
+            output_text,
+        )
+        self.assertIn(
+            "Yeni enterprise personel sayısı: 0",
+            output_text,
+        )
+        self.assertIn(
+            "Yeni enterprise atama sayısı: 0",
+            output_text,
+        )
+
+    def test_enterprise_applications_do_not_leak_into_light_requisitions(
+        self,
+    ):
+        light_requisition_numbers = {
+            "REQ-2026-001",
+            "REQ-2026-002",
+            "REQ-2026-003",
+            "REQ-2026-004",
+        }
+
+        self.assertFalse(
+            JobApplication.objects.filter(
+                company=self.company,
+                requisition__requisition_number__in=(
+                    light_requisition_numbers
+                ),
+                source_note="Enterprise Demo ATS başvurusu.",
+            ).exists()
+        )
+
+        self.assertEqual(
+            JobApplication.objects.filter(
+                company=self.company,
+            ).count(),
+            1000,
+        )
+
