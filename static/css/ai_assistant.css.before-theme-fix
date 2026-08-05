@@ -1,0 +1,835 @@
+body.ai-assistant-page {
+    --ai-bg: #080b14;
+    --ai-surface: #0e111c;
+    --ai-surface-soft: #141621;
+    --ai-surface-raised: #191923;
+    --ai-border: rgba(224, 151, 171, 0.18);
+    --ai-border-soft: rgba(255, 255, 255, 0.08);
+    --ai-text: #f8f1ed;
+    --ai-muted: #b5a8aa;
+    --ai-rose: #bc6c84;
+    --ai-rose-light: #efa9b9;
+    --ai-copper: #e8aa82;
+    --ai-gold: #f0bd91;
+
+    background: var(--ai-bg);
+}
+
+/* UYGULAMA KABUĞU */
+
+body.ai-assistant-page .app-layout,
+body.ai-assistant-page .app-main {
+    background: var(--ai-bg);
+}
+
+body.ai-assistant-page .app-main {
+    min-width: 0;
+}
+
+body.ai-assistant-page .app-content {
+    min-height: calc(100vh - 70px);
+    padding: 24px 26px 34px;
+    color: var(--ai-text);
+    background:
+        radial-gradient(
+            circle at 76% 0%,
+            rgba(112, 48, 77, 0.13),
+            transparent 31%
+        ),
+        linear-gradient(
+            180deg,
+            #090c15,
+            #080a12
+        );
+}
+
+/* ÜST BAR */
+
+body.ai-assistant-page .app-topbar {
+    color: var(--ai-text);
+    border-bottom: 1px solid rgba(228, 160, 178, 0.13);
+    background:
+        linear-gradient(
+            90deg,
+            #090c14,
+            #10101a
+        );
+}
+
+body.ai-assistant-page .page-title {
+    color: #fff7f1;
+}
+
+body.ai-assistant-page .page-subtitle,
+body.ai-assistant-page .user-info small {
+    color: rgba(255, 255, 255, 0.62);
+}
+
+body.ai-assistant-page .user-info strong {
+    color: #fff;
+}
+
+body.ai-assistant-page .topbar-notifications,
+body.ai-assistant-page .topbar-user {
+    border-color: rgba(228, 160, 178, 0.18);
+    color: #fff;
+    background: rgba(255, 255, 255, 0.035);
+}
+
+/* SIDEBAR */
+
+body.ai-assistant-page .app-sidebar {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    border-right: 1px solid rgba(230, 154, 174, 0.26);
+    background:
+        radial-gradient(
+            circle at top left,
+            rgba(94, 44, 69, 0.16),
+            transparent 28%
+        ),
+        linear-gradient(
+            180deg,
+            #090c15 0%,
+            #0b0e17 55%,
+            #070a12 100%
+        );
+}
+
+body.ai-assistant-page .sidebar-brand {
+    min-height: 150px;
+    padding: 18px 22px 25px;
+    border-bottom: 1px solid rgba(228, 160, 178, 0.12);
+}
+
+body.ai-assistant-page .brand-logo--light {
+    display: block !important;
+    max-width: 170px;
+    max-height: 120px;
+    margin: auto;
+    filter:
+        drop-shadow(0 0 18px rgba(230, 153, 122, 0.12))
+        saturate(1.12);
+}
+
+body.ai-assistant-page .brand-logo--dark {
+    display: none !important;
+}
+
+body.ai-assistant-page .sidebar-nav {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 5px;
+    padding: 18px 12px;
+}
+
+body.ai-assistant-page .sidebar-link,
+body.ai-assistant-page .sidebar-group__trigger,
+body.ai-assistant-page .sidebar-group__link {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-height: 43px;
+    padding: 10px 13px;
+    border: 1px solid transparent;
+    border-radius: 10px;
+    color: rgba(255, 255, 255, 0.88);
+    text-decoration: none;
+    transition:
+        background 0.18s ease,
+        border-color 0.18s ease,
+        color 0.18s ease;
+}
+
+body.ai-assistant-page .sidebar-link::before,
+body.ai-assistant-page .sidebar-group__trigger::before {
+    content: "";
+    flex: 0 0 14px;
+    width: 14px;
+    height: 14px;
+    border: 1.5px solid var(--ai-copper);
+    border-radius: 4px;
+    opacity: 0.92;
+}
+
+body.ai-assistant-page .sidebar-link:hover,
+body.ai-assistant-page .sidebar-group__trigger:hover,
+body.ai-assistant-page .sidebar-group__link:hover {
+    color: #fff;
+    border-color: rgba(221, 133, 158, 0.12);
+    background: rgba(255, 255, 255, 0.045);
+}
+
+body.ai-assistant-page .sidebar-link.active {
+    color: #fff6f3;
+    border-color: rgba(221, 117, 147, 0.55);
+    background:
+        linear-gradient(
+            90deg,
+            rgba(115, 51, 74, 0.38),
+            rgba(68, 32, 54, 0.24)
+        );
+    box-shadow:
+        inset 3px 0 0 #d97796,
+        0 10px 28px rgba(0, 0, 0, 0.16);
+}
+
+body.ai-assistant-page .sidebar-link.active::before {
+    content: "✦";
+    display: grid;
+    place-items: center;
+    border: 0;
+    color: #efb0bd;
+    font-size: 0.94rem;
+}
+
+.sidebar-ai-workspace {
+    margin: auto 14px 20px;
+    padding: 17px;
+    border: 1px solid rgba(228, 160, 178, 0.17);
+    border-radius: 12px;
+    color: #fff;
+    background:
+        linear-gradient(
+            145deg,
+            rgba(255, 255, 255, 0.035),
+            rgba(255, 255, 255, 0.015)
+        );
+}
+
+.sidebar-ai-workspace small {
+    display: block;
+    margin-bottom: 10px;
+    color: #a89aa1;
+    font-size: 0.65rem;
+    letter-spacing: 0.13em;
+}
+
+.sidebar-ai-workspace strong {
+    display: block;
+    margin-bottom: 9px;
+    font-size: 0.93rem;
+}
+
+.sidebar-ai-workspace__location {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    color: #9e9298;
+    font-size: 0.68rem;
+}
+
+.sidebar-ai-workspace__status {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #47b66c;
+    box-shadow: 0 0 11px rgba(71, 182, 108, 0.4);
+}
+
+/* AI SAYFASI */
+
+.glauria-ai {
+    display: grid;
+    gap: 15px;
+    color: var(--ai-text);
+}
+
+.glauria-ai *,
+.glauria-ai *::before,
+.glauria-ai *::after {
+    box-sizing: border-box;
+}
+
+/* HERO */
+
+.glauria-ai__hero {
+    position: relative;
+    display: grid;
+    grid-template-columns:
+        minmax(360px, 1fr)
+        minmax(270px, 430px)
+        255px;
+    align-items: center;
+    gap: 20px;
+    min-height: 180px;
+    padding: 28px 30px;
+    overflow: hidden;
+    border: 1px solid rgba(225, 147, 168, 0.25);
+    border-radius: 20px;
+    background:
+        radial-gradient(
+            circle at 68% 80%,
+            rgba(184, 82, 116, 0.19),
+            transparent 27%
+        ),
+        linear-gradient(
+            120deg,
+            #10121c,
+            #17131d 53%,
+            #10121b
+        );
+    box-shadow: 0 20px 45px rgba(0, 0, 0, 0.24);
+}
+
+.glauria-ai__hero::before {
+    content: "";
+    position: absolute;
+    right: 245px;
+    bottom: -260px;
+    width: 840px;
+    height: 430px;
+    border: 1px solid rgba(237, 169, 119, 0.48);
+    border-radius: 50%;
+    transform: rotate(-5deg);
+    box-shadow:
+        0 -15px 0 -14px rgba(203, 96, 128, 0.55),
+        0 -34px 0 -33px rgba(235, 156, 114, 0.46),
+        0 -57px 0 -56px rgba(185, 74, 112, 0.45),
+        0 -83px 0 -82px rgba(240, 170, 120, 0.26);
+    pointer-events: none;
+}
+
+.glauria-ai__hero::after {
+    content: "";
+    position: absolute;
+    top: 28px;
+    left: 48%;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #f9c99f;
+    box-shadow:
+        85px 38px 0 1px #f3d6bb,
+        156px 84px 0 2px #f1a9b9,
+        247px 25px 0 -1px #f8cda9,
+        315px 105px 0 1px #dc829d;
+    filter: drop-shadow(0 0 8px rgba(255, 191, 151, 0.8));
+}
+
+.glauria-ai__hero-copy,
+.glauria-ai__hero-art,
+.glauria-ai__workspace-card {
+    position: relative;
+    z-index: 2;
+}
+
+.glauria-ai__eyebrow {
+    display: block;
+    margin-bottom: 11px;
+    color: #ed8faa;
+    font-size: 0.7rem;
+    font-weight: 800;
+    letter-spacing: 0.18em;
+}
+
+.glauria-ai__hero-title {
+    margin: 0;
+    color: #f5ded0;
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: clamp(2.7rem, 4.2vw, 4.4rem);
+    font-weight: 500;
+    letter-spacing: -0.04em;
+    line-height: 1;
+}
+
+.glauria-ai__hero-title span {
+    color: #d36e8c;
+}
+
+.glauria-ai__hero-description {
+    max-width: 480px;
+    margin: 16px 0 0;
+    color: rgba(255, 255, 255, 0.83);
+    font-size: 0.9rem;
+    line-height: 1.55;
+}
+
+.glauria-ai__hero-art {
+    display: grid;
+    height: 155px;
+    place-items: center;
+    overflow: hidden;
+}
+
+.glauria-ai__hero-logo-crop {
+    display: grid;
+    width: 230px;
+    height: 155px;
+    place-items: start center;
+    overflow: hidden;
+}
+
+.glauria-ai__hero-logo-crop img {
+    width: 235px;
+    max-width: none;
+    transform: translateY(-8px) scale(1.23);
+    transform-origin: center top;
+    filter:
+        drop-shadow(0 0 25px rgba(231, 154, 118, 0.28))
+        saturate(1.18)
+        contrast(1.05);
+}
+
+.glauria-ai__workspace-card {
+    min-height: 118px;
+    padding: 20px;
+    border: 1px solid rgba(222, 139, 161, 0.29);
+    border-radius: 15px;
+    background:
+        linear-gradient(
+            145deg,
+            rgba(255, 255, 255, 0.035),
+            rgba(255, 255, 255, 0.018)
+        );
+    backdrop-filter: blur(10px);
+}
+
+.glauria-ai__workspace-card small {
+    display: block;
+    margin-bottom: 12px;
+    color: #c58e9b;
+    font-size: 0.66rem;
+    font-weight: 700;
+    letter-spacing: 0.13em;
+}
+
+.glauria-ai__workspace-card strong {
+    color: #fff;
+    font-size: 1rem;
+}
+
+.glauria-ai__workspace-mark {
+    display: block;
+    margin-top: 22px;
+    color: var(--ai-copper);
+    text-align: right;
+}
+
+/* ANA YERLEŞİM */
+
+.glauria-ai__layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 280px;
+    gap: 15px;
+    align-items: start;
+}
+
+.glauria-ai__chat-shell,
+.glauria-ai__panel {
+    border: 1px solid var(--ai-border);
+    color: var(--ai-text);
+    background:
+        linear-gradient(
+            145deg,
+            rgba(20, 22, 34, 0.98),
+            rgba(12, 15, 25, 0.98)
+        );
+    box-shadow: 0 16px 38px rgba(0, 0, 0, 0.22);
+}
+
+.glauria-ai__chat-shell {
+    overflow: hidden;
+    border-radius: 17px;
+}
+
+.glauria-ai__chat-head {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    padding: 19px 22px;
+}
+
+.glauria-ai__assistant-orb {
+    display: grid;
+    flex: 0 0 51px;
+    width: 51px;
+    height: 51px;
+    place-items: center;
+    border: 1px solid rgba(220, 125, 151, 0.26);
+    border-radius: 50%;
+    color: #f5c8d2;
+    font-size: 1.4rem;
+    background:
+        radial-gradient(
+            circle at 35% 30%,
+            rgba(170, 75, 105, 0.55),
+            rgba(57, 30, 48, 0.65)
+        );
+    box-shadow: 0 0 25px rgba(151, 60, 91, 0.12);
+}
+
+.glauria-ai__chat-head h2,
+.glauria-ai__chat-head p {
+    margin: 0;
+}
+
+.glauria-ai__chat-head h2 {
+    color: #f7eee9;
+    font-size: 1.43rem;
+    font-weight: 500;
+}
+
+.glauria-ai__chat-head p {
+    margin-top: 4px;
+    color: var(--ai-muted);
+    font-size: 0.86rem;
+}
+
+.glauria-ai__conversation {
+    position: relative;
+    min-height: 380px;
+    padding: 24px 22px;
+    border-top: 1px solid var(--ai-border-soft);
+    border-bottom: 1px solid var(--ai-border-soft);
+    background:
+        radial-gradient(
+            circle at 80% 20%,
+            rgba(122, 53, 83, 0.12),
+            transparent 32%
+        );
+}
+
+.glauria-ai__empty-state {
+    display: grid;
+    min-height: 315px;
+    place-items: center;
+    color: #92878e;
+    text-align: center;
+}
+
+.glauria-ai__empty-state div {
+    max-width: 440px;
+    line-height: 1.7;
+}
+
+.glauria-ai__empty-state strong {
+    display: block;
+    margin-bottom: 8px;
+    color: #e7d8d2;
+}
+
+.glauria-ai__message {
+    display: grid;
+    gap: 7px;
+    margin-bottom: 20px;
+}
+
+.glauria-ai__message--user {
+    justify-items: end;
+}
+
+.glauria-ai__message-label {
+    color: #db9aab;
+    font-size: 0.65rem;
+    font-weight: 800;
+    letter-spacing: 0.16em;
+}
+
+.glauria-ai__bubble {
+    max-width: min(82%, 730px);
+    padding: 14px 17px;
+    border-radius: 13px;
+    line-height: 1.6;
+}
+
+.glauria-ai__message--user .glauria-ai__bubble {
+    color: #fff4f1;
+    background:
+        linear-gradient(
+            135deg,
+            rgba(150, 66, 91, 0.82),
+            rgba(109, 47, 72, 0.86)
+        );
+}
+
+.glauria-ai__message--assistant .glauria-ai__bubble {
+    border: 1px solid rgba(228, 158, 176, 0.13);
+    color: #f4ece9;
+    background:
+        linear-gradient(
+            145deg,
+            rgba(255, 255, 255, 0.035),
+            rgba(255, 255, 255, 0.015)
+        );
+}
+
+.glauria-ai__metadata {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    color: #9f9298;
+    font-size: 0.7rem;
+}
+
+.glauria-ai__metadata span:not(:last-child)::after {
+    content: "·";
+    margin-left: 8px;
+    color: #be7f92;
+}
+
+/* MESAJ ALANI */
+
+.glauria-ai__composer-area {
+    padding: 13px 17px 17px;
+}
+
+.glauria-ai__composer {
+    display: grid;
+    gap: 10px;
+    padding: 13px 15px;
+    border: 1px solid rgba(226, 146, 168, 0.16);
+    border-radius: 13px;
+    background: rgba(255, 255, 255, 0.018);
+}
+
+.glauria-ai__composer label {
+    color: #d2bcc2;
+    font-size: 0.7rem;
+    font-weight: 600;
+}
+
+.glauria-ai__textarea {
+    width: 100%;
+    min-height: 62px;
+    resize: vertical;
+    border: 0;
+    color: #f4eeee;
+    background: transparent;
+    outline: 0;
+    font: inherit;
+}
+
+.glauria-ai__textarea::placeholder {
+    color: #82777e;
+}
+
+.glauria-ai__composer-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+}
+
+.glauria-ai__composer-note {
+    color: #897d83;
+    font-size: 0.68rem;
+}
+
+.glauria-ai__submit {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-width: 145px;
+    padding: 11px 18px;
+    border: 1px solid rgba(236, 156, 179, 0.25);
+    border-radius: 10px;
+    color: #fff8f5;
+    font-weight: 700;
+    cursor: pointer;
+    background:
+        linear-gradient(
+            135deg,
+            #b45672,
+            #823e59
+        );
+    box-shadow: 0 10px 25px rgba(111, 40, 70, 0.26);
+}
+
+/* SAĞ KARTLAR */
+
+.glauria-ai__side {
+    display: grid;
+    gap: 13px;
+}
+
+.glauria-ai__panel {
+    padding: 18px;
+    border-radius: 15px;
+}
+
+.glauria-ai__panel-label {
+    display: block;
+    color: #dda8b3;
+    font-size: 0.66rem;
+    font-weight: 800;
+    letter-spacing: 0.15em;
+}
+
+.glauria-ai__modules {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 14px;
+}
+
+.glauria-ai__modules span {
+    padding: 7px 11px;
+    border: 1px solid rgba(220, 119, 148, 0.34);
+    border-radius: 999px;
+    color: #f6dbe1;
+    font-size: 0.66rem;
+    font-weight: 700;
+    background: rgba(148, 54, 86, 0.16);
+}
+
+.glauria-ai__prompt-list {
+    display: grid;
+    margin-top: 9px;
+}
+
+.glauria-ai__prompt-button {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px;
+    width: 100%;
+    padding: 12px 0;
+    border: 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+    color: #e8dfe0;
+    text-align: left;
+    cursor: pointer;
+    background: transparent;
+}
+
+.glauria-ai__prompt-button span:last-child {
+    color: var(--ai-copper);
+    font-size: 1.12rem;
+}
+
+.glauria-ai__usage {
+    display: grid;
+    gap: 12px;
+    margin-top: 15px;
+}
+
+.glauria-ai__usage-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 15px;
+    color: #c2b6ba;
+    font-size: 0.78rem;
+}
+
+.glauria-ai__usage-row strong {
+    color: #fff;
+}
+
+.glauria-ai__tool {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 11px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.glauria-ai__tool strong {
+    color: #e9dcdf;
+    font-size: 0.76rem;
+}
+
+.glauria-ai__tool small {
+    color: #968a90;
+}
+
+/* HATALAR */
+
+.glauria-ai__alert {
+    margin: 14px 20px;
+    padding: 13px 15px;
+    border-radius: 11px;
+}
+
+.glauria-ai__alert--error {
+    border: 1px solid rgba(217, 83, 119, 0.27);
+    color: #ffb7c8;
+    background: rgba(126, 36, 62, 0.18);
+}
+
+/* RESPONSIVE */
+
+@media (max-width: 1180px) {
+    .glauria-ai__hero {
+        grid-template-columns: 1fr 300px;
+    }
+
+    .glauria-ai__hero-art {
+        display: none;
+    }
+}
+
+@media (max-width: 980px) {
+    .glauria-ai__layout {
+        grid-template-columns: 1fr;
+    }
+
+    .glauria-ai__side {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 720px) {
+    body.ai-assistant-page .app-content {
+        padding: 16px;
+    }
+
+    .glauria-ai__hero {
+        grid-template-columns: 1fr;
+        padding: 24px;
+    }
+
+    .glauria-ai__side {
+        grid-template-columns: 1fr;
+    }
+
+    .glauria-ai__composer-footer {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .glauria-ai__submit {
+        width: 100%;
+    }
+
+    .glauria-ai__bubble {
+        max-width: 100%;
+    }
+}
+
+
+/* =========================================================
+   GLАURIA AI TRANSPARENT MONOGRAM
+   ========================================================= */
+
+.glauria-ai__brand-mark {
+    display: none !important;
+}
+
+.glauria-ai__hero-art {
+    position: relative;
+    z-index: 2;
+    display: grid;
+    height: 165px;
+    place-items: center;
+    overflow: visible;
+}
+
+.glauria-ai__hero-monogram {
+    display: block;
+    width: min(100%, 285px);
+    height: 175px;
+    object-fit: contain;
+    object-position: center;
+    background: transparent;
+    filter:
+        drop-shadow(
+            0 0 20px
+            rgba(230, 143, 108, 0.23)
+        );
+}

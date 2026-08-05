@@ -254,4 +254,20 @@
         {% endif %}
 
 </nav>
+
+    {% if request.resolver_match.namespace == "ai_core" and current_membership %}
+        <div class="sidebar-ai-workspace">
+            <small>AKTİF ÇALIŞMA ALANI</small>
+
+            <strong>
+                {{ current_membership.company.name }}
+            </strong>
+
+            <div class="sidebar-ai-workspace__location">
+                <span>MERKEZ / İSTANBUL</span>
+                <span class="sidebar-ai-workspace__status"></span>
+            </div>
+        </div>
+    {% endif %}
+
 </aside>

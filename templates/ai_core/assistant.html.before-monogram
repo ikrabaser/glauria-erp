@@ -6,7 +6,7 @@
 {% block content %}
 <link
     rel="stylesheet"
-    href="{% static 'css/ai_assistant.css' %}?v=8"
+    href="{% static 'css/ai_assistant.css' %}?v=4"
 >
 
 <section class="glauria-ai">
@@ -24,6 +24,18 @@
                 Yetkili olduğunuz ERP modüllerindeki verileri
                 güvenli araç çağrılarıyla sorgulayın.
             </p>
+        </div>
+
+        <div
+            class="glauria-ai__hero-art"
+            aria-hidden="true"
+        >
+            <div class="glauria-ai__brand-mark">
+                <span class="glauria-ai__brand-g">G</span>
+                <span class="glauria-ai__brand-pillars">
+                    III
+                </span>
+            </div>
         </div>
 
         {% if current_membership %}

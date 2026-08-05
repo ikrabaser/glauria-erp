@@ -1,0 +1,122 @@
+<svg
+    xmlns="http://www.w3.org/2000/svg"
+    viewBox="0 0 320 210"
+    role="img"
+    aria-label="Glauria monogram"
+>
+    <defs>
+        <linearGradient
+            id="roseGold"
+            x1="0%"
+            y1="0%"
+            x2="100%"
+            y2="100%"
+        >
+            <stop offset="0%" stop-color="#ffe1c9"/>
+            <stop offset="28%" stop-color="#e8a47f"/>
+            <stop offset="58%" stop-color="#f3bd96"/>
+            <stop offset="82%" stop-color="#c77872"/>
+            <stop offset="100%" stop-color="#8f4761"/>
+        </linearGradient>
+
+        <filter
+            id="softGlow"
+            x="-40%"
+            y="-40%"
+            width="180%"
+            height="180%"
+        >
+            <feGaussianBlur
+                stdDeviation="5"
+                result="blur"
+            />
+
+            <feMerge>
+                <feMergeNode in="blur"/>
+                <feMergeNode in="SourceGraphic"/>
+            </feMerge>
+        </filter>
+    </defs>
+
+    <g
+        fill="url(#roseGold)"
+        stroke="url(#roseGold)"
+        filter="url(#softGlow)"
+    >
+        <!-- G harfi -->
+        <text
+            x="16"
+            y="166"
+            font-family="Georgia, 'Times New Roman', serif"
+            font-size="174"
+            font-weight="400"
+            stroke-width="0.8"
+        >
+            G
+        </text>
+
+        <!-- Kurumsal sütun sembolü -->
+        <g transform="translate(174 67)">
+            <rect
+                x="0"
+                y="0"
+                width="91"
+                height="7"
+                rx="3"
+                stroke="none"
+            />
+
+            <rect
+                x="8"
+                y="14"
+                width="8"
+                height="66"
+                rx="3"
+                stroke="none"
+            />
+
+            <rect
+                x="39"
+                y="14"
+                width="8"
+                height="66"
+                rx="3"
+                stroke="none"
+            />
+
+            <rect
+                x="70"
+                y="14"
+                width="8"
+                height="66"
+                rx="3"
+                stroke="none"
+            />
+
+            <rect
+                x="0"
+                y="82"
+                width="91"
+                height="7"
+                rx="3"
+                stroke="none"
+            />
+
+            <path
+                d="M4 7 L12 16 M34 7 L43 16 M66 7 L75 16 M87 7 L79 16"
+                fill="none"
+                stroke-width="3"
+                stroke-linecap="round"
+            />
+        </g>
+
+        <!-- Alt ışık çizgisi -->
+        <path
+            d="M35 184 C105 175, 215 175, 293 184"
+            fill="none"
+            stroke-width="2"
+            stroke-linecap="round"
+            opacity="0.85"
+        />
+    </g>
+</svg>
