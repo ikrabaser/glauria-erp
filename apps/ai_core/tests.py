@@ -1351,3 +1351,286 @@ class AILangChainOrchestrationTestCase(TestCase):
             "Nihai işe alım kararı verme",
             RECRUITMENT_ASSESSMENT_SYSTEM_PROMPT,
         )
+
+
+class ERPToolRegistryTestCase(TestCase):
+    def setUp(self):
+        from apps.ai_core.tools import ERPToolRegistry
+
+        self.registry = ERPToolRegistry()
+
+    @staticmethod
+    def demo_handler(*, context, customer_id):
+        return {
+            "company_id": str(context.company.id),
+            "customer_id": customer_id,
+        }
+
+    def build_definition(
+        self,
+        *,
+        name="get_customer_summary",
+        module="crm",
+        is_read_only=True,
+    ):
+        from apps.ai_core.tools import ERPToolDefinition
+
+        return ERPToolDefinition(
+            name=name,
+            description="Müşteri özetini getirir.",
+            module=module,
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "customer_id": {
+                        "type": "string",
+                    },
+                },
+                "required": [
+                    "customer_id",
+                ],
+                "additionalProperties": False,
+            },
+            handler=self.demo_handler,
+            is_read_only=is_read_only,
+        )
+
+    def test_registry_registers_and_exports_tool(self):
+        definition = self.build_definition()
+
+        self.registry.register(definition)
+
+        self.assertEqual(
+            self.registry.get(definition.name),
+            definition,
+        )
+
+        tools = self.registry.as_openai_tools()
+
+        self.assertEqual(len(tools), 1)
+        self.assertEqual(
+            tools[0]["name"],
+            "get_customer_summary",
+        )
+        self.assertTrue(tools[0]["strict"])
+
+    def test_duplicate_tool_name_is_rejected(self):
+        from apps.ai_core.tools import (
+            ERPToolValidationError,
+        )
+
+        definition = self.build_definition()
+
+        self.registry.register(definition)
+
+        with self.assertRaises(
+            ERPToolValidationError
+        ):
+            self.registry.register(definition)
+
+    def test_registry_can_filter_by_module(self):
+        self.registry.register(
+            self.build_definition(
+                name="get_customer_summary",
+                module="crm",
+            )
+        )
+        self.registry.register(
+            self.build_definition(
+                name="get_stock_level",
+                module="inventory",
+            )
+        )
+
+        definitions = self.registry.list_tools(
+            modules=["inventory"],
+        )
+
+        self.assertEqual(len(definitions), 1)
+        self.assertEqual(
+            definitions[0].name,
+            "get_stock_level",
+        )
+
+
+class ERPToolExecutorTestCase(TestCase):
+    def setUp(self):
+        from apps.ai_core.tools import (
+            ERPToolDefinition,
+            ERPToolExecutionContext,
+            ERPToolExecutor,
+            ERPToolRegistry,
+        )
+
+        self.context_class = ERPToolExecutionContext
+
+        self.company = Company.objects.create(
+            name="ERP Tool Test Şirketi",
+        )
+
+        self.user = User.objects.create_user(
+            username="erp.tool.user",
+            email="erp.tool@example.com",
+            password="test-password",
+            user_type=User.UserType.INTERNAL,
+        )
+
+        self.registry = ERPToolRegistry()
+        self.executor = ERPToolExecutor(
+            registry=self.registry,
+        )
+
+        def stock_handler(
+            *,
+            context,
+            sku,
+        ):
+            return {
+                "company_id": str(context.company.id),
+                "sku": sku,
+                "available_quantity": "120.00",
+            }
+
+        self.registry.register(
+            ERPToolDefinition(
+                name="get_stock_level",
+                description=(
+                    "Şirkete ait ürünün stok seviyesini getirir."
+                ),
+                module="inventory",
+                input_schema={
+                    "type": "object",
+                    "properties": {
+                        "sku": {
+                            "type": "string",
+                        },
+                    },
+                    "required": [
+                        "sku",
+                    ],
+                    "additionalProperties": False,
+                },
+                handler=stock_handler,
+                is_read_only=True,
+            )
+        )
+
+        self.context = self.context_class(
+            company=self.company,
+            user=self.user,
+            allowed_modules=frozenset(
+                {
+                    "inventory",
+                }
+            ),
+        )
+
+    def test_executor_runs_tool_and_creates_log(self):
+        result = self.executor.execute(
+            tool_name="get_stock_level",
+            arguments={
+                "sku": "COS-1009",
+            },
+            context=self.context,
+        )
+
+        self.assertEqual(
+            result.output["sku"],
+            "COS-1009",
+        )
+        self.assertEqual(
+            result.output["company_id"],
+            str(self.company.id),
+        )
+
+        log = AIRequestLog.objects.get(
+            feature="get_stock_level",
+        )
+
+        self.assertEqual(
+            log.status,
+            AIRequestLog.Status.COMPLETED,
+        )
+        self.assertEqual(
+            log.request_type,
+            AIRequestLog.RequestType.TOOL_CALL,
+        )
+        self.assertEqual(
+            log.request_metadata["argument_names"],
+            ["sku"],
+        )
+
+    def test_executor_rejects_module_without_access(self):
+        from apps.ai_core.tools import (
+            ERPToolPermissionError,
+        )
+
+        context = self.context_class(
+            company=self.company,
+            user=self.user,
+            allowed_modules=frozenset(),
+        )
+
+        with self.assertRaises(
+            ERPToolPermissionError
+        ):
+            self.executor.execute(
+                tool_name="get_stock_level",
+                arguments={
+                    "sku": "COS-1009",
+                },
+                context=context,
+            )
+
+        self.assertFalse(
+            AIRequestLog.objects.filter(
+                feature="get_stock_level",
+            ).exists()
+        )
+
+    def test_executor_validates_required_arguments(self):
+        from apps.ai_core.tools import (
+            ERPToolValidationError,
+        )
+
+        with self.assertRaises(
+            ERPToolValidationError
+        ):
+            self.executor.execute(
+                tool_name="get_stock_level",
+                arguments={},
+                context=self.context,
+            )
+
+    def test_write_tool_requires_explicit_permission(self):
+        from apps.ai_core.tools import (
+            ERPToolDefinition,
+            ERPToolPermissionError,
+        )
+
+        self.registry.register(
+            ERPToolDefinition(
+                name="create_stock_adjustment",
+                description="Stok düzeltme kaydı oluşturur.",
+                module="inventory",
+                input_schema={
+                    "type": "object",
+                    "properties": {},
+                    "required": [],
+                    "additionalProperties": False,
+                },
+                handler=lambda *, context: {
+                    "created": True,
+                },
+                is_read_only=False,
+            )
+        )
+
+        with self.assertRaises(
+            ERPToolPermissionError
+        ):
+            self.executor.execute(
+                tool_name="create_stock_adjustment",
+                arguments={},
+                context=self.context,
+            )
