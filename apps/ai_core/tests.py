@@ -1924,7 +1924,9 @@ class CoreERPToolRegistrationTestCase(TestCase):
                 "get_customer_balance",
                 "get_open_invoices",
                 "get_stock_level",
+                "get_critical_stock_products",
                 "get_recruitment_pipeline_summary",
+                "get_active_job_applications",
             },
         )
 
