@@ -1044,6 +1044,7 @@ def budget_reports(request):
             "active_budget_totals": active_budget_totals,
             "active_budget_net_total": active_budget_net_total,
             "status_counts": status_counts,
+            "budget_count": sum(status_counts.values()),
             "budget_portfolio_chart": budget_portfolio_chart,
         },
     )
