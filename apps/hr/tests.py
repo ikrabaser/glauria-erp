@@ -3569,3 +3569,166 @@ class RecruitmentAIContextServiceTestCase(TestCase):
         self.assertIsNone(
             queued_assessment.completed_at
         )
+
+
+class RecruitmentAIAssessmentPanelTestCase(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="ai.panel.user",
+            email="ai.panel@example.com",
+            password="test-password",
+            user_type=User.UserType.INTERNAL,
+        )
+
+        self.company = Company.objects.create(
+            name="AI Panel Test Şirketi",
+        )
+
+        self.branch = Branch.objects.create(
+            company=self.company,
+            name="AI Panel Genel Merkez",
+            code="AI-PANEL-HQ",
+        )
+
+        self.department = Department.objects.create(
+            branch=self.branch,
+            name="Bilgi Teknolojileri",
+            code="AI-PANEL-TECH",
+        )
+
+        self.membership = OrganizationMembership.objects.create(
+            user=self.user,
+            company=self.company,
+            branch=self.branch,
+            department=self.department,
+            role=OrganizationMembership.Role.MANAGER,
+            is_active=True,
+            permissions=[
+                OrganizationMembership.Permission.ACCESS_HR,
+                OrganizationMembership.Permission.MANAGE_MEMBERS,
+            ],
+        )
+
+        self.position = Position.objects.create(
+            company=self.company,
+            department=self.department,
+            code="AI-PANEL-BE",
+            title="Backend Developer",
+        )
+
+        self.recruiter = Employee.objects.create(
+            company=self.company,
+            employee_number="AI-PANEL-001",
+            first_name="Ayşe",
+            last_name="Recruiter",
+            work_email="ai.panel.recruiter@example.com",
+            hire_date=date(2024, 1, 1),
+        )
+
+        self.manager = Employee.objects.create(
+            company=self.company,
+            employee_number="AI-PANEL-002",
+            first_name="Mehmet",
+            last_name="Manager",
+            work_email="ai.panel.manager@example.com",
+            hire_date=date(2023, 1, 1),
+        )
+
+        self.requisition = JobRequisition.objects.create(
+            company=self.company,
+            department=self.department,
+            position=self.position,
+            requisition_number="REQ-AI-PANEL-001",
+            title="Backend Developer",
+            description="Backend uygulamalar geliştirilecek.",
+            requirements="Python ve Django deneyimi.",
+            hiring_manager=self.manager,
+            recruiter=self.recruiter,
+        )
+
+        self.candidate = Candidate.objects.create(
+            company=self.company,
+            first_name="Selin",
+            last_name="Panel",
+            email="selin.panel@example.com",
+        )
+
+        self.application = JobApplication.objects.create(
+            company=self.company,
+            requisition=self.requisition,
+            candidate=self.candidate,
+            assigned_recruiter=self.recruiter,
+        )
+
+        self.client.force_login(self.user)
+
+    def test_candidate_detail_shows_ai_analysis_button(self):
+        response = self.client.get(
+            reverse(
+                "hr:candidate_detail",
+                kwargs={
+                    "candidate_id": self.candidate.id,
+                },
+            )
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "AI Analizi Oluştur")
+        self.assertContains(
+            response,
+            "Bu başvuru henüz AI ile değerlendirilmedi",
+        )
+
+    def test_completed_assessment_is_rendered(self):
+        RecruitmentAIAssessment.objects.create(
+            application=self.application,
+            company=self.company,
+            requested_by=self.user,
+            status=RecruitmentAIAssessment.Status.COMPLETED,
+            overall_score=91,
+            skill_score=88,
+            title_score=95,
+            experience_score=90,
+            strengths=[
+                "Backend teknoloji yığınıyla güçlü uyum.",
+            ],
+            risks=[
+                "Bulut platformu deneyimi belirtilmemiş.",
+            ],
+            matched_skills=[
+                "python",
+                "django",
+            ],
+            missing_skills=[
+                "aws",
+            ],
+            recommendation="strong_interview",
+            summary=(
+                "Aday teknik görüşme için güçlü bir profildir."
+            ),
+            ai_used=True,
+            completed_at=timezone.now(),
+        )
+
+        response = self.client.get(
+            reverse(
+                "hr:candidate_detail",
+                kwargs={
+                    "candidate_id": self.candidate.id,
+                },
+            )
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "AI Uyum Puanı")
+        self.assertContains(response, "91")
+        self.assertContains(
+            response,
+            "Güçlü mülakat adayı",
+        )
+        self.assertContains(response, "python")
+        self.assertContains(response, "aws")
+        self.assertContains(
+            response,
+            "OpenAI destekli açıklanabilir analiz",
+        )
