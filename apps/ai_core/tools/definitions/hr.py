@@ -26,7 +26,9 @@ def get_recruitment_pipeline_summary(
         company=context.company,
     )
 
-    normalized_number = requisition_number.strip()
+    normalized_number = (
+        requisition_number or ""
+    ).strip()
 
     selected_requisition = None
 

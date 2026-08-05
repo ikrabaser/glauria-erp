@@ -2916,3 +2916,95 @@ class EnterpriseAIAssistantViewTestCase(TestCase):
             response,
             "bir mesaj yazmalısınız",
         )
+
+
+class ERPToolOptionalNullNormalizationTestCase(TestCase):
+    def test_optional_null_argument_is_removed(self):
+        from apps.ai_core.tools.validation import (
+            normalize_tool_arguments,
+        )
+
+        schema = {
+            "type": "object",
+            "properties": {
+                "requisition_number": {
+                    "type": "string",
+                },
+            },
+            "required": [],
+            "additionalProperties": False,
+        }
+
+        normalized = normalize_tool_arguments(
+            schema=schema,
+            arguments={
+                "requisition_number": None,
+            },
+        )
+
+        self.assertEqual(normalized, {})
+
+    def test_required_null_argument_is_not_removed(self):
+        from apps.ai_core.tools.validation import (
+            normalize_tool_arguments,
+        )
+
+        schema = {
+            "type": "object",
+            "properties": {
+                "sku": {
+                    "type": "string",
+                },
+            },
+            "required": ["sku"],
+            "additionalProperties": False,
+        }
+
+        normalized = normalize_tool_arguments(
+            schema=schema,
+            arguments={
+                "sku": None,
+            },
+        )
+
+        self.assertEqual(
+            normalized,
+            {
+                "sku": None,
+            },
+        )
+
+    def test_required_null_still_fails_validation(self):
+        from apps.ai_core.tools import (
+            ERPToolValidationError,
+        )
+        from apps.ai_core.tools.validation import (
+            normalize_tool_arguments,
+            validate_tool_arguments,
+        )
+
+        schema = {
+            "type": "object",
+            "properties": {
+                "sku": {
+                    "type": "string",
+                },
+            },
+            "required": ["sku"],
+            "additionalProperties": False,
+        }
+
+        arguments = normalize_tool_arguments(
+            schema=schema,
+            arguments={
+                "sku": None,
+            },
+        )
+
+        with self.assertRaises(
+            ERPToolValidationError
+        ):
+            validate_tool_arguments(
+                schema=schema,
+                arguments=arguments,
+            )

@@ -14,8 +14,8 @@ def _resolve_customer(
     customer_id: str = "",
     customer_name: str = "",
 ):
-    normalized_id = customer_id.strip()
-    normalized_name = customer_name.strip()
+    normalized_id = (customer_id or "").strip()
+    normalized_name = (customer_name or "").strip()
 
     if not normalized_id and not normalized_name:
         return None, {
@@ -137,7 +137,7 @@ def get_customer_balance(
     customer_name: str = "",
     currency: str = "TRY",
 ) -> dict:
-    normalized_currency = currency.strip().upper()
+    normalized_currency = (currency or "TRY").strip().upper()
 
     customer, error_result = _resolve_customer(
         company=context.company,
@@ -228,7 +228,7 @@ def get_open_invoices(
     Cari hesap net bakiyesi ayrıca döndürülür.
     """
 
-    normalized_currency = currency.strip().upper()
+    normalized_currency = (currency or "TRY").strip().upper()
 
     customer, error_result = _resolve_customer(
         company=context.company,

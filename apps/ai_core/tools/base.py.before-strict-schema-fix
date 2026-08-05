@@ -23,56 +23,6 @@ class ERPToolExecutionError(ERPToolError):
     """Araç handler çalışırken hata oluşursa kullanılır."""
 
 
-def _normalize_openai_strict_schema(
-    schema: dict[str, Any],
-) -> dict[str, Any]:
-    """
-    OpenAI strict function calling şemasını üretir.
-
-    Properties içindeki tüm alanlar required listesine alınır.
-    Uygulama açısından opsiyonel alanlar null kabul eder.
-    """
-    normalized = dict(schema)
-
-    properties = {
-        name: dict(definition)
-        for name, definition in normalized.get(
-            "properties",
-            {},
-        ).items()
-    }
-
-    originally_required = set(
-        normalized.get("required", [])
-    )
-
-    for name, definition in properties.items():
-        if name in originally_required:
-            continue
-
-        field_type = definition.get("type")
-
-        if isinstance(field_type, str):
-            definition["type"] = [
-                field_type,
-                "null",
-            ]
-
-        elif isinstance(field_type, list):
-            if "null" not in field_type:
-                definition["type"] = [
-                    *field_type,
-                    "null",
-                ]
-
-    normalized["type"] = "object"
-    normalized["properties"] = properties
-    normalized["required"] = list(properties.keys())
-    normalized["additionalProperties"] = False
-
-    return normalized
-
-
 @dataclass(frozen=True)
 class ERPToolExecutionContext:
     """
@@ -149,8 +99,6 @@ class ERPToolDefinition:
             "type": "function",
             "name": self.name,
             "description": self.description,
-            "parameters": _normalize_openai_strict_schema(
-                self.input_schema
-            ),
+            "parameters": self.input_schema,
             "strict": True,
         }

@@ -13,10 +13,7 @@ from .registry import (
     ERPToolRegistry,
     default_tool_registry,
 )
-from .validation import (
-    normalize_tool_arguments,
-    validate_tool_arguments,
-)
+from .validation import validate_tool_arguments
 
 
 @dataclass(frozen=True)
@@ -59,14 +56,9 @@ class ERPToolExecutor:
                 "onayı olmadan çalıştırılamaz."
             )
 
-        normalized_arguments = normalize_tool_arguments(
-            schema=definition.input_schema,
-            arguments=arguments,
-        )
-
         validate_tool_arguments(
             schema=definition.input_schema,
-            arguments=normalized_arguments,
+            arguments=arguments,
         )
 
         log = AIRequestLog.objects.create(
@@ -81,7 +73,7 @@ class ERPToolExecutor:
                 **context.request_metadata,
                 "tool_name": definition.name,
                 "is_read_only": definition.is_read_only,
-                "argument_names": sorted(normalized_arguments),
+                "argument_names": sorted(arguments),
             },
         )
 
@@ -90,7 +82,7 @@ class ERPToolExecutor:
         try:
             output = definition.handler(
                 context=context,
-                **normalized_arguments,
+                **arguments,
             )
 
             latency_ms = self._elapsed_ms(started_at)

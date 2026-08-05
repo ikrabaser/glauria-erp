@@ -13,31 +13,6 @@ PYTHON_TYPES = {
 }
 
 
-def normalize_tool_arguments(
-    *,
-    schema: dict[str, Any],
-    arguments: dict[str, Any],
-) -> dict[str, Any]:
-    """
-    OpenAI strict function calling tarafından opsiyonel alanlar
-    için gönderilen null değerlerini kaldırır.
-
-    Böylece handler fonksiyonlarının Python varsayılan
-    parametreleri kullanılabilir. Zorunlu alanlardaki null
-    değerler kaldırılmaz ve doğrulama sırasında reddedilir.
-    """
-    if not isinstance(arguments, dict):
-        return arguments
-
-    required = set(schema.get("required", []))
-
-    return {
-        field_name: value
-        for field_name, value in arguments.items()
-        if value is not None or field_name in required
-    }
-
-
 def validate_tool_arguments(
     *,
     schema: dict[str, Any],
