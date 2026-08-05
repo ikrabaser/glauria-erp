@@ -6,6 +6,7 @@ from .exceptions import (
 )
 from .provider import OpenAIProvider
 from .schemas import (
+    AIEmbeddingResult,
     AIStructuredResult,
     AITextResult,
     AIUsage,
@@ -16,6 +17,7 @@ __all__ = [
     "AIConfigurationError",
     "AIProviderError",
     "AIStructuredOutputError",
+    "AIEmbeddingResult",
     "AIStructuredResult",
     "AITextResult",
     "AIUsage",

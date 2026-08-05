@@ -10,3 +10,4 @@ qrcode[pil]>=8.0,<9.0
 weasyprint>=66,<67
 flower>=2.0,<3.0
 pgvector>=0.4,<0.5
+tiktoken>=0.9,<1.0

@@ -16,6 +16,7 @@ from .exceptions import (
     AIStructuredOutputError,
 )
 from .schemas import (
+    AIEmbeddingResult,
     AIStructuredResult,
     AITextResult,
     AIUsage,
@@ -125,6 +126,117 @@ class OpenAIProvider:
 
             raise AIProviderError(
                 "AI sağlayıcısından metin yanıtı alınamadı."
+            ) from error
+
+    def generate_embeddings(
+        self,
+        *,
+        texts: list[str] | tuple[str, ...],
+        model: str | None = None,
+        dimensions: int = 1536,
+    ) -> AIEmbeddingResult:
+        normalized_texts = [
+            text.strip()
+            for text in texts
+            if text and text.strip()
+        ]
+
+        if not normalized_texts:
+            raise AIConfigurationError(
+                "Embedding üretmek için en az bir metin gereklidir."
+            )
+
+        model_name = (
+            model
+            or self.configuration.embedding_model
+            or "text-embedding-3-small"
+        )
+
+        log = self._create_log(
+            model_name=model_name,
+            request_type=AIRequestLog.RequestType.EMBEDDING,
+        )
+
+        started_at = monotonic()
+
+        try:
+            response = self.client.embeddings.create(
+                model=model_name,
+                input=normalized_texts,
+                encoding_format="float",
+                dimensions=dimensions,
+            )
+
+            ordered_data = sorted(
+                response.data,
+                key=lambda item: item.index,
+            )
+
+            embeddings = tuple(
+                tuple(float(value) for value in item.embedding)
+                for item in ordered_data
+            )
+
+            if len(embeddings) != len(normalized_texts):
+                raise AIProviderError(
+                    "Embedding yanıtındaki kayıt sayısı "
+                    "istekle eşleşmiyor."
+                )
+
+            for embedding in embeddings:
+                if len(embedding) != dimensions:
+                    raise AIProviderError(
+                        "Embedding boyutu beklenen değerle "
+                        "eşleşmiyor."
+                    )
+
+            usage = self._extract_embedding_usage(
+                response
+            )
+
+            self._complete_log(
+                log=log,
+                started_at=started_at,
+                usage=usage,
+                response=response,
+            )
+
+            log.response_metadata = {
+                "response_id": getattr(response, "id", ""),
+                "embedding_count": len(embeddings),
+                "dimensions": dimensions,
+            }
+            log.save(
+                update_fields=[
+                    "response_metadata",
+                    "updated_at",
+                ]
+            )
+
+            return AIEmbeddingResult(
+                embeddings=embeddings,
+                model=model_name,
+                usage=usage,
+            )
+
+        except Exception as error:
+            self._fail_log(
+                log=log,
+                started_at=started_at,
+                error=error,
+            )
+
+            if isinstance(
+                error,
+                (
+                    AIConfigurationError,
+                    AIProviderError,
+                ),
+            ):
+                raise
+
+            raise AIProviderError(
+                "AI sağlayıcısından embedding alınamadı."
             ) from error
 
     def generate_structured(
@@ -237,6 +349,30 @@ class OpenAIProvider:
             request_type=request_type,
             status=AIRequestLog.Status.PROCESSING,
             request_metadata=self.request_metadata,
+        )
+
+    @staticmethod
+    def _extract_embedding_usage(response) -> AIUsage:
+        usage = getattr(response, "usage", None)
+
+        if usage is None:
+            return AIUsage()
+
+        input_tokens = (
+            getattr(usage, "input_tokens", None)
+            or getattr(usage, "prompt_tokens", 0)
+            or 0
+        )
+
+        total_tokens = (
+            getattr(usage, "total_tokens", 0)
+            or input_tokens
+        )
+
+        return AIUsage(
+            input_tokens=input_tokens,
+            output_tokens=0,
+            total_tokens=total_tokens,
         )
 
     @staticmethod

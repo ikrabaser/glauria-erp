@@ -543,3 +543,244 @@ class AIKnowledgeModelTestCase(TestCase):
                 chunk_index=0,
                 content="   ",
             )
+
+
+class AIHashingAndChunkingTestCase(TestCase):
+    def test_hash_ignores_redundant_whitespace(self):
+        from apps.ai_core.utils import sha256_text
+
+        self.assertEqual(
+            sha256_text("Python   ve\nDjango"),
+            sha256_text("Python ve Django"),
+        )
+
+    def test_chunk_text_returns_ordered_overlapping_chunks(self):
+        from apps.ai_core.utils import chunk_text
+
+        content = " ".join(
+            f"kelime-{index}"
+            for index in range(300)
+        )
+
+        chunks = chunk_text(
+            content,
+            chunk_size=80,
+            overlap=20,
+        )
+
+        self.assertGreater(len(chunks), 1)
+
+        self.assertEqual(
+            [chunk.index for chunk in chunks],
+            list(range(len(chunks))),
+        )
+
+        self.assertTrue(
+            all(chunk.token_count <= 80 for chunk in chunks)
+        )
+
+        self.assertTrue(
+            all(len(chunk.content_hash) == 64 for chunk in chunks)
+        )
+
+    def test_empty_text_returns_no_chunks(self):
+        from apps.ai_core.utils import chunk_text
+
+        self.assertEqual(
+            chunk_text("   "),
+            [],
+        )
+
+    def test_invalid_overlap_is_rejected(self):
+        from apps.ai_core.utils import chunk_text
+
+        with self.assertRaises(ValueError):
+            chunk_text(
+                "Demo içerik",
+                chunk_size=100,
+                overlap=100,
+            )
+
+
+class FakeEmbeddingUsage:
+    prompt_tokens = 24
+    total_tokens = 24
+
+
+class FakeEmbeddingItem:
+    def __init__(self, index, embedding):
+        self.index = index
+        self.embedding = embedding
+
+
+class FakeEmbeddingResponse:
+    id = "emb_response_test"
+    usage = FakeEmbeddingUsage()
+
+    def __init__(self, embeddings):
+        self.data = [
+            FakeEmbeddingItem(index, embedding)
+            for index, embedding in enumerate(embeddings)
+        ]
+
+
+class FakeEmbeddingsAPI:
+    def __init__(self, embeddings):
+        self.embeddings = embeddings
+        self.calls = []
+
+    def create(self, **kwargs):
+        self.calls.append(kwargs)
+
+        return FakeEmbeddingResponse(
+            self.embeddings
+        )
+
+
+class FakeEmbeddingClient:
+    def __init__(self, embeddings):
+        self.embeddings = FakeEmbeddingsAPI(
+            embeddings
+        )
+
+
+class AIEmbeddingProviderTestCase(TestCase):
+    def setUp(self):
+        from apps.ai_core.services import OpenAIProvider
+
+        self.provider_class = OpenAIProvider
+
+        self.company = Company.objects.create(
+            name="Embedding Provider Test Şirketi",
+        )
+
+        self.user = User.objects.create_user(
+            username="embedding.test.user",
+            email="embedding.test@example.com",
+            password="test-password",
+            user_type=User.UserType.INTERNAL,
+        )
+
+    def test_generate_embeddings_returns_vectors_and_log(self):
+        client = FakeEmbeddingClient(
+            [
+                [0.1, 0.2, 0.3],
+                [0.4, 0.5, 0.6],
+            ]
+        )
+
+        provider = self.provider_class(
+            company=self.company,
+            requested_by=self.user,
+            module="ai_core",
+            feature="knowledge_embedding",
+            client=client,
+        )
+
+        result = provider.generate_embeddings(
+            texts=[
+                "Python ve Django",
+                "Finansal raporlama",
+            ],
+            dimensions=3,
+        )
+
+        self.assertEqual(result.count, 2)
+        self.assertEqual(result.dimensions, 3)
+        self.assertEqual(
+            result.embeddings[0],
+            (0.1, 0.2, 0.3),
+        )
+        self.assertEqual(
+            result.usage.total_tokens,
+            24,
+        )
+
+        log = AIRequestLog.objects.get(
+            company=self.company,
+            feature="knowledge_embedding",
+        )
+
+        self.assertEqual(
+            log.status,
+            AIRequestLog.Status.COMPLETED,
+        )
+        self.assertEqual(
+            log.request_type,
+            AIRequestLog.RequestType.EMBEDDING,
+        )
+        self.assertEqual(
+            log.response_metadata["embedding_count"],
+            2,
+        )
+        self.assertEqual(
+            log.response_metadata["dimensions"],
+            3,
+        )
+
+        call = client.embeddings.calls[0]
+
+        self.assertEqual(
+            call["model"],
+            "text-embedding-3-small",
+        )
+        self.assertEqual(
+            call["dimensions"],
+            3,
+        )
+
+    def test_empty_embedding_input_is_rejected_without_log(self):
+        from apps.ai_core.services import AIConfigurationError
+
+        provider = self.provider_class(
+            company=self.company,
+            requested_by=self.user,
+            module="ai_core",
+            feature="empty_embedding",
+            client=FakeEmbeddingClient([]),
+        )
+
+        with self.assertRaises(AIConfigurationError):
+            provider.generate_embeddings(
+                texts=[],
+            )
+
+        self.assertFalse(
+            AIRequestLog.objects.filter(
+                feature="empty_embedding",
+            ).exists()
+        )
+
+    def test_invalid_embedding_dimension_is_logged_as_failed(self):
+        from apps.ai_core.services import AIProviderError
+
+        provider = self.provider_class(
+            company=self.company,
+            requested_by=self.user,
+            module="ai_core",
+            feature="invalid_embedding",
+            client=FakeEmbeddingClient(
+                [
+                    [0.1, 0.2],
+                ]
+            ),
+        )
+
+        with self.assertRaises(AIProviderError):
+            provider.generate_embeddings(
+                texts=["Demo"],
+                dimensions=3,
+            )
+
+        log = AIRequestLog.objects.get(
+            feature="invalid_embedding",
+        )
+
+        self.assertEqual(
+            log.status,
+            AIRequestLog.Status.FAILED,
+        )
+        self.assertEqual(
+            log.error_type,
+            "AIProviderError",
+        )
