@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 from django.test import TestCase
 from django.utils import timezone
@@ -1921,6 +1921,7 @@ class CoreERPToolRegistrationTestCase(TestCase):
             {
                 "get_customer_summary",
                 "get_customer_balance",
+                "get_open_invoices",
                 "get_stock_level",
                 "get_recruitment_pipeline_summary",
             },
@@ -2127,6 +2128,267 @@ class ERPFinanceToolDefinitionTestCase(TestCase):
         )
 
         result = get_customer_balance(
+            context=context,
+            customer_id=str(self.customer.id),
+        )
+
+        self.assertFalse(result["found"])
+
+
+class ERPOpenInvoiceToolDefinitionTestCase(TestCase):
+    def setUp(self):
+        from apps.ai_core.tools import (
+            ERPToolExecutionContext,
+        )
+        from apps.crm.models import Customer
+        from apps.finance.models import (
+            CustomerAccount,
+            CustomerAccountTransaction,
+        )
+        from apps.sales.models import (
+            Invoice,
+            SalesOrder,
+            SalesQuote,
+        )
+
+        self.invoice_model = Invoice
+        self.quote_model = SalesQuote
+        self.order_model = SalesOrder
+        self.transaction_model = (
+            CustomerAccountTransaction
+        )
+
+        self.company = Company.objects.create(
+            name="Open Invoice Tool Test Şirketi",
+        )
+
+        self.customer = Customer.objects.create(
+            company=self.company,
+            name="Aurora Kozmetik A.Ş.",
+            status=Customer.Status.ACTIVE,
+        )
+
+        self.account = CustomerAccount.objects.create(
+            company=self.company,
+            customer=self.customer,
+            currency="TRY",
+        )
+
+        CustomerAccountTransaction.objects.create(
+            account=self.account,
+            company=self.company,
+            direction=(
+                CustomerAccountTransaction
+                .Direction
+                .DEBIT
+            ),
+            transaction_type=(
+                CustomerAccountTransaction
+                .TransactionType
+                .SALES_INVOICE
+            ),
+            amount=Decimal("15000.00"),
+            currency="TRY",
+            description="Test satış faturası borcu",
+        )
+
+        self.context = ERPToolExecutionContext(
+            company=self.company,
+            allowed_modules=frozenset({"finance"}),
+        )
+
+    def create_invoice(
+        self,
+        *,
+        title,
+        status,
+        total_amount,
+        due_date=None,
+        customer=None,
+        company=None,
+    ):
+        company = company or self.company
+        customer = customer or self.customer
+
+        quote = self.quote_model.objects.create(
+            company=company,
+            customer=customer,
+            title=title,
+            status=self.quote_model.Status.ACCEPTED,
+            total_amount=total_amount,
+        )
+
+        order = self.order_model.objects.create(
+            company=company,
+            customer=customer,
+            quote=quote,
+            total_amount=total_amount,
+        )
+
+        return self.invoice_model.objects.create(
+            sales_order=order,
+            company=company,
+            customer=customer,
+            status=status,
+            currency="TRY",
+            due_date=due_date,
+            seller_name="Glauria Demo A.Ş.",
+            customer_name=customer.name,
+            total_amount=total_amount,
+        )
+
+    def test_open_invoice_tool_lists_open_statuses(self):
+        from apps.ai_core.tools.definitions.finance import (
+            get_open_invoices,
+        )
+
+        self.create_invoice(
+            title="Kesilmiş Fatura",
+            status=self.invoice_model.Status.ISSUED,
+            total_amount=Decimal("10000.00"),
+            due_date=timezone.localdate()
+            + timedelta(days=10),
+        )
+
+        self.create_invoice(
+            title="Kısmi Ödenmiş Fatura",
+            status=(
+                self.invoice_model.Status.PARTIALLY_PAID
+            ),
+            total_amount=Decimal("5000.00"),
+            due_date=timezone.localdate()
+            + timedelta(days=5),
+        )
+
+        result = get_open_invoices(
+            context=self.context,
+            customer_id=str(self.customer.id),
+        )
+
+        self.assertTrue(result["found"])
+        self.assertEqual(
+            result["open_invoice_count"],
+            2,
+        )
+        self.assertEqual(
+            result["recorded_open_invoice_amount"],
+            "15000.00",
+        )
+
+    def test_paid_cancelled_and_draft_invoices_are_excluded(self):
+        from apps.ai_core.tools.definitions.finance import (
+            get_open_invoices,
+        )
+
+        for status in [
+            self.invoice_model.Status.PAID,
+            self.invoice_model.Status.CANCELLED,
+            self.invoice_model.Status.DRAFT,
+        ]:
+            self.create_invoice(
+                title=f"Kapalı Fatura {status}",
+                status=status,
+                total_amount=Decimal("1000.00"),
+            )
+
+        result = get_open_invoices(
+            context=self.context,
+            customer_name=self.customer.name,
+        )
+
+        self.assertEqual(
+            result["open_invoice_count"],
+            0,
+        )
+        self.assertEqual(
+            result["recorded_open_invoice_amount"],
+            "0.00",
+        )
+
+    def test_overdue_invoice_contains_days_overdue(self):
+        from apps.ai_core.tools.definitions.finance import (
+            get_open_invoices,
+        )
+
+        invoice = self.create_invoice(
+            title="Gecikmiş Fatura",
+            status=self.invoice_model.Status.OVERDUE,
+            total_amount=Decimal("4000.00"),
+            due_date=timezone.localdate()
+            - timedelta(days=7),
+        )
+
+        result = get_open_invoices(
+            context=self.context,
+            customer_id=str(self.customer.id),
+        )
+
+        row = result["invoices"][0]
+
+        self.assertEqual(
+            row["invoice_number"],
+            invoice.invoice_number,
+        )
+        self.assertTrue(row["is_overdue"])
+        self.assertEqual(row["days_overdue"], 7)
+        self.assertEqual(
+            result["recorded_overdue_invoice_amount"],
+            "4000.00",
+        )
+
+    def test_remaining_amount_is_not_fabricated(self):
+        from apps.ai_core.tools.definitions.finance import (
+            get_open_invoices,
+        )
+
+        self.create_invoice(
+            title="Kısmi Ödenmiş Fatura",
+            status=(
+                self.invoice_model.Status.PARTIALLY_PAID
+            ),
+            total_amount=Decimal("6000.00"),
+        )
+
+        result = get_open_invoices(
+            context=self.context,
+            customer_id=str(self.customer.id),
+        )
+
+        row = result["invoices"][0]
+
+        self.assertIsNone(row["remaining_amount"])
+        self.assertFalse(
+            row["remaining_amount_is_exact"]
+        )
+        self.assertIn(
+            "kesin kalan tutar",
+            row["remaining_amount_note"],
+        )
+
+    def test_open_invoice_tool_is_company_isolated(self):
+        from apps.ai_core.tools import (
+            ERPToolExecutionContext,
+        )
+        from apps.ai_core.tools.definitions.finance import (
+            get_open_invoices,
+        )
+
+        self.create_invoice(
+            title="Şirket İçi Fatura",
+            status=self.invoice_model.Status.ISSUED,
+            total_amount=Decimal("3000.00"),
+        )
+
+        other_company = Company.objects.create(
+            name="Başka Open Invoice Şirketi",
+        )
+
+        context = ERPToolExecutionContext(
+            company=other_company,
+            allowed_modules=frozenset({"finance"}),
+        )
+
+        result = get_open_invoices(
             context=context,
             customer_id=str(self.customer.id),
         )
