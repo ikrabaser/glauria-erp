@@ -359,3 +359,187 @@ class AICoreProviderTestCase(TestCase):
                 company=self.company,
             ).exists()
         )
+
+
+class AIKnowledgeModelTestCase(TestCase):
+    def setUp(self):
+        from apps.ai_core.models import (
+            AIKnowledgeChunk,
+            AIKnowledgeDocument,
+        )
+
+        self.chunk_model = AIKnowledgeChunk
+        self.document_model = AIKnowledgeDocument
+
+        self.company = Company.objects.create(
+            name="AI Knowledge Test Şirketi",
+        )
+
+        self.user = User.objects.create_user(
+            username="knowledge.test.user",
+            email="knowledge.test@example.com",
+            password="test-password",
+            user_type=User.UserType.INTERNAL,
+        )
+
+    def test_knowledge_document_has_pending_default_status(self):
+        document = self.document_model.objects.create(
+            company=self.company,
+            created_by=self.user,
+            document_type=(
+                self.document_model
+                .DocumentType
+                .CANDIDATE_RESUME
+            ),
+            source_type=(
+                self.document_model
+                .SourceType
+                .ERP_RECORD
+            ),
+            title="Demo Aday CV",
+            source_reference="candidate:demo-id",
+            content_text="Python ve Django deneyimi.",
+        )
+
+        self.assertEqual(
+            document.status,
+            self.document_model.Status.PENDING,
+        )
+        self.assertEqual(
+            document.metadata,
+            {},
+        )
+
+    def test_document_can_have_ordered_chunks(self):
+        document = self.document_model.objects.create(
+            company=self.company,
+            document_type=(
+                self.document_model.DocumentType.ERP_HELP
+            ),
+            title="ERP Kullanım Rehberi",
+        )
+
+        second = self.chunk_model.objects.create(
+            document=document,
+            company=self.company,
+            chunk_index=1,
+            content="İkinci bilgi parçası.",
+        )
+
+        first = self.chunk_model.objects.create(
+            document=document,
+            company=self.company,
+            chunk_index=0,
+            content="Birinci bilgi parçası.",
+        )
+
+        self.assertEqual(
+            list(document.chunks.all()),
+            [
+                first,
+                second,
+            ],
+        )
+
+    def test_chunk_can_store_1536_dimension_embedding(self):
+        document = self.document_model.objects.create(
+            company=self.company,
+            document_type=(
+                self.document_model
+                .DocumentType
+                .JOB_REQUISITION
+            ),
+            title="Backend Developer İlanı",
+        )
+
+        chunk = self.chunk_model.objects.create(
+            document=document,
+            company=self.company,
+            chunk_index=0,
+            content="Python ve Django deneyimi gereklidir.",
+            embedding_model="text-embedding-3-small",
+            embedding=[0.0] * 1536,
+        )
+
+        chunk.refresh_from_db()
+
+        self.assertEqual(
+            len(chunk.embedding),
+            1536,
+        )
+        self.assertEqual(
+            chunk.embedding_model,
+            "text-embedding-3-small",
+        )
+
+    def test_duplicate_chunk_index_is_rejected(self):
+        from django.db import IntegrityError
+
+        document = self.document_model.objects.create(
+            company=self.company,
+            document_type=(
+                self.document_model.DocumentType.HR_POLICY
+            ),
+            title="İK Politikası",
+        )
+
+        self.chunk_model.objects.create(
+            document=document,
+            company=self.company,
+            chunk_index=0,
+            content="İlk parça.",
+        )
+
+        with self.assertRaises(IntegrityError):
+            self.chunk_model.objects.bulk_create(
+                [
+                    self.chunk_model(
+                        document=document,
+                        company=self.company,
+                        chunk_index=0,
+                        content="Tekrar eden parça.",
+                    )
+                ]
+            )
+
+    def test_cross_company_chunk_is_rejected(self):
+        from django.core.exceptions import ValidationError
+
+        other_company = Company.objects.create(
+            name="Başka Knowledge Şirketi",
+        )
+
+        document = self.document_model.objects.create(
+            company=self.company,
+            document_type=(
+                self.document_model.DocumentType.OTHER
+            ),
+            title="Şirket Dokümanı",
+        )
+
+        with self.assertRaises(ValidationError):
+            self.chunk_model.objects.create(
+                document=document,
+                company=other_company,
+                chunk_index=0,
+                content="Yanlış şirkete ait parça.",
+            )
+
+    def test_empty_chunk_content_is_rejected(self):
+        from django.core.exceptions import ValidationError
+
+        document = self.document_model.objects.create(
+            company=self.company,
+            document_type=(
+                self.document_model.DocumentType.OTHER
+            ),
+            title="Boş İçerik Testi",
+        )
+
+        with self.assertRaises(ValidationError):
+            self.chunk_model.objects.create(
+                document=document,
+                company=self.company,
+                chunk_index=0,
+                content="   ",
+            )
