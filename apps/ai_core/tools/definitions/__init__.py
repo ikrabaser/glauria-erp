@@ -4,6 +4,8 @@ from apps.ai_core.tools import (
     default_tool_registry,
 )
 
+from .crm import GET_CUSTOMER_SUMMARY_TOOL
+from .finance import GET_CUSTOMER_BALANCE_TOOL
 from .hr import (
     GET_RECRUITMENT_PIPELINE_SUMMARY_TOOL,
 )
@@ -11,6 +13,8 @@ from .inventory import GET_STOCK_LEVEL_TOOL
 
 
 CORE_ERP_TOOL_DEFINITIONS = (
+    GET_CUSTOMER_SUMMARY_TOOL,
+    GET_CUSTOMER_BALANCE_TOOL,
     GET_STOCK_LEVEL_TOOL,
     GET_RECRUITMENT_PIPELINE_SUMMARY_TOOL,
 )
@@ -31,6 +35,8 @@ def register_core_erp_tools(
 
 __all__ = [
     "CORE_ERP_TOOL_DEFINITIONS",
+    "GET_CUSTOMER_BALANCE_TOOL",
+    "GET_CUSTOMER_SUMMARY_TOOL",
     "GET_RECRUITMENT_PIPELINE_SUMMARY_TOOL",
     "GET_STOCK_LEVEL_TOOL",
     "register_core_erp_tools",

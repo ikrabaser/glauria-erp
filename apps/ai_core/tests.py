@@ -1919,7 +1919,216 @@ class CoreERPToolRegistrationTestCase(TestCase):
         self.assertEqual(
             names,
             {
+                "get_customer_summary",
+                "get_customer_balance",
                 "get_stock_level",
                 "get_recruitment_pipeline_summary",
             },
         )
+
+
+class ERPCRMToolDefinitionTestCase(TestCase):
+    def setUp(self):
+        from apps.ai_core.tools import (
+            ERPToolExecutionContext,
+        )
+        from apps.crm.models import Customer, Opportunity
+
+        self.context_class = ERPToolExecutionContext
+
+        self.company = Company.objects.create(
+            name="CRM Tool Test Şirketi",
+        )
+
+        self.customer = Customer.objects.create(
+            company=self.company,
+            name="Luméa Cosmetics A.Ş.",
+            customer_type=Customer.CustomerType.CORPORATE,
+            status=Customer.Status.ACTIVE,
+            email="finance@lumea.example",
+            phone="+90 312 000 00 00",
+            city="Ankara",
+        )
+
+        Opportunity.objects.create(
+            company=self.company,
+            customer=self.customer,
+            title="Anti Aging Serum Satışı",
+            stage=Opportunity.Stage.NEGOTIATION,
+            expected_amount=Decimal("25000.00"),
+        )
+
+        self.context = self.context_class(
+            company=self.company,
+            allowed_modules=frozenset({"crm"}),
+        )
+
+    def test_customer_summary_returns_crm_data(self):
+        from apps.ai_core.tools.definitions.crm import (
+            get_customer_summary,
+        )
+
+        result = get_customer_summary(
+            context=self.context,
+            customer_name="Luméa Cosmetics A.Ş.",
+        )
+
+        self.assertTrue(result["found"])
+        self.assertEqual(
+            result["customer"]["name"],
+            "Luméa Cosmetics A.Ş.",
+        )
+        self.assertEqual(
+            result["crm"]["active_opportunities"],
+            1,
+        )
+        self.assertEqual(
+            result["crm"]["total_expected_amount"],
+            "25000.00",
+        )
+
+    def test_customer_summary_is_company_isolated(self):
+        from apps.ai_core.tools.definitions.crm import (
+            get_customer_summary,
+        )
+
+        other_company = Company.objects.create(
+            name="Başka CRM Tool Şirketi",
+        )
+
+        context = self.context_class(
+            company=other_company,
+            allowed_modules=frozenset({"crm"}),
+        )
+
+        result = get_customer_summary(
+            context=context,
+            customer_id=str(self.customer.id),
+        )
+
+        self.assertFalse(result["found"])
+
+
+class ERPFinanceToolDefinitionTestCase(TestCase):
+    def setUp(self):
+        from apps.ai_core.tools import (
+            ERPToolExecutionContext,
+        )
+        from apps.crm.models import Customer
+        from apps.finance.models import (
+            CustomerAccount,
+            CustomerAccountTransaction,
+        )
+
+        self.context_class = ERPToolExecutionContext
+        self.transaction_model = (
+            CustomerAccountTransaction
+        )
+
+        self.company = Company.objects.create(
+            name="Finance Tool Test Şirketi",
+        )
+
+        self.customer = Customer.objects.create(
+            company=self.company,
+            name="Nova Kozmetik A.Ş.",
+            status=Customer.Status.ACTIVE,
+        )
+
+        self.account = CustomerAccount.objects.create(
+            company=self.company,
+            customer=self.customer,
+            currency="TRY",
+        )
+
+        CustomerAccountTransaction.objects.create(
+            account=self.account,
+            company=self.company,
+            direction=(
+                CustomerAccountTransaction
+                .Direction
+                .DEBIT
+            ),
+            transaction_type=(
+                CustomerAccountTransaction
+                .TransactionType
+                .SALES_INVOICE
+            ),
+            amount=Decimal("20000.00"),
+            currency="TRY",
+            description="Satış faturası",
+        )
+
+        CustomerAccountTransaction.objects.create(
+            account=self.account,
+            company=self.company,
+            direction=(
+                CustomerAccountTransaction
+                .Direction
+                .CREDIT
+            ),
+            transaction_type=(
+                CustomerAccountTransaction
+                .TransactionType
+                .COLLECTION
+            ),
+            amount=Decimal("7500.00"),
+            currency="TRY",
+            description="Kısmi tahsilat",
+        )
+
+        self.context = self.context_class(
+            company=self.company,
+            allowed_modules=frozenset({"finance"}),
+        )
+
+    def test_customer_balance_returns_ledger_balance(self):
+        from apps.ai_core.tools.definitions.finance import (
+            get_customer_balance,
+        )
+
+        result = get_customer_balance(
+            context=self.context,
+            customer_id=str(self.customer.id),
+            currency="TRY",
+        )
+
+        self.assertTrue(result["found"])
+        self.assertTrue(result["has_account"])
+        self.assertEqual(
+            result["debit_total"],
+            "20000.00",
+        )
+        self.assertEqual(
+            result["credit_total"],
+            "7500.00",
+        )
+        self.assertEqual(
+            result["balance"],
+            "12500.00",
+        )
+        self.assertEqual(
+            result["balance_position"],
+            "customer_owes_company",
+        )
+
+    def test_customer_balance_is_company_isolated(self):
+        from apps.ai_core.tools.definitions.finance import (
+            get_customer_balance,
+        )
+
+        other_company = Company.objects.create(
+            name="Başka Finance Tool Şirketi",
+        )
+
+        context = self.context_class(
+            company=other_company,
+            allowed_modules=frozenset({"finance"}),
+        )
+
+        result = get_customer_balance(
+            context=context,
+            customer_id=str(self.customer.id),
+        )
+
+        self.assertFalse(result["found"])
