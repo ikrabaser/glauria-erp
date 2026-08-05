@@ -1,3 +1,5 @@
+from datetime import date
+from decimal import Decimal
 from django.test import TestCase
 from django.utils import timezone
 
@@ -1634,3 +1636,290 @@ class ERPToolExecutorTestCase(TestCase):
                 arguments={},
                 context=self.context,
             )
+
+
+class ERPInventoryToolDefinitionTestCase(TestCase):
+    def setUp(self):
+        from apps.ai_core.tools import (
+            ERPToolExecutionContext,
+        )
+
+        self.context_class = ERPToolExecutionContext
+
+        self.company = Company.objects.create(
+            name="Inventory Tool Test Şirketi",
+        )
+
+        from apps.organizations.models import Branch
+        from apps.inventory.models import (
+            InventoryLot,
+            Product,
+            Warehouse,
+        )
+
+        self.product = Product.objects.create(
+            company=self.company,
+            sku="SERUM-001",
+            name="Anti Aging Serum",
+            unit="adet",
+            reorder_level=Decimal("20.00"),
+        )
+
+        self.branch = Branch.objects.create(
+            company=self.company,
+            code="INV-TOOL-HQ",
+            name="Inventory Tool Merkez",
+        )
+
+        self.warehouse = Warehouse.objects.create(
+            company=self.company,
+            branch=self.branch,
+            code="INV-MAIN",
+            name="Ana Depo",
+        )
+
+        InventoryLot.objects.create(
+            product=self.product,
+            warehouse=self.warehouse,
+            lot_number="LOT-001",
+            quantity_on_hand=Decimal("100.00"),
+            quantity_reserved=Decimal("25.00"),
+        )
+
+        self.context = self.context_class(
+            company=self.company,
+            allowed_modules=frozenset(
+                {
+                    "inventory",
+                }
+            ),
+        )
+
+    def test_stock_tool_returns_company_stock_summary(self):
+        from apps.ai_core.tools.definitions.inventory import (
+            get_stock_level,
+        )
+
+        result = get_stock_level(
+            context=self.context,
+            sku="SERUM-001",
+        )
+
+        self.assertTrue(result["found"])
+        self.assertEqual(
+            result["product_name"],
+            "Anti Aging Serum",
+        )
+        self.assertEqual(
+            result["quantity_on_hand"],
+            "100.00",
+        )
+        self.assertEqual(
+            result["quantity_reserved"],
+            "25.00",
+        )
+        self.assertEqual(
+            result["available_quantity"],
+            "75.00",
+        )
+        self.assertFalse(
+            result["below_reorder_level"]
+        )
+
+    def test_stock_tool_is_company_isolated(self):
+        from apps.ai_core.tools.definitions.inventory import (
+            get_stock_level,
+        )
+
+        other_company = Company.objects.create(
+            name="Başka Inventory Tool Şirketi",
+        )
+
+        context = self.context_class(
+            company=other_company,
+            allowed_modules=frozenset(
+                {
+                    "inventory",
+                }
+            ),
+        )
+
+        result = get_stock_level(
+            context=context,
+            sku="SERUM-001",
+        )
+
+        self.assertFalse(result["found"])
+
+
+class ERPHRToolDefinitionTestCase(TestCase):
+    def setUp(self):
+        from apps.ai_core.tools import (
+            ERPToolExecutionContext,
+        )
+        from apps.organizations.models import (
+            Branch,
+            Department,
+        )
+        from apps.hr.models import (
+            Candidate,
+            Employee,
+            JobApplication,
+            JobRequisition,
+            Position,
+        )
+
+        self.context_class = ERPToolExecutionContext
+
+        self.company = Company.objects.create(
+            name="HR Tool Test Şirketi",
+        )
+
+        self.branch = Branch.objects.create(
+            company=self.company,
+            code="HR-TOOL-HQ",
+            name="HR Tool Merkez",
+        )
+
+        self.department = Department.objects.create(
+            branch=self.branch,
+            code="HR-TOOL-TECH",
+            name="Bilgi Teknolojileri",
+        )
+
+        self.position = Position.objects.create(
+            company=self.company,
+            department=self.department,
+            code="HR-TOOL-BE",
+            title="Backend Developer",
+        )
+
+        self.manager = Employee.objects.create(
+            company=self.company,
+            employee_number="HR-TOOL-001",
+            first_name="Mehmet",
+            last_name="Yönetici",
+            work_email="manager.hrtool@example.com",
+            hire_date=date(2024, 1, 1),
+        )
+
+        self.recruiter = Employee.objects.create(
+            company=self.company,
+            employee_number="HR-TOOL-002",
+            first_name="Ayşe",
+            last_name="Recruiter",
+            work_email="recruiter.hrtool@example.com",
+            hire_date=date(2024, 1, 1),
+        )
+
+        self.requisition = JobRequisition.objects.create(
+            company=self.company,
+            department=self.department,
+            position=self.position,
+            requisition_number="REQ-TOOL-001",
+            title="Backend Developer",
+            description="Backend geliştirme.",
+            requirements="Python ve Django.",
+            hiring_manager=self.manager,
+            recruiter=self.recruiter,
+            status=JobRequisition.Status.OPEN,
+            opened_at=timezone.now(),
+            headcount=2,
+        )
+
+        self.candidate = Candidate.objects.create(
+            company=self.company,
+            first_name="Selin",
+            last_name="Araç",
+            email="selin.tool@example.com",
+        )
+
+        JobApplication.objects.create(
+            company=self.company,
+            requisition=self.requisition,
+            candidate=self.candidate,
+            assigned_recruiter=self.recruiter,
+            stage=JobApplication.Stage.INTERVIEW,
+        )
+
+        self.context = self.context_class(
+            company=self.company,
+            allowed_modules=frozenset(
+                {
+                    "hr",
+                }
+            ),
+        )
+
+    def test_hr_tool_returns_pipeline_summary(self):
+        from apps.ai_core.tools.definitions.hr import (
+            get_recruitment_pipeline_summary,
+        )
+
+        result = get_recruitment_pipeline_summary(
+            context=self.context,
+        )
+
+        self.assertTrue(result["found"])
+        self.assertEqual(
+            result["open_requisitions"],
+            1,
+        )
+        self.assertEqual(
+            result["active_applications"],
+            1,
+        )
+        self.assertEqual(
+            result["stage_counts"]["interview"],
+            1,
+        )
+
+    def test_hr_tool_can_filter_requisition_number(self):
+        from apps.ai_core.tools.definitions.hr import (
+            get_recruitment_pipeline_summary,
+        )
+
+        result = get_recruitment_pipeline_summary(
+            context=self.context,
+            requisition_number="REQ-TOOL-001",
+        )
+
+        self.assertTrue(result["found"])
+        self.assertEqual(
+            result["scope"],
+            "requisition",
+        )
+        self.assertEqual(
+            result["requisition"]["title"],
+            "Backend Developer",
+        )
+
+
+class CoreERPToolRegistrationTestCase(TestCase):
+    def test_core_definitions_are_registered_once(self):
+        from apps.ai_core.tools import ERPToolRegistry
+        from apps.ai_core.tools.definitions import (
+            register_core_erp_tools,
+        )
+
+        registry = ERPToolRegistry()
+
+        register_core_erp_tools(
+            registry=registry,
+        )
+        register_core_erp_tools(
+            registry=registry,
+        )
+
+        names = {
+            definition.name
+            for definition in registry.list_tools()
+        }
+
+        self.assertEqual(
+            names,
+            {
+                "get_stock_level",
+                "get_recruitment_pipeline_summary",
+            },
+        )
