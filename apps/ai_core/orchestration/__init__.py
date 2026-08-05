@@ -21,3 +21,14 @@ __all__ = [
     "build_recruitment_assessment_prompt",
     "format_knowledge_results",
 ]
+
+from .function_calling import (
+    DEFAULT_MAX_TOOL_ROUNDS,
+    ERP_ASSISTANT_INSTRUCTIONS,
+    ExecutedToolCall,
+    FunctionCallingArgumentError,
+    FunctionCallingLimitError,
+    FunctionCallingResult,
+    FunctionCallingRuntime,
+    FunctionCallingRuntimeError,
+)

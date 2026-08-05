@@ -2394,3 +2394,309 @@ class ERPOpenInvoiceToolDefinitionTestCase(TestCase):
         )
 
         self.assertFalse(result["found"])
+
+
+class FakeFunctionUsage:
+    input_tokens = 20
+    output_tokens = 10
+    total_tokens = 30
+
+
+class FakeFunctionCall:
+    type = "function_call"
+
+    def __init__(
+        self,
+        *,
+        name,
+        arguments,
+        call_id,
+    ):
+        self.name = name
+        self.arguments = arguments
+        self.call_id = call_id
+
+
+class FakeFunctionResponse:
+    def __init__(
+        self,
+        *,
+        response_id,
+        output=None,
+        output_text="",
+    ):
+        self.id = response_id
+        self.output = output or []
+        self.output_text = output_text
+        self.usage = FakeFunctionUsage()
+
+
+class FakeFunctionResponsesAPI:
+    def __init__(self, responses):
+        self.responses = list(responses)
+        self.calls = []
+
+    def create(self, **kwargs):
+        self.calls.append(kwargs)
+
+        if not self.responses:
+            raise AssertionError(
+                "Beklenmeyen ek OpenAI çağrısı yapıldı."
+            )
+
+        return self.responses.pop(0)
+
+
+class FakeFunctionClient:
+    def __init__(self, responses):
+        self.responses = FakeFunctionResponsesAPI(
+            responses
+        )
+
+
+class FakeFunctionProvider:
+    responses = []
+
+    def __init__(self, **kwargs):
+        from types import SimpleNamespace
+
+        self.kwargs = kwargs
+        self.configuration = SimpleNamespace(
+            provider="openai",
+            default_model="gpt-test",
+        )
+        self.client = FakeFunctionClient(
+            list(type(self).responses)
+        )
+
+
+class AIFunctionCallingRuntimeTestCase(TestCase):
+    def setUp(self):
+        from apps.ai_core.tools import (
+            ERPToolDefinition,
+            ERPToolRegistry,
+        )
+
+        self.company = Company.objects.create(
+            name="Function Calling Test Şirketi",
+        )
+
+        self.user = User.objects.create_user(
+            username="function.calling.user",
+            email="function.calling@example.com",
+            password="test-password",
+            user_type=User.UserType.INTERNAL,
+        )
+
+        self.registry = ERPToolRegistry()
+
+        def demo_customer_tool(
+            *,
+            context,
+            customer_name,
+        ):
+            return {
+                "company_id": str(context.company.id),
+                "customer_name": customer_name,
+                "balance": "12500.00",
+            }
+
+        self.registry.register(
+            ERPToolDefinition(
+                name="get_demo_customer",
+                description=(
+                    "Demo müşteri bilgisini getirir."
+                ),
+                module="crm",
+                input_schema={
+                    "type": "object",
+                    "properties": {
+                        "customer_name": {
+                            "type": "string",
+                        },
+                    },
+                    "required": [
+                        "customer_name",
+                    ],
+                    "additionalProperties": False,
+                },
+                handler=demo_customer_tool,
+                is_read_only=True,
+            )
+        )
+
+    def build_runtime(
+        self,
+        *,
+        responses,
+        allowed_modules=None,
+        max_tool_rounds=5,
+    ):
+        from apps.ai_core.orchestration import (
+            FunctionCallingRuntime,
+        )
+
+        FakeFunctionProvider.responses = responses
+
+        return FunctionCallingRuntime(
+            company=self.company,
+            requested_by=self.user,
+            allowed_modules=(
+                allowed_modules
+                if allowed_modules is not None
+                else {"crm"}
+            ),
+            registry=self.registry,
+            provider_class=FakeFunctionProvider,
+            max_tool_rounds=max_tool_rounds,
+            register_core_tools=False,
+        )
+
+    def test_runtime_executes_tool_and_returns_final_answer(self):
+        runtime = self.build_runtime(
+            responses=[
+                FakeFunctionResponse(
+                    response_id="resp-1",
+                    output=[
+                        FakeFunctionCall(
+                            name="get_demo_customer",
+                            arguments=(
+                                '{"customer_name": '
+                                '"Nova Kozmetik"}'
+                            ),
+                            call_id="call-1",
+                        )
+                    ],
+                ),
+                FakeFunctionResponse(
+                    response_id="resp-2",
+                    output_text=(
+                        "Nova Kozmetik'in bakiyesi "
+                        "12.500 TRY'dir."
+                    ),
+                ),
+            ]
+        )
+
+        result = runtime.invoke(
+            user_message=(
+                "Nova Kozmetik'in bakiyesi nedir?"
+            )
+        )
+
+        self.assertEqual(result.tool_call_count, 1)
+        self.assertEqual(result.round_count, 2)
+        self.assertEqual(
+            result.tool_calls[0].tool_name,
+            "get_demo_customer",
+        )
+        self.assertIn(
+            "12.500",
+            result.content,
+        )
+
+        tool_log = AIRequestLog.objects.get(
+            feature="get_demo_customer",
+        )
+
+        self.assertEqual(
+            tool_log.status,
+            AIRequestLog.Status.COMPLETED,
+        )
+
+        ai_logs = AIRequestLog.objects.filter(
+            feature="erp_function_calling",
+        )
+
+        self.assertEqual(ai_logs.count(), 2)
+
+    def test_runtime_can_return_direct_answer(self):
+        runtime = self.build_runtime(
+            responses=[
+                FakeFunctionResponse(
+                    response_id="resp-direct",
+                    output_text=(
+                        "Bu soru için ERP aracı gerekmiyor."
+                    ),
+                )
+            ]
+        )
+
+        result = runtime.invoke(
+            user_message="Merhaba",
+        )
+
+        self.assertEqual(result.tool_call_count, 0)
+        self.assertEqual(result.round_count, 1)
+
+    def test_runtime_rejects_invalid_json_arguments(self):
+        from apps.ai_core.orchestration import (
+            FunctionCallingArgumentError,
+        )
+
+        runtime = self.build_runtime(
+            responses=[
+                FakeFunctionResponse(
+                    response_id="resp-invalid",
+                    output=[
+                        FakeFunctionCall(
+                            name="get_demo_customer",
+                            arguments="{invalid-json",
+                            call_id="call-invalid",
+                        )
+                    ],
+                )
+            ]
+        )
+
+        with self.assertRaises(
+            FunctionCallingArgumentError
+        ):
+            runtime.invoke(
+                user_message="Müşteriyi getir.",
+            )
+
+    def test_runtime_rejects_inaccessible_module(self):
+        from apps.ai_core.services import (
+            AIConfigurationError,
+        )
+
+        with self.assertRaises(
+            AIConfigurationError
+        ):
+            self.build_runtime(
+                responses=[],
+                allowed_modules={"finance"},
+            ).invoke(
+                user_message="Müşteriyi getir.",
+            )
+
+    def test_runtime_stops_at_maximum_round_limit(self):
+        from apps.ai_core.orchestration import (
+            FunctionCallingLimitError,
+        )
+
+        runtime = self.build_runtime(
+            responses=[
+                FakeFunctionResponse(
+                    response_id="resp-loop",
+                    output=[
+                        FakeFunctionCall(
+                            name="get_demo_customer",
+                            arguments=(
+                                '{"customer_name": "Nova"}'
+                            ),
+                            call_id="call-loop",
+                        )
+                    ],
+                )
+            ],
+            max_tool_rounds=1,
+        )
+
+        with self.assertRaises(
+            FunctionCallingLimitError
+        ):
+            runtime.invoke(
+                user_message="Müşteriyi getir.",
+            )
