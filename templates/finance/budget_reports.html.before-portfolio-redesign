@@ -93,89 +93,8 @@ Bütçe ve Raporlar | Glauria ERP
     </div>
 
     <div class="finance-budget-portfolio__grid">
-        <div class="finance-budget-portfolio__summary">
-            <div class="finance-budget-portfolio__total">
-                <span>TOPLAM PORTFÖY</span>
-
-                <strong>
-                    {% widthratio status_counts.draft|default:0 1 1 as draft_total %}
-                    {% widthratio status_counts.pending_approval|default:0 1 1 as pending_total %}
-                    {% widthratio status_counts.active|default:0 1 1 as active_total %}
-                    {% widthratio status_counts.closed|default:0 1 1 as closed_total %}
-
-                    {{ budget_count|default:0 }}
-                </strong>
-
-                <small>
-                    Kayıtlı bütçe planı
-                </small>
-            </div>
-
-            <div class="finance-budget-portfolio__distribution">
-                <div class="finance-budget-portfolio__distribution-heading">
-                    <span>Portföy dağılımı</span>
-                    <small>Durum bazlı görünüm</small>
-                </div>
-
-                <div
-                    class="finance-budget-portfolio__track"
-                    aria-label="Bütçe durum dağılımı"
-                >
-                    {% if status_counts.draft %}
-                        <span
-                            class="is-draft"
-                            style="flex-grow: {{ status_counts.draft }};"
-                            title="Taslak: {{ status_counts.draft }}"
-                        ></span>
-                    {% endif %}
-
-                    {% if status_counts.pending_approval %}
-                        <span
-                            class="is-pending"
-                            style="flex-grow: {{ status_counts.pending_approval }};"
-                            title="Onay bekliyor: {{ status_counts.pending_approval }}"
-                        ></span>
-                    {% endif %}
-
-                    {% if status_counts.active %}
-                        <span
-                            class="is-active"
-                            style="flex-grow: {{ status_counts.active }};"
-                            title="Aktif: {{ status_counts.active }}"
-                        ></span>
-                    {% endif %}
-
-                    {% if status_counts.closed %}
-                        <span
-                            class="is-closed"
-                            style="flex-grow: {{ status_counts.closed }};"
-                            title="Kapandı: {{ status_counts.closed }}"
-                        ></span>
-                    {% endif %}
-                </div>
-
-                <div class="finance-budget-portfolio__distribution-labels">
-                    <span>
-                        <i class="is-draft"></i>
-                        Taslak
-                    </span>
-
-                    <span>
-                        <i class="is-pending"></i>
-                        Onay bekliyor
-                    </span>
-
-                    <span>
-                        <i class="is-active"></i>
-                        Aktif
-                    </span>
-
-                    <span>
-                        <i class="is-closed"></i>
-                        Kapandı
-                    </span>
-                </div>
-            </div>
+        <div class="finance-budget-portfolio__chart">
+            <canvas id="finance-budget-portfolio-chart"></canvas>
         </div>
 
         <div class="finance-budget-portfolio__statuses">
@@ -365,183 +284,203 @@ Bütçe ve Raporlar | Glauria ERP
 </section>
 {% endblock %}
 {% block extra_js %}
-<style>
-    .finance-budget-portfolio__summary {
-        min-height: 250px;
-        padding: 32px;
-        border: 1px solid rgba(113, 73, 91, 0.12);
-        border-radius: 22px;
-        background:
-            linear-gradient(
-                135deg,
-                rgba(255, 255, 255, 0.82),
-                rgba(250, 241, 239, 0.64)
-            );
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        gap: 30px;
-    }
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
 
-    .finance-budget-portfolio__total {
-        display: flex;
-        flex-direction: column;
-        align-items: flex-start;
-    }
+<script>
+    const portfolioChartDataElement = document.getElementById(
+        "finance-budget-portfolio-chart-data"
+    );
 
-    .finance-budget-portfolio__total span {
-        margin-bottom: 9px;
-        color: rgba(109, 67, 85, 0.64);
-        font-size: 11px;
-        font-weight: 800;
-        letter-spacing: 0.14em;
-    }
+    const portfolioChartCanvas = document.getElementById(
+        "finance-budget-portfolio-chart"
+    );
 
-    .finance-budget-portfolio__total strong {
-        color: #2f1f28;
-        font-size: clamp(42px, 4vw, 62px);
-        font-weight: 650;
-        line-height: 1;
-        letter-spacing: -0.045em;
-    }
+    if (portfolioChartDataElement && portfolioChartCanvas) {
+        const portfolioChartData = JSON.parse(
+            portfolioChartDataElement.textContent
+        );
 
-    .finance-budget-portfolio__total small {
-        margin-top: 10px;
-        color: rgba(81, 57, 68, 0.62);
-        font-size: 13px;
-    }
+        const isLightTheme = (
+            document.documentElement.dataset.theme === "light"
+        );
 
-    .finance-budget-portfolio__distribution {
-        display: flex;
-        flex-direction: column;
-        gap: 13px;
-    }
+        const totalBudgetCount = portfolioChartData.values.reduce(
+            (total, value) => total + Number(value || 0),
+            0
+        );
 
-    .finance-budget-portfolio__distribution-heading {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        gap: 15px;
-    }
+        const centerTextPlugin = {
+            id: "financeBudgetCenterText",
 
-    .finance-budget-portfolio__distribution-heading span {
-        color: #3a2831;
-        font-size: 13px;
-        font-weight: 750;
-    }
+            afterDraw(chart) {
+                const {
+                    ctx,
+                    chartArea,
+                } = chart;
 
-    .finance-budget-portfolio__distribution-heading small {
-        color: rgba(81, 57, 68, 0.52);
-        font-size: 11px;
-    }
+                if (!chartArea) {
+                    return;
+                }
 
-    .finance-budget-portfolio__track {
-        width: 100%;
-        height: 13px;
-        padding: 2px;
-        border: 1px solid rgba(113, 73, 91, 0.12);
-        border-radius: 999px;
-        background: rgba(112, 78, 94, 0.07);
-        display: flex;
-        gap: 3px;
-        overflow: hidden;
-    }
+                const centerX = (
+                    chartArea.left + chartArea.right
+                ) / 2;
 
-    .finance-budget-portfolio__track span {
-        min-width: 7px;
-        height: 100%;
-        border-radius: 999px;
-        transition:
-            flex-grow 280ms ease,
-            opacity 180ms ease;
-    }
+                const centerY = (
+                    chartArea.top + chartArea.bottom
+                ) / 2;
 
-    .finance-budget-portfolio__track span:hover {
-        opacity: 0.78;
-    }
+                ctx.save();
+                ctx.textAlign = "center";
+                ctx.textBaseline = "middle";
 
-    .finance-budget-portfolio__track .is-draft,
-    .finance-budget-portfolio__distribution-labels i.is-draft {
-        background: #d9c8d8;
-    }
+                ctx.fillStyle = isLightTheme
+                    ? "#321f29"
+                    : "#fff5ef";
 
-    .finance-budget-portfolio__track .is-pending,
-    .finance-budget-portfolio__distribution-labels i.is-pending {
-        background: #dfa88e;
-    }
+                ctx.font = "700 30px Inter, sans-serif";
+                ctx.fillText(
+                    totalBudgetCount,
+                    centerX,
+                    centerY - 8
+                );
 
-    .finance-budget-portfolio__track .is-active,
-    .finance-budget-portfolio__distribution-labels i.is-active {
-        background: #ae5676;
-    }
+                ctx.fillStyle = isLightTheme
+                    ? "rgba(80, 53, 66, 0.62)"
+                    : "rgba(255, 239, 232, 0.62)";
 
-    .finance-budget-portfolio__track .is-closed,
-    .finance-budget-portfolio__distribution-labels i.is-closed {
-        background: #49323e;
-    }
+                ctx.font = "600 11px Inter, sans-serif";
+                ctx.fillText(
+                    "TOPLAM BÜTÇE",
+                    centerX,
+                    centerY + 20
+                );
 
-    .finance-budget-portfolio__distribution-labels {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 10px 20px;
-    }
+                ctx.restore();
+            },
+        };
 
-    .finance-budget-portfolio__distribution-labels span {
-        color: rgba(67, 46, 56, 0.72);
-        font-size: 11px;
-        display: inline-flex;
-        align-items: center;
-        gap: 7px;
-    }
+        new Chart(
+            portfolioChartCanvas,
+            {
+                type: "doughnut",
 
-    .finance-budget-portfolio__distribution-labels i {
-        width: 7px;
-        height: 7px;
-        border-radius: 50%;
-        display: inline-block;
-    }
+                data: {
+                    labels: portfolioChartData.labels,
 
-    [data-theme="dark"] .finance-budget-portfolio__summary {
-        border-color: rgba(255, 219, 224, 0.1);
-        background:
-            linear-gradient(
-                135deg,
-                rgba(38, 29, 40, 0.88),
-                rgba(28, 23, 32, 0.92)
-            );
-    }
+                    datasets: [
+                        {
+                            data: portfolioChartData.values,
 
-    [data-theme="dark"] .finance-budget-portfolio__total strong,
-    [data-theme="dark"]
-    .finance-budget-portfolio__distribution-heading span {
-        color: #fff3ee;
-    }
+                            backgroundColor: isLightTheme
+                                ? [
+                                    "#ead8e9",
+                                    "#e8b9a5",
+                                    "#b35f7d",
+                                    "#4a2d3b",
+                                ]
+                                : [
+                                    "#8f668c",
+                                    "#c98972",
+                                    "#d77899",
+                                    "#ead7df",
+                                ],
 
-    [data-theme="dark"] .finance-budget-portfolio__total span,
-    [data-theme="dark"] .finance-budget-portfolio__total small,
-    [data-theme="dark"]
-    .finance-budget-portfolio__distribution-heading small,
-    [data-theme="dark"]
-    .finance-budget-portfolio__distribution-labels span {
-        color: rgba(255, 232, 228, 0.62);
-    }
+                            borderColor: isLightTheme
+                                ? "#fffaf8"
+                                : "#17131c",
 
-    [data-theme="dark"] .finance-budget-portfolio__track {
-        border-color: rgba(255, 219, 224, 0.1);
-        background: rgba(255, 255, 255, 0.055);
-    }
+                            borderWidth: 3,
+                            borderRadius: 8,
+                            spacing: 3,
+                            hoverOffset: 4,
+                        },
+                    ],
+                },
 
-    @media (max-width: 720px) {
-        .finance-budget-portfolio__summary {
-            min-height: auto;
-            padding: 24px;
-        }
+                plugins: [
+                    centerTextPlugin,
+                ],
 
-        .finance-budget-portfolio__distribution-heading {
-            align-items: flex-start;
-            flex-direction: column;
-            gap: 3px;
-        }
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: "78%",
+                    rotation: -90,
+                    circumference: 360,
+
+                    animation: {
+                        duration: 700,
+                        easing: "easeOutQuart",
+                    },
+
+                    interaction: {
+                        intersect: false,
+                        mode: "nearest",
+                    },
+
+                    plugins: {
+                        legend: {
+                            display: false,
+                        },
+
+                        tooltip: {
+                            displayColors: false,
+                            backgroundColor: isLightTheme
+                                ? "#321f29"
+                                : "#f9eee9",
+
+                            titleColor: isLightTheme
+                                ? "#ffffff"
+                                : "#321f29",
+
+                            bodyColor: isLightTheme
+                                ? "#f5ded6"
+                                : "#5a3647",
+
+                            padding: 14,
+                            cornerRadius: 12,
+                            caretPadding: 8,
+
+                            titleFont: {
+                                size: 12,
+                                weight: "700",
+                            },
+
+                            bodyFont: {
+                                size: 12,
+                                weight: "600",
+                            },
+
+                            callbacks: {
+                                label(context) {
+                                    const value = Number(
+                                        context.parsed || 0
+                                    );
+
+                                    const percentage = (
+                                        totalBudgetCount > 0
+                                            ? Math.round(
+                                                (
+                                                    value
+                                                    / totalBudgetCount
+                                                ) * 100
+                                            )
+                                            : 0
+                                    );
+
+                                    return (
+                                        value
+                                        + " bütçe · %"
+                                        + percentage
+                                    );
+                                },
+                            },
+                        },
+                    },
+                },
+            }
+        );
     }
-</style>
+</script>
 {% endblock %}
