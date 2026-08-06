@@ -2288,3 +2288,458 @@ html[data-theme="dark"]
 .glauria-ai__message-content {
     min-width: 0;
 }
+
+
+/* =========================================================
+   RAG CHUNK VISUALIZATION
+   ========================================================= */
+
+.glauria-ai__sources {
+    width: min(100%, 620px);
+    margin-top: 10px;
+
+    border: 1px solid rgba(169, 80, 109, 0.15);
+    border-radius: 12px;
+
+    background: rgba(169, 80, 109, 0.035);
+}
+
+.glauria-ai__sources summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+
+    padding: 10px 12px;
+
+    color: var(--ai-page-text);
+
+    cursor: pointer;
+    list-style: none;
+
+    font-size: 0.72rem;
+    font-weight: 750;
+}
+
+.glauria-ai__sources summary::-webkit-details-marker {
+    display: none;
+}
+
+.glauria-ai__sources summary::before {
+    content: "›";
+
+    display: inline-grid;
+    width: 18px;
+    height: 18px;
+    place-items: center;
+
+    color: var(--ai-muted);
+
+    transition: transform 160ms ease;
+}
+
+.glauria-ai__sources[open] summary::before {
+    transform: rotate(90deg);
+}
+
+.glauria-ai__sources summary span {
+    flex: 1;
+}
+
+.glauria-ai__sources summary small {
+    padding: 3px 7px;
+
+    color: var(--ai-muted);
+
+    border: 1px solid rgba(169, 80, 109, 0.14);
+    border-radius: 999px;
+
+    background: var(--ai-input);
+
+    font-size: 0.61rem;
+}
+
+.glauria-ai__sources-list {
+    display: grid;
+    gap: 8px;
+
+    padding: 0 9px 9px;
+}
+
+.glauria-ai__source-card {
+    padding: 10px;
+
+    border: 1px solid rgba(169, 80, 109, 0.12);
+    border-radius: 10px;
+
+    background: var(--ai-input);
+}
+
+.glauria-ai__source-card header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.glauria-ai__source-card header div {
+    min-width: 0;
+}
+
+.glauria-ai__source-card strong,
+.glauria-ai__source-card small {
+    display: block;
+}
+
+.glauria-ai__source-card strong {
+    overflow: hidden;
+
+    color: var(--ai-page-text);
+
+    font-size: 0.71rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.glauria-ai__source-card small {
+    margin-top: 3px;
+
+    color: var(--ai-muted);
+
+    font-size: 0.61rem;
+}
+
+.glauria-ai__source-card header > span {
+    flex: 0 0 auto;
+
+    padding: 4px 7px;
+
+    color: var(--ai-page-text);
+
+    border-radius: 999px;
+
+    background: rgba(169, 80, 109, 0.09);
+
+    font-size: 0.62rem;
+    font-weight: 750;
+}
+
+.glauria-ai__source-stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+
+    margin-top: 8px;
+}
+
+.glauria-ai__source-stats span {
+    padding: 3px 6px;
+
+    color: var(--ai-muted);
+
+    border: 1px solid rgba(169, 80, 109, 0.11);
+    border-radius: 7px;
+
+    font-size: 0.59rem;
+}
+
+.glauria-ai__source-card p {
+    margin: 8px 0 0;
+
+    color: var(--ai-muted);
+
+    font-size: 0.65rem;
+    line-height: 1.55;
+}
+
+.glauria-ai__source-ids {
+    margin-top: 8px;
+}
+
+.glauria-ai__source-ids code {
+    display: block;
+
+    overflow: hidden;
+
+    color: var(--ai-muted);
+
+    font-size: 0.55rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+
+/* =========================================================
+   PROFESSIONAL RAG SOURCE PRESENTATION
+   ========================================================= */
+
+.glauria-ai__sources {
+    width: min(100%, 620px);
+    margin-top: 10px;
+    padding: 11px;
+
+    border: 1px solid rgba(169, 80, 109, 0.14);
+    border-radius: 13px;
+
+    background: rgba(169, 80, 109, 0.025);
+}
+
+.glauria-ai__sources-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+
+    margin-bottom: 9px;
+}
+
+.glauria-ai__sources-head strong,
+.glauria-ai__sources-head small {
+    display: block;
+}
+
+.glauria-ai__sources-head strong {
+    color: var(--ai-page-text);
+
+    font-size: 0.73rem;
+    font-weight: 750;
+}
+
+.glauria-ai__sources-head small {
+    margin-top: 3px;
+
+    color: var(--ai-muted);
+
+    font-size: 0.62rem;
+    line-height: 1.45;
+}
+
+.glauria-ai__sources-head > span {
+    flex: 0 0 auto;
+
+    padding: 4px 7px;
+
+    color: var(--ai-muted);
+
+    border: 1px solid rgba(169, 80, 109, 0.13);
+    border-radius: 999px;
+
+    background: var(--ai-input);
+
+    font-size: 0.61rem;
+    font-weight: 700;
+}
+
+.glauria-ai__sources-list {
+    display: grid;
+    gap: 8px;
+
+    padding: 0;
+}
+
+.glauria-ai__source-card {
+    padding: 10px;
+
+    border: 1px solid rgba(169, 80, 109, 0.11);
+    border-radius: 10px;
+
+    background: var(--ai-input);
+}
+
+.glauria-ai__source-card header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.glauria-ai__source-card header > div {
+    min-width: 0;
+}
+
+.glauria-ai__source-card strong {
+    display: block;
+
+    color: var(--ai-page-text);
+
+    font-size: 0.71rem;
+}
+
+.glauria-ai__source-card p {
+    margin: 5px 0 0;
+
+    color: var(--ai-muted);
+
+    font-size: 0.64rem;
+    line-height: 1.55;
+}
+
+.glauria-ai__source-card header > span {
+    flex: 0 0 auto;
+
+    padding: 4px 7px;
+
+    color: var(--ai-page-text);
+
+    border-radius: 999px;
+
+    background: rgba(169, 80, 109, 0.09);
+
+    font-size: 0.61rem;
+    font-weight: 750;
+}
+
+.glauria-ai__source-technical {
+    margin-top: 8px;
+
+    border-top: 1px solid rgba(169, 80, 109, 0.09);
+}
+
+.glauria-ai__source-technical summary {
+    padding-top: 8px;
+
+    color: var(--ai-muted);
+
+    cursor: pointer;
+    list-style: none;
+
+    font-size: 0.6rem;
+    font-weight: 700;
+}
+
+.glauria-ai__source-technical summary::-webkit-details-marker {
+    display: none;
+}
+
+.glauria-ai__source-technical summary::before {
+    content: "›";
+    margin-right: 5px;
+}
+
+.glauria-ai__source-technical[open] summary::before {
+    content: "⌄";
+}
+
+.glauria-ai__source-technical > div {
+    display: grid;
+    gap: 5px;
+
+    margin-top: 8px;
+    padding: 8px;
+
+    border-radius: 8px;
+
+    background: rgba(169, 80, 109, 0.035);
+}
+
+.glauria-ai__source-technical span,
+.glauria-ai__source-technical code {
+    color: var(--ai-muted);
+
+    font-size: 0.57rem;
+}
+
+.glauria-ai__source-technical code {
+    overflow: hidden;
+
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+
+/* =========================================================
+   END-USER RAG SOURCES
+   ========================================================= */
+
+.glauria-ai__sources {
+    width: min(100%, 620px);
+    margin-top: 10px;
+
+    border: 1px solid rgba(169, 80, 109, 0.14);
+    border-radius: 12px;
+
+    background: rgba(169, 80, 109, 0.025);
+}
+
+.glauria-ai__sources summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+
+    padding: 10px 12px;
+
+    color: var(--ai-page-text);
+
+    cursor: pointer;
+    list-style: none;
+
+    font-size: 0.71rem;
+    font-weight: 750;
+}
+
+.glauria-ai__sources summary::-webkit-details-marker {
+    display: none;
+}
+
+.glauria-ai__sources summary::before {
+    content: "›";
+
+    color: var(--ai-muted);
+
+    transition: transform 160ms ease;
+}
+
+.glauria-ai__sources[open] summary::before {
+    transform: rotate(90deg);
+}
+
+.glauria-ai__sources summary span {
+    flex: 1;
+}
+
+.glauria-ai__sources summary small {
+    padding: 3px 7px;
+
+    color: var(--ai-muted);
+
+    border: 1px solid rgba(169, 80, 109, 0.12);
+    border-radius: 999px;
+
+    background: var(--ai-input);
+
+    font-size: 0.6rem;
+}
+
+.glauria-ai__sources-list {
+    display: grid;
+    gap: 8px;
+
+    padding: 0 9px 9px;
+}
+
+.glauria-ai__source-card {
+    padding: 10px;
+
+    border: 1px solid rgba(169, 80, 109, 0.1);
+    border-radius: 10px;
+
+    background: var(--ai-input);
+}
+
+.glauria-ai__source-card strong {
+    display: block;
+
+    color: var(--ai-page-text);
+
+    font-size: 0.7rem;
+}
+
+.glauria-ai__source-card p {
+    margin: 5px 0 0;
+
+    color: var(--ai-muted);
+
+    font-size: 0.63rem;
+    line-height: 1.5;
+}

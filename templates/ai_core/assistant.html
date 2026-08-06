@@ -6,7 +6,7 @@
 {% block content %}
 <link
     rel="stylesheet"
-    href="{% static 'css/ai_assistant.css' %}?v=16"
+    href="{% static 'css/ai_assistant.css' %}?v=19"
 >
 
 <section class="glauria-ai">
@@ -213,6 +213,39 @@
                             </div>
 
                             {% if message.role == 'assistant' %}
+                                {% if message.knowledge_sources %}
+                                    <details class="glauria-ai__sources">
+                                        <summary>
+                                            <span>
+                                                Kullanılan kaynaklar
+                                            </span>
+
+                                            <small>
+                                                {{ message.knowledge_sources|length }}
+                                                kurumsal kaynak
+                                            </small>
+                                        </summary>
+
+                                        <div class="glauria-ai__sources-list">
+                                            {% for source in message.knowledge_sources %}
+                                                <article
+                                                    class="glauria-ai__source-card"
+                                                >
+                                                    <strong>
+                                                        {{ source.document_title }}
+                                                    </strong>
+
+                                                    {% if source.preview %}
+                                                        <p>
+                                                            {{ source.preview }}
+                                                        </p>
+                                                    {% endif %}
+                                                </article>
+                                            {% endfor %}
+                                        </div>
+                                    </details>
+                                {% endif %}
+
                                 <div class="glauria-ai__metadata">
                                     <span>
                                         {{ message.tool_calls|length }}

@@ -368,6 +368,35 @@ def enterprise_ai_assistant(request):
                     tool_calls=_serialize_tool_calls(
                         result.tool_calls
                     ),
+                    knowledge_sources=[
+                        {
+                            "chunk_id": source.chunk_id,
+                            "document_id": (
+                                source.document_id
+                            ),
+                            "document_title": (
+                                source.document_title
+                            ),
+                            "document_type": (
+                                source.document_type
+                            ),
+                            "chunk_index": (
+                                source.chunk_index
+                            ),
+                            "similarity": (
+                                source.similarity
+                            ),
+                            "token_count": (
+                                source.token_count
+                            ),
+                            "preview": source.preview,
+                        }
+                        for source in getattr(
+                            result,
+                            "knowledge_sources",
+                            (),
+                        )
+                    ],
                     metadata={
                         "tool_call_count": len(
                             getattr(
