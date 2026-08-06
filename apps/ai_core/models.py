@@ -526,3 +526,245 @@ class AIKnowledgeChunk(BaseModel):
             f"{self.document.title} · "
             f"Parça {self.chunk_index}"
         )
+
+
+class AIConversation(BaseModel):
+    """
+    Glauria AI üzerinde kullanıcı ile yürütülen kalıcı sohbeti
+    temsil eder.
+    """
+
+    class Status(models.TextChoices):
+        ACTIVE = "active", "Aktif"
+        ARCHIVED = "archived", "Arşivlendi"
+
+    company = models.ForeignKey(
+        Company,
+        on_delete=models.CASCADE,
+        related_name="ai_conversations",
+        verbose_name="Şirket",
+    )
+
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="ai_conversations",
+        verbose_name="Sohbet sahibi",
+    )
+
+    title = models.CharField(
+        max_length=180,
+        default="Yeni sohbet",
+        verbose_name="Sohbet başlığı",
+    )
+
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.ACTIVE,
+        db_index=True,
+        verbose_name="Durum",
+    )
+
+    last_response_id = models.CharField(
+        max_length=255,
+        blank=True,
+        verbose_name="Son OpenAI yanıt kimliği",
+    )
+
+    last_message_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        db_index=True,
+        verbose_name="Son mesaj zamanı",
+    )
+
+    metadata = models.JSONField(
+        default=dict,
+        blank=True,
+        verbose_name="Sohbet metadatası",
+    )
+
+    class Meta:
+        ordering = (
+            "-last_message_at",
+            "-updated_at",
+        )
+        verbose_name = "AI sohbeti"
+        verbose_name_plural = "AI sohbetleri"
+        indexes = [
+            models.Index(
+                fields=[
+                    "company",
+                    "created_by",
+                    "status",
+                    "last_message_at",
+                ],
+                name="ai_conv_owner_status_idx",
+            ),
+        ]
+
+    def clean(self):
+        from django.core.exceptions import ValidationError
+
+        if not self.title.strip():
+            raise ValidationError(
+                {
+                    "title": "Sohbet başlığı boş olamaz.",
+                }
+            )
+
+    def save(self, *args, **kwargs):
+        self.title = self.title.strip() or "Yeni sohbet"
+        self.full_clean()
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return (
+            f"{self.company} · "
+            f"{self.created_by} · "
+            f"{self.title}"
+        )
+
+
+class AIConversationMessage(BaseModel):
+    """
+    Bir Glauria AI sohbetindeki kullanıcı, asistan veya sistem
+    mesajını saklar.
+    """
+
+    class Role(models.TextChoices):
+        USER = "user", "Kullanıcı"
+        ASSISTANT = "assistant", "Asistan"
+        SYSTEM = "system", "Sistem"
+
+    conversation = models.ForeignKey(
+        AIConversation,
+        on_delete=models.CASCADE,
+        related_name="messages",
+        verbose_name="Sohbet",
+    )
+
+    company = models.ForeignKey(
+        Company,
+        on_delete=models.CASCADE,
+        related_name="ai_conversation_messages",
+        verbose_name="Şirket",
+    )
+
+    role = models.CharField(
+        max_length=20,
+        choices=Role.choices,
+        db_index=True,
+        verbose_name="Mesaj rolü",
+    )
+
+    content = models.TextField(
+        verbose_name="Mesaj içeriği",
+    )
+
+    model_name = models.CharField(
+        max_length=120,
+        blank=True,
+        verbose_name="Model",
+    )
+
+    response_id = models.CharField(
+        max_length=255,
+        blank=True,
+        verbose_name="OpenAI yanıt kimliği",
+    )
+
+    round_count = models.PositiveIntegerField(
+        default=0,
+        verbose_name="AI turu",
+    )
+
+    tool_calls = models.JSONField(
+        default=list,
+        blank=True,
+        verbose_name="Araç çağrıları",
+    )
+
+    knowledge_sources = models.JSONField(
+        default=list,
+        blank=True,
+        verbose_name="Bilgi kaynakları",
+    )
+
+    token_usage = models.JSONField(
+        default=dict,
+        blank=True,
+        verbose_name="Token kullanımı",
+    )
+
+    latency_ms = models.PositiveIntegerField(
+        default=0,
+        verbose_name="Yanıt süresi",
+    )
+
+    metadata = models.JSONField(
+        default=dict,
+        blank=True,
+        verbose_name="Mesaj metadatası",
+    )
+
+    class Meta:
+        ordering = (
+            "created_at",
+        )
+        verbose_name = "AI sohbet mesajı"
+        verbose_name_plural = "AI sohbet mesajları"
+        indexes = [
+            models.Index(
+                fields=[
+                    "conversation",
+                    "created_at",
+                ],
+                name="ai_message_conversation_idx",
+            ),
+            models.Index(
+                fields=[
+                    "company",
+                    "role",
+                    "created_at",
+                ],
+                name="ai_message_company_role_idx",
+            ),
+        ]
+
+    def clean(self):
+        from django.core.exceptions import ValidationError
+
+        errors = {}
+
+        if not self.content.strip():
+            errors["content"] = (
+                "Mesaj içeriği boş olamaz."
+            )
+
+        if (
+            self.conversation_id
+            and self.company_id
+            and self.conversation.company_id
+            != self.company_id
+        ):
+            errors["company"] = (
+                "Mesaj, sohbetle aynı şirkete ait olmalıdır."
+            )
+
+        if errors:
+            raise ValidationError(errors)
+
+    def save(self, *args, **kwargs):
+        self.content = self.content.strip()
+        self.full_clean()
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return (
+            f"{self.conversation.title} · "
+            f"{self.get_role_display()} · "
+            f"{self.created_at:%d.%m.%Y %H:%M}"
+        )
+
