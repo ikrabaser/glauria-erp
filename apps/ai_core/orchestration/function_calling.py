@@ -3,6 +3,11 @@ from dataclasses import dataclass
 from time import monotonic
 from typing import Any
 
+from apps.ai_core.profiles import (
+    DEFAULT_ASSISTANT_PROFILE,
+    resolve_assistant_profile,
+)
+
 from apps.ai_core.models import (
     AIKnowledgeDocument,
     AIRequestLog,
@@ -157,6 +162,7 @@ class FunctionCallingRuntime:
         *,
         user_message: str,
         model: str | None = None,
+        assistant_profile: str = DEFAULT_ASSISTANT_PROFILE,
         instructions: str = ERP_ASSISTANT_INSTRUCTIONS,
     ) -> FunctionCallingResult:
         normalized_message = (user_message or "").strip()
@@ -184,8 +190,13 @@ class FunctionCallingRuntime:
                 "bulunmuyor."
             )
 
+        profile = resolve_assistant_profile(
+            assistant_profile
+        )
+
         model_name = (
             model
+            or profile.model
             or self.provider.configuration.default_model
         )
 
@@ -206,6 +217,9 @@ class FunctionCallingRuntime:
                     previous_response_id
                 ),
                 round_number=round_number,
+                reasoning_effort=(
+                    profile.reasoning_effort
+                ),
             )
 
             function_calls = [
@@ -356,6 +370,7 @@ class FunctionCallingRuntime:
         tools: list[dict],
         previous_response_id: str | None,
         round_number: int,
+        reasoning_effort: str | None,
     ):
         log = AIRequestLog.objects.create(
             company=self.company,
@@ -375,6 +390,7 @@ class FunctionCallingRuntime:
                 "has_previous_response": bool(
                     previous_response_id
                 ),
+                "reasoning_effort": reasoning_effort,
             },
         )
 
@@ -387,6 +403,11 @@ class FunctionCallingRuntime:
             "tools": tools,
             "tool_choice": "auto",
         }
+
+        if reasoning_effort:
+            request_kwargs["reasoning"] = {
+                "effort": reasoning_effort,
+            }
 
         if previous_response_id:
             request_kwargs["previous_response_id"] = (

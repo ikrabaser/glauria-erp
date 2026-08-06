@@ -6,7 +6,7 @@
 {% block content %}
 <link
     rel="stylesheet"
-    href="{% static 'css/ai_assistant.css' %}?v=12"
+    href="{% static 'css/ai_assistant.css' %}?v=13"
 >
 
 <section class="glauria-ai">
@@ -220,6 +220,36 @@
                                 name="conversation_id"
                                 value="{{ selected_conversation.id }}"
                             >
+                        {% endif %}
+
+                        <div class="glauria-ai__mode-row">
+                            <span class="glauria-ai__mode-label">
+                                YANIT MODU
+                            </span>
+
+                            <div class="glauria-ai__mode-options">
+                                {% for option in form.response_mode %}
+                                    <label
+                                        class="glauria-ai__mode-option"
+                                    >
+                                        {{ option.tag }}
+
+                                        <span>
+                                            {% if option.data.value == 'fast' %}
+                                                ⚡ Hızlı
+                                            {% else %}
+                                                ◆ Derin Analiz
+                                            {% endif %}
+                                        </span>
+                                    </label>
+                                {% endfor %}
+                            </div>
+                        </div>
+
+                        {% if form.response_mode.errors %}
+                            <div class="glauria-ai__field-error">
+                                {{ form.response_mode.errors|striptags }}
+                            </div>
                         {% endif %}
 
                         <label for="{{ form.message.id_for_label }}">

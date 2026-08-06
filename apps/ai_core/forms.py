@@ -2,6 +2,21 @@ from django import forms
 
 
 class EnterpriseAIAssistantForm(forms.Form):
+    response_mode = forms.ChoiceField(
+        label="Yanıt modu",
+        choices=(
+            ("fast", "Hızlı"),
+            ("deep", "Derin Analiz"),
+        ),
+        initial="fast",
+        required=True,
+        widget=forms.RadioSelect,
+        error_messages={
+            "required": "Bir yanıt modu seçmelisiniz.",
+            "invalid_choice": "Geçersiz yanıt modu.",
+        },
+    )
+
     message = forms.CharField(
         label="Mesajınız",
         max_length=2000,
@@ -35,3 +50,12 @@ class EnterpriseAIAssistantForm(forms.Form):
             )
 
         return message
+profile = forms.ChoiceField(
+    required=False,
+    initial="balanced",
+    choices=[
+        ("fast", "⚡ Hızlı"),
+        ("balanced", "Standart"),
+        ("deep", "Derin Analiz"),
+    ],
+)

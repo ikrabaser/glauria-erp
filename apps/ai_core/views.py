@@ -252,6 +252,11 @@ def enterprise_ai_assistant(request):
 
                 result = runtime.invoke(
                     user_message=user_message,
+                    assistant_profile=(
+                        form.cleaned_data[
+                            "response_mode"
+                        ]
+                    ),
                 )
 
                 AIConversationMessage.objects.create(
@@ -274,6 +279,11 @@ def enterprise_ai_assistant(request):
                                 "tool_calls",
                                 (),
                             )
+                        ),
+                        "response_mode": (
+                            form.cleaned_data[
+                                "response_mode"
+                            ]
                         ),
                     },
                 )

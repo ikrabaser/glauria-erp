@@ -2855,6 +2855,7 @@ class EnterpriseAIAssistantViewTestCase(TestCase):
         response = self.client.post(
             "/ai/",
             {
+                "response_mode": "fast",
                 "message": (
                     "Nova Kozmetik'in bakiyesini göster."
                 ),
