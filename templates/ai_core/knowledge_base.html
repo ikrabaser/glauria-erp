@@ -119,7 +119,10 @@
 
             <div class="ai-kb__documents">
                 {% for document in documents %}
-                    <article class="ai-kb__document">
+                    <a
+                        href="{% url 'ai_core:knowledge_document_detail' document.id %}"
+                        class="ai-kb__document"
+                    >
                         <div class="ai-kb__document-icon">
                             ✦
                         </div>
@@ -152,7 +155,7 @@
                         >
                             {{ document.get_status_display }}
                         </span>
-                    </article>
+                    </a>
                 {% empty %}
                     <div class="ai-kb__empty">
                         Henüz bilgi tabanı dokümanı bulunmuyor.

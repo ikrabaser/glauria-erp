@@ -4,8 +4,8 @@ import json
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db import models, transaction
-from django.db.models import Avg, Count, Max
-from django.shortcuts import redirect, render
+from django.db.models import Avg, Count, Max, Sum
+from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 
 from apps.ai_core.models import (
@@ -166,6 +166,44 @@ def _resolve_selected_conversation(
     return conversations.first()
 
 
+def _can_manage_ai_knowledge(access_context) -> bool:
+    """
+    Knowledge Base ve chunk yönetim ekranlarını yalnızca
+    yetkili yönetim kullanıcılarına açar.
+    """
+
+    if access_context is None:
+        return False
+
+    user = getattr(
+        access_context.membership,
+        "user",
+        None,
+    )
+
+    if user and (
+        user.is_superuser
+        or user.is_staff
+    ):
+        return True
+
+    role = str(
+        getattr(
+            access_context.membership,
+            "role",
+            "",
+        )
+        or ""
+    ).strip().lower()
+
+    return role in {
+        "owner",
+        "admin",
+        "administrator",
+        "company_owner",
+    }
+
+
 @login_required
 def knowledge_base_home(request):
     """
@@ -185,6 +223,24 @@ def knowledge_base_home(request):
                 "current_membership": None,
                 "access_error": (
                     "Aktif çalışma alanı üyeliğiniz bulunmuyor."
+                ),
+            },
+            status=403,
+        )
+
+    if not _can_manage_ai_knowledge(
+        access_context
+    ):
+        return render(
+            request,
+            "ai_core/knowledge_base.html",
+            {
+                "current_membership": (
+                    access_context.membership
+                ),
+                "access_error": (
+                    "Knowledge Base yönetimi yalnızca "
+                    "şirket sahibi ve yöneticilere açıktır."
                 ),
             },
             status=403,
@@ -259,6 +315,90 @@ def knowledge_base_home(request):
             "document_statistics": (
                 document_statistics
             ),
+            "chunk_statistics": chunk_statistics,
+            "access_error": "",
+        },
+    )
+
+
+@login_required
+def knowledge_document_detail(
+    request,
+    document_id,
+):
+    """
+    Aktif şirkete ait tek bir bilgi dokümanını ve
+    oluşturulmuş chunk kayıtlarını gösterir.
+    """
+
+    access_context = resolve_enterprise_ai_access(
+        request.user
+    )
+
+    if access_context is None:
+        return render(
+            request,
+            "ai_core/knowledge_document_detail.html",
+            {
+                "current_membership": None,
+                "access_error": (
+                    "Aktif çalışma alanı üyeliğiniz bulunmuyor."
+                ),
+            },
+            status=403,
+        )
+
+    if not _can_manage_ai_knowledge(
+        access_context
+    ):
+        return render(
+            request,
+            "ai_core/knowledge_document_detail.html",
+            {
+                "current_membership": (
+                    access_context.membership
+                ),
+                "access_error": (
+                    "Chunk Inspector yalnızca şirket "
+                    "sahibi ve yöneticilere açıktır."
+                ),
+            },
+            status=403,
+        )
+
+    document = get_object_or_404(
+        AIKnowledgeDocument.objects.filter(
+            company=access_context.company,
+        ),
+        id=document_id,
+    )
+
+    chunks = document.chunks.order_by(
+        "chunk_index"
+    )
+
+    chunk_statistics = chunks.aggregate(
+        total_chunks=Count("id"),
+        total_tokens=Sum("token_count"),
+        average_tokens=Avg("token_count"),
+        embedded_chunks=Count(
+            "id",
+            filter=models.Q(
+                embedding__isnull=False
+            ),
+        ),
+        latest_embedding=Max("embedded_at"),
+    )
+
+    return render(
+        request,
+        "ai_core/knowledge_document_detail.html",
+        {
+            "current_membership": (
+                access_context.membership
+            ),
+            "document": document,
+            "chunks": chunks,
             "chunk_statistics": chunk_statistics,
             "access_error": "",
         },
@@ -588,6 +728,11 @@ def enterprise_ai_assistant(request):
         "ai_core/assistant.html",
         {
             "form": form,
+            "can_manage_ai_knowledge": (
+                _can_manage_ai_knowledge(
+                    access_context
+                )
+            ),
             "current_membership": (
                 access_context.membership
             ),

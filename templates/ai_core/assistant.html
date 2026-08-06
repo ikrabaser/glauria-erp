@@ -6,7 +6,7 @@
 {% block content %}
 <link
     rel="stylesheet"
-    href="{% static 'css/ai_assistant.css' %}?v=19"
+    href="{% static 'css/ai_assistant.css' %}?v=20"
 >
 
 <section class="glauria-ai">
@@ -44,6 +44,34 @@
             {{ access_error }}
         </div>
     {% else %}
+        <nav
+            class="glauria-ai__management-nav"
+            aria-label="Glauria AI yönetimi"
+        >
+            <div>
+                <span>AI ÇALIŞMA ALANI</span>
+
+                <strong>Kurumsal yapay zekâ yönetimi</strong>
+            </div>
+
+            <div class="glauria-ai__management-actions">
+                <a
+                    href="{% url 'ai_core:assistant' %}"
+                    class="is-active"
+                >
+                    ✦ Asistan
+                </a>
+
+                {% if can_manage_ai_knowledge %}
+                    <a
+                        href="{% url 'ai_core:knowledge_base' %}"
+                    >
+                        ▣ Knowledge Base
+                    </a>
+                {% endif %}
+            </div>
+        </nav>
+
         <div class="glauria-ai__layout">
             <aside class="glauria-ai__history">
                 <a

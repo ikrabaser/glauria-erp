@@ -296,3 +296,166 @@
         justify-self: start;
     }
 }
+
+
+.ai-kb__document {
+    color: inherit;
+    text-decoration: none;
+
+    transition:
+        background 150ms ease,
+        transform 150ms ease;
+}
+
+.ai-kb__document:hover {
+    background: rgba(169, 80, 109, 0.035);
+    transform: translateX(2px);
+}
+
+
+/* =========================================================
+   KNOWLEDGE DOCUMENT INSPECTOR
+   ========================================================= */
+
+.ai-kb__breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+
+    color: var(--kb-muted);
+
+    font-size: 0.68rem;
+}
+
+.ai-kb__breadcrumb a {
+    color: var(--kb-accent);
+    text-decoration: none;
+    font-weight: 750;
+}
+
+.ai-kb__breadcrumb strong {
+    overflow: hidden;
+
+    color: inherit;
+
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.ai-kb__stat-model {
+    overflow: hidden;
+
+    font-size: 0.82rem !important;
+    line-height: 1.25 !important;
+
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.ai-kb__chunk-list {
+    display: grid;
+    gap: 12px;
+
+    padding: 16px;
+}
+
+.ai-kb__chunk {
+    padding: 15px;
+
+    border: 1px solid var(--kb-border);
+    border-radius: 13px;
+
+    background: rgba(255, 255, 255, 0.68);
+}
+
+.ai-kb__chunk-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+
+    padding-bottom: 11px;
+
+    border-bottom: 1px solid
+        rgba(169, 80, 109, 0.09);
+}
+
+.ai-kb__chunk-head strong,
+.ai-kb__chunk-head small {
+    display: block;
+}
+
+.ai-kb__chunk-head strong {
+    font-size: 0.78rem;
+}
+
+.ai-kb__chunk-head small {
+    margin-top: 3px;
+
+    color: var(--kb-muted);
+
+    font-size: 0.63rem;
+}
+
+.ai-kb__chunk-head > span {
+    flex: 0 0 auto;
+
+    padding: 4px 7px;
+
+    color: var(--kb-muted);
+
+    border: 1px solid var(--kb-border);
+    border-radius: 8px;
+
+    font-size: 0.58rem;
+}
+
+.ai-kb__chunk-content {
+    margin-top: 12px;
+
+    color: rgba(52, 37, 43, 0.84);
+
+    font-size: 0.72rem;
+    line-height: 1.7;
+}
+
+.ai-kb__chunk-technical {
+    margin-top: 13px;
+
+    border-top: 1px solid
+        rgba(169, 80, 109, 0.09);
+}
+
+.ai-kb__chunk-technical summary {
+    padding-top: 10px;
+
+    color: var(--kb-muted);
+
+    cursor: pointer;
+
+    font-size: 0.62rem;
+    font-weight: 750;
+}
+
+.ai-kb__chunk-technical > div {
+    display: grid;
+    gap: 7px;
+
+    margin-top: 9px;
+    padding: 10px;
+
+    border-radius: 9px;
+
+    background: rgba(169, 80, 109, 0.035);
+}
+
+.ai-kb__chunk-technical span,
+.ai-kb__chunk-technical code {
+    color: var(--kb-muted);
+
+    font-size: 0.59rem;
+}
+
+.ai-kb__chunk-technical code {
+    overflow-wrap: anywhere;
+}
