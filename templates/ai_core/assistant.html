@@ -6,7 +6,7 @@
 {% block content %}
 <link
     rel="stylesheet"
-    href="{% static 'css/ai_assistant.css' %}?v=9"
+    href="{% static 'css/ai_assistant.css' %}?v=12"
 >
 
 <section class="glauria-ai">
@@ -186,10 +186,31 @@
                     {% endfor %}
                 </section>
 
+                <div
+                    id="glauria-ai-working-state"
+                    class="glauria-ai__thinking"
+                    hidden
+                    aria-live="polite"
+                >
+                    <span id="glauria-ai-working-label">
+                        Düşünüyor
+                    </span>
+
+                    <span
+                        class="glauria-ai__thinking-dots"
+                        aria-hidden="true"
+                    >
+                        <i></i>
+                        <i></i>
+                        <i></i>
+                    </span>
+                </div>
+
                 <div class="glauria-ai__composer-area">
                     <form
                         method="post"
                         class="glauria-ai__composer"
+                        id="glauria-ai-composer"
                     >
                         {% csrf_token %}
 
@@ -216,8 +237,12 @@
                             <button
                                 type="submit"
                                 class="glauria-ai__submit"
+                                id="glauria-ai-submit"
                             >
-                                Yanıt Oluştur
+                                <span id="glauria-ai-submit-label">
+                                    Yanıt Oluştur
+                                </span>
+
                                 <span>✦</span>
                             </button>
                         </div>
@@ -329,6 +354,79 @@
 <script>
 document.addEventListener("DOMContentLoaded", function () {
     const textarea = document.getElementById("id_message");
+    const form = document.getElementById(
+        "glauria-ai-composer"
+    );
+    const submitButton = document.getElementById(
+        "glauria-ai-submit"
+    );
+    const submitLabel = document.getElementById(
+        "glauria-ai-submit-label"
+    );
+    const workingState = document.getElementById(
+        "glauria-ai-working-state"
+    );
+    const workingLabel = document.getElementById(
+        "glauria-ai-working-label"
+    );
+    const conversation = document.querySelector(
+        ".glauria-ai__conversation"
+    );
+
+    function scrollConversationToBottom() {
+        if (!conversation) {
+            return;
+        }
+
+        conversation.scrollTo({
+            top: conversation.scrollHeight,
+            behavior: "smooth",
+        });
+    }
+
+    function createPendingUserMessage(message) {
+        if (!conversation) {
+            return;
+        }
+
+        const emptyState = conversation.querySelector(
+            ".glauria-ai__empty-state"
+        );
+
+        if (emptyState) {
+            emptyState.remove();
+        }
+
+        const article = document.createElement("article");
+
+        article.className = [
+            "glauria-ai__message",
+            "glauria-ai__message--user",
+            "glauria-ai__message--pending",
+        ].join(" ");
+
+        const label = document.createElement("div");
+        label.className = "glauria-ai__message-label";
+        label.textContent = "SİZ";
+
+        const bubble = document.createElement("div");
+        bubble.className = "glauria-ai__bubble";
+        bubble.textContent = message;
+
+        article.appendChild(label);
+        article.appendChild(bubble);
+        conversation.appendChild(article);
+    }
+
+    function startWorkingState() {
+        if (workingLabel) {
+            workingLabel.textContent = "Düşünüyor";
+        }
+
+        if (workingState) {
+            workingState.hidden = false;
+        }
+    }
 
     document
         .querySelectorAll("[data-ai-prompt]")
@@ -340,12 +438,132 @@ document.addEventListener("DOMContentLoaded", function () {
 
                 textarea.value = button.dataset.aiPrompt;
                 textarea.focus();
+
                 textarea.scrollIntoView({
                     behavior: "smooth",
-                    block: "center"
+                    block: "center",
                 });
             });
         });
+
+    if (form) {
+        let submissionStarted = false;
+
+        form.addEventListener("submit", function (event) {
+            if (submissionStarted) {
+                return;
+            }
+
+            event.preventDefault();
+
+            const message = (
+                textarea
+                    ? textarea.value.trim()
+                    : ""
+            );
+
+            if (!message) {
+                if (textarea) {
+                    textarea.focus();
+                }
+
+                return;
+            }
+
+            submissionStarted = true;
+
+            createPendingUserMessage(message);
+            startWorkingState();
+
+            if (submitButton) {
+                submitButton.disabled = true;
+                submitButton.classList.add("is-loading");
+            }
+
+            if (submitLabel) {
+                submitLabel.textContent = "Yanıt hazırlanıyor";
+            }
+
+            if (textarea) {
+                textarea.readOnly = true;
+                textarea.setAttribute(
+                    "aria-busy",
+                    "true"
+                );
+            }
+
+            scrollConversationToBottom();
+
+            window.requestAnimationFrame(function () {
+                window.requestAnimationFrame(async function () {
+                    try {
+                        const response = await fetch(
+                            form.action || window.location.href,
+                            {
+                                method: "POST",
+                                body: new FormData(form),
+                                credentials: "same-origin",
+                                redirect: "follow",
+                                headers: {
+                                    "X-Requested-With": (
+                                        "XMLHttpRequest"
+                                    ),
+                                },
+                            }
+                        );
+
+                        if (!response.ok) {
+                            throw new Error(
+                                "Yanıt isteği tamamlanamadı."
+                            );
+                        }
+
+                        window.location.assign(
+                            response.url
+                            || window.location.href
+                        );
+                    } catch (error) {
+                        submissionStarted = false;
+
+                        if (workingLabel) {
+                            workingLabel.textContent = (
+                                "Yanıt oluşturulamadı. "
+                                + "Lütfen tekrar deneyin."
+                            );
+                        }
+
+                        if (submitButton) {
+                            submitButton.disabled = false;
+                            submitButton.classList.remove(
+                                "is-loading"
+                            );
+                        }
+
+                        if (submitLabel) {
+                            submitLabel.textContent = (
+                                "Tekrar Dene"
+                            );
+                        }
+
+                        if (textarea) {
+                            textarea.readOnly = false;
+                            textarea.removeAttribute(
+                                "aria-busy"
+                            );
+                            textarea.focus();
+                        }
+
+                        console.error(
+                            "Glauria AI request failed:",
+                            error
+                        );
+                    }
+                });
+            });
+        });
+    }
+
+    scrollConversationToBottom();
 });
 </script>
 {% endblock %}
