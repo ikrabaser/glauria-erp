@@ -6,7 +6,7 @@
 {% block content %}
 <link
     rel="stylesheet"
-    href="{% static 'css/ai_assistant.css' %}?v=9"
+    href="{% static 'css/ai_assistant.css' %}?v=8"
 >
 
 <section class="glauria-ai">
@@ -45,76 +45,16 @@
         </div>
     {% else %}
         <div class="glauria-ai__layout">
-            <aside class="glauria-ai__history">
-                <a
-                    href="{% url 'ai_core:assistant' %}"
-                    class="glauria-ai__new-chat"
-                >
-                    <span>＋</span>
-                    Yeni sohbet
-                </a>
-
-                <div class="glauria-ai__history-heading">
-                    <span>SOHBET GEÇMİŞİ</span>
-                    <small>{{ conversations|length }}</small>
-                </div>
-
-                <nav class="glauria-ai__history-list">
-                    {% for conversation in conversations %}
-                        <a
-                            href="{% url 'ai_core:assistant' %}?conversation={{ conversation.id }}"
-                            class="glauria-ai__history-item
-                            {% if selected_conversation and selected_conversation.id == conversation.id %}
-                                is-active
-                            {% endif %}"
-                        >
-                            <span class="glauria-ai__history-icon">
-                                ✦
-                            </span>
-
-                            <span class="glauria-ai__history-copy">
-                                <strong>
-                                    {{ conversation.title }}
-                                </strong>
-
-                                <small>
-                                    {% if conversation.last_message_at %}
-                                        {{ conversation.last_message_at|date:"d.m.Y H:i" }}
-                                    {% else %}
-                                        {{ conversation.updated_at|date:"d.m.Y H:i" }}
-                                    {% endif %}
-                                </small>
-                            </span>
-                        </a>
-                    {% empty %}
-                        <div class="glauria-ai__history-empty">
-                            Henüz kayıtlı sohbet yok.
-                        </div>
-                    {% endfor %}
-                </nav>
-            </aside>
-
             <main class="glauria-ai__chat-shell">
                 <header class="glauria-ai__chat-head">
                     <span class="glauria-ai__assistant-orb">✦</span>
 
                     <div>
-                        <h2>
-                            {% if selected_conversation %}
-                                {{ selected_conversation.title }}
-                            {% else %}
-                                Kurumsal asistanınız hazır
-                            {% endif %}
-                        </h2>
+                        <h2>Kurumsal asistanınız hazır</h2>
 
                         <p>
-                            {% if selected_conversation %}
-                                Bu konuşmadaki önceki mesajlar
-                                kalıcı olarak saklanır.
-                            {% else %}
-                                CRM, finans, stok ve işe alım
-                                verilerinizi doğal dille sorgulayın.
-                            {% endif %}
+                            CRM, finans, stok ve işe alım
+                            verilerinizi doğal dille sorgulayın.
                         </p>
                     </div>
                 </header>

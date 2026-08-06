@@ -1371,28 +1371,25 @@ html[data-theme="dark"]
 }
 
 
+
 /* =========================================================
-   CHATGPT-STYLE CONVERSATION SIDEBAR
+   CONVERSATION HISTORY SIDEBAR
    ========================================================= */
 
 .glauria-ai__layout {
-    display: grid;
     grid-template-columns:
-        240px
+        245px
         minmax(0, 1fr)
         280px;
-    gap: 15px;
-    align-items: start;
 }
 
 .glauria-ai__history {
     position: sticky;
     top: 18px;
-    display: flex;
-    flex-direction: column;
 
     max-height: calc(100vh - 36px);
     padding: 14px;
+
     overflow: hidden;
 
     color: var(--ai-page-text);
@@ -1422,7 +1419,7 @@ html[data-theme="dark"]
     color: #fff8f4;
     text-decoration: none;
 
-    border: 1px solid rgba(185, 87, 117, 0.30);
+    border: 1px solid rgba(185, 87, 117, 0.3);
     border-radius: 12px;
 
     background:
@@ -1438,20 +1435,16 @@ html[data-theme="dark"]
 
     font-size: 0.83rem;
     font-weight: 750;
-
-    transition:
-        transform 160ms ease,
-        box-shadow 160ms ease;
 }
 
 .glauria-ai__new-chat:hover {
     color: #ffffff;
-    text-decoration: none;
     transform: translateY(-1px);
+}
 
-    box-shadow:
-        0 14px 28px
-        rgba(112, 53, 75, 0.20);
+.glauria-ai__new-chat span {
+    font-size: 1rem;
+    line-height: 1;
 }
 
 .glauria-ai__history-heading {
@@ -1477,7 +1470,7 @@ html[data-theme="dark"]
     height: 23px;
     place-items: center;
 
-    color: var(--ai-rose);
+    color: #a9506d;
 
     border: 1px solid rgba(169, 80, 109, 0.18);
     border-radius: 999px;
@@ -1492,11 +1485,10 @@ html[data-theme="dark"]
     display: grid;
     gap: 7px;
 
-    min-height: 0;
     max-height: calc(100vh - 165px);
-    padding-right: 3px;
-
     overflow-y: auto;
+
+    padding-right: 3px;
 }
 
 .glauria-ai__history-item {
@@ -1524,11 +1516,11 @@ html[data-theme="dark"]
 
 .glauria-ai__history-item:hover {
     color: var(--ai-page-text);
-    text-decoration: none;
 
     border-color: var(--ai-border);
 
     background: rgba(169, 80, 109, 0.055);
+
     transform: translateX(2px);
 }
 
@@ -1545,6 +1537,7 @@ html[data-theme="dark"]
 
 .glauria-ai__history-icon {
     display: grid;
+
     width: 30px;
     height: 30px;
     place-items: center;
@@ -1611,7 +1604,7 @@ html[data-theme="dark"]
     background: rgba(169, 80, 109, 0.24);
 }
 
-@media (max-width: 1450px) {
+@media (max-width: 1280px) {
     .glauria-ai__layout {
         grid-template-columns:
             220px
@@ -1620,13 +1613,14 @@ html[data-theme="dark"]
 
     .glauria-ai__side {
         grid-column: 1 / -1;
+
         display: grid;
         grid-template-columns:
             repeat(3, minmax(0, 1fr));
     }
 }
 
-@media (max-width: 900px) {
+@media (max-width: 860px) {
     .glauria-ai__layout {
         grid-template-columns: 1fr;
     }

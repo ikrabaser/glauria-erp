@@ -767,4 +767,3 @@ class AIConversationMessage(BaseModel):
             f"{self.get_role_display()} · "
             f"{self.created_at:%d.%m.%Y %H:%M}"
         )
-
