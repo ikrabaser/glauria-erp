@@ -184,20 +184,30 @@ def enterprise_ai_assistant(request):
         user=request.user,
     )
 
+    new_chat_requested = (
+        request.GET.get("new") == "1"
+    )
+
     requested_conversation_id = (
         request.POST.get("conversation_id")
         or request.GET.get("conversation")
         or ""
     ).strip()
 
-    selected_conversation = (
-        _resolve_selected_conversation(
-            conversations=conversations,
-            requested_conversation_id=(
-                requested_conversation_id
-            ),
+    if (
+        new_chat_requested
+        and not requested_conversation_id
+    ):
+        selected_conversation = None
+    else:
+        selected_conversation = (
+            _resolve_selected_conversation(
+                conversations=conversations,
+                requested_conversation_id=(
+                    requested_conversation_id
+                ),
+            )
         )
-    )
 
     form = EnterpriseAIAssistantForm(
         request.POST or None

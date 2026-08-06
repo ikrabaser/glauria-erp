@@ -47,7 +47,7 @@
         <div class="glauria-ai__layout">
             <aside class="glauria-ai__history">
                 <a
-                    href="{% url 'ai_core:assistant' %}"
+                    href="{% url 'ai_core:assistant' %}?new=1"
                     class="glauria-ai__new-chat"
                 >
                     <span>＋</span>
@@ -428,6 +428,29 @@ document.addEventListener("DOMContentLoaded", function () {
         }
     }
 
+    if (textarea && form) {
+        textarea.addEventListener("keydown", function (event) {
+            if (
+                event.key !== "Enter"
+                || event.shiftKey
+                || event.isComposing
+            ) {
+                return;
+            }
+
+            event.preventDefault();
+
+            if (
+                submitButton
+                && submitButton.disabled
+            ) {
+                return;
+            }
+
+            form.requestSubmit();
+        });
+    }
+
     document
         .querySelectorAll("[data-ai-prompt]")
         .forEach(function (button) {
@@ -472,7 +495,14 @@ document.addEventListener("DOMContentLoaded", function () {
 
             submissionStarted = true;
 
+            const formData = new FormData(form);
+
             createPendingUserMessage(message);
+
+            if (textarea) {
+                textarea.value = "";
+            }
+
             startWorkingState();
 
             if (submitButton) {
@@ -501,7 +531,7 @@ document.addEventListener("DOMContentLoaded", function () {
                             form.action || window.location.href,
                             {
                                 method: "POST",
-                                body: new FormData(form),
+                                body: formData,
                                 credentials: "same-origin",
                                 redirect: "follow",
                                 headers: {
