@@ -6,7 +6,7 @@
 {% block content %}
 <link
     rel="stylesheet"
-    href="{% static 'css/ai_assistant.css' %}?v=14"
+    href="{% static 'css/ai_assistant.css' %}?v=16"
 >
 
 <section class="glauria-ai">
@@ -184,7 +184,32 @@
                             </div>
 
                             <div class="glauria-ai__bubble">
-                                {{ message.content|linebreaksbr }}
+                                {% if message.role == 'user' %}
+                                    {% for attachment in message.attachments.all %}
+                                        {% if attachment.attachment_type == 'image' %}
+                                            <a
+                                                href="{{ attachment.file.url }}"
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                class="glauria-ai__message-image"
+                                            >
+                                                <img
+                                                    src="{{ attachment.file.url }}"
+                                                    alt="{{ attachment.original_filename }}"
+                                                    loading="lazy"
+                                                >
+
+                                                <span>
+                                                    {{ attachment.original_filename }}
+                                                </span>
+                                            </a>
+                                        {% endif %}
+                                    {% endfor %}
+                                {% endif %}
+
+                                <div class="glauria-ai__message-content">
+                                    {{ message.content|linebreaksbr }}
+                                </div>
                             </div>
 
                             {% if message.role == 'assistant' %}
@@ -242,6 +267,7 @@
                 <div class="glauria-ai__composer-area">
                     <form
                         method="post"
+                        enctype="multipart/form-data"
                         class="glauria-ai__composer"
                         id="glauria-ai-composer"
                     >
@@ -282,6 +308,55 @@
                         {% if form.response_mode.errors %}
                             <div class="glauria-ai__field-error">
                                 {{ form.response_mode.errors|striptags }}
+                            </div>
+                        {% endif %}
+
+                        <div class="glauria-ai__attachment-row">
+                            <label
+                                for="{{ form.image.id_for_label }}"
+                                class="glauria-ai__attachment-button"
+                            >
+                                <span>▧</span>
+                                Görsel ekle
+                            </label>
+
+                            {{ form.image }}
+
+                            <div
+                                id="glauria-ai-image-preview"
+                                class="glauria-ai__image-preview"
+                                hidden
+                            >
+                                <img
+                                    id="glauria-ai-image-preview-img"
+                                    alt="Seçilen ekran görüntüsü"
+                                >
+
+                                <div class="glauria-ai__image-preview-copy">
+                                    <strong
+                                        id="glauria-ai-image-name"
+                                    ></strong>
+
+                                    <small>
+                                        Görsel yalnızca bu sorunun
+                                        analizi için kullanılır.
+                                    </small>
+                                </div>
+
+                                <button
+                                    type="button"
+                                    id="glauria-ai-image-remove"
+                                    aria-label="Görseli kaldır"
+                                    title="Görseli kaldır"
+                                >
+                                    ×
+                                </button>
+                            </div>
+                        </div>
+
+                        {% if form.image.errors %}
+                            <div class="glauria-ai__field-error">
+                                {{ form.image.errors|striptags }}
                             </div>
                         {% endif %}
 
@@ -435,6 +510,19 @@ document.addEventListener("DOMContentLoaded", function () {
     const conversation = document.querySelector(
         ".glauria-ai__conversation"
     );
+    const imageInput = document.getElementById("id_image");
+    const imagePreview = document.getElementById(
+        "glauria-ai-image-preview"
+    );
+    const imagePreviewElement = document.getElementById(
+        "glauria-ai-image-preview-img"
+    );
+    const imageName = document.getElementById(
+        "glauria-ai-image-name"
+    );
+    const imageRemoveButton = document.getElementById(
+        "glauria-ai-image-remove"
+    );
 
     function scrollConversationToBottom() {
         if (!conversation) {
@@ -489,6 +577,57 @@ document.addEventListener("DOMContentLoaded", function () {
         if (workingState) {
             workingState.hidden = false;
         }
+    }
+
+    if (imageInput) {
+        imageInput.addEventListener("change", function () {
+            const file = imageInput.files[0];
+
+            if (!file) {
+                if (imagePreview) {
+                    imagePreview.hidden = true;
+                }
+
+                return;
+            }
+
+            if (imageName) {
+                imageName.textContent = file.name;
+            }
+
+            if (imagePreviewElement) {
+                imagePreviewElement.src = (
+                    URL.createObjectURL(file)
+                );
+            }
+
+            if (imagePreview) {
+                imagePreview.hidden = false;
+            }
+        });
+    }
+
+    if (imageRemoveButton && imageInput) {
+        imageRemoveButton.addEventListener(
+            "click",
+            function () {
+                imageInput.value = "";
+
+                if (imagePreviewElement) {
+                    imagePreviewElement.removeAttribute(
+                        "src"
+                    );
+                }
+
+                if (imageName) {
+                    imageName.textContent = "";
+                }
+
+                if (imagePreview) {
+                    imagePreview.hidden = true;
+                }
+            }
+        );
     }
 
     if (textarea && form) {

@@ -767,3 +767,115 @@ class AIConversationMessage(BaseModel):
             f"{self.get_role_display()} · "
             f"{self.created_at:%d.%m.%Y %H:%M}"
         )
+
+
+class AIConversationAttachment(BaseModel):
+    """
+    Bir AI sohbet mesajına bağlı kalıcı dosya ekini temsil eder.
+
+    Görsel içeriği veritabanında base64 olarak değil, Django
+    dosya depolama sistemi üzerinden media dizininde tutulur.
+    """
+
+    class AttachmentType(models.TextChoices):
+        IMAGE = "image", "Görsel"
+
+    message = models.ForeignKey(
+        AIConversationMessage,
+        on_delete=models.CASCADE,
+        related_name="attachments",
+        verbose_name="Mesaj",
+    )
+
+    company = models.ForeignKey(
+        Company,
+        on_delete=models.CASCADE,
+        related_name="ai_conversation_attachments",
+        verbose_name="Şirket",
+    )
+
+    attachment_type = models.CharField(
+        max_length=20,
+        choices=AttachmentType.choices,
+        default=AttachmentType.IMAGE,
+        db_index=True,
+        verbose_name="Ek türü",
+    )
+
+    file = models.FileField(
+        upload_to="ai/conversations/%Y/%m/%d/",
+        verbose_name="Dosya",
+    )
+
+    original_filename = models.CharField(
+        max_length=255,
+        verbose_name="Orijinal dosya adı",
+    )
+
+    content_type = models.CharField(
+        max_length=120,
+        verbose_name="İçerik türü",
+    )
+
+    file_size = models.PositiveBigIntegerField(
+        default=0,
+        verbose_name="Dosya boyutu",
+    )
+
+    metadata = models.JSONField(
+        default=dict,
+        blank=True,
+        verbose_name="Ek metadatası",
+    )
+
+    class Meta:
+        ordering = (
+            "created_at",
+        )
+        verbose_name = "AI sohbet eki"
+        verbose_name_plural = "AI sohbet ekleri"
+        indexes = [
+            models.Index(
+                fields=[
+                    "company",
+                    "attachment_type",
+                    "created_at",
+                ],
+                name="ai_attachment_company_type_idx",
+            ),
+        ]
+
+    def clean(self):
+        from django.core.exceptions import ValidationError
+
+        errors = {}
+
+        if (
+            self.message_id
+            and self.company_id
+            and self.message.company_id != self.company_id
+        ):
+            errors["company"] = (
+                "Dosya eki, mesajla aynı şirkete ait olmalıdır."
+            )
+
+        if not self.original_filename.strip():
+            errors["original_filename"] = (
+                "Orijinal dosya adı boş olamaz."
+            )
+
+        if errors:
+            raise ValidationError(errors)
+
+    def save(self, *args, **kwargs):
+        self.original_filename = (
+            self.original_filename.strip()
+        )
+        self.full_clean()
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return (
+            f"{self.message.conversation.title} · "
+            f"{self.original_filename}"
+        )

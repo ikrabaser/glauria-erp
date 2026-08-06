@@ -1,3 +1,4 @@
+import base64
 import json
 
 from django.contrib import messages
@@ -8,6 +9,7 @@ from django.utils import timezone
 
 from apps.ai_core.models import (
     AIConversation,
+    AIConversationAttachment,
     AIConversationMessage,
 )
 from apps.ai_core.orchestration import (
@@ -24,6 +26,33 @@ from apps.ai_core.tools import ERPToolError
 
 from .assistant import resolve_enterprise_ai_access
 from .forms import EnterpriseAIAssistantForm
+
+
+def _build_image_input(uploaded_image):
+    """
+    Yüklenen görseli OpenAI girdisi için geçici base64
+    data URL biçimine dönüştürür.
+    """
+
+    if uploaded_image is None:
+        return None
+
+    content_type = (
+        getattr(uploaded_image, "content_type", "")
+        or ""
+    ).lower()
+
+    encoded_content = base64.b64encode(
+        uploaded_image.read()
+    ).decode("ascii")
+
+    return {
+        "data_url": (
+            f"data:{content_type};base64,"
+            f"{encoded_content}"
+        ),
+        "detail": "high",
+    }
 
 
 def _conversation_title(message: str) -> str:
@@ -223,45 +252,6 @@ def enterprise_ai_assistant(request):
             "/ai/?new=1"
         )
 
-    if (
-        request.method == "POST"
-        and request.POST.get("action")
-        == "archive_conversation"
-    ):
-        conversation_id = (
-            request.POST.get("conversation_id")
-            or ""
-        ).strip()
-
-        conversation = conversations.filter(
-            id=conversation_id,
-        ).first()
-
-        if conversation is None:
-            messages.error(
-                request,
-                "Arşivlenecek sohbet bulunamadı.",
-            )
-        else:
-            conversation.status = (
-                AIConversation.Status.ARCHIVED
-            )
-            conversation.save(
-                update_fields=[
-                    "status",
-                    "updated_at",
-                ]
-            )
-
-            messages.success(
-                request,
-                "Sohbet başarıyla silindi.",
-            )
-
-        return redirect(
-            "/ai/?new=1"
-        )
-
     new_chat_requested = (
         request.GET.get("new") == "1"
     )
@@ -288,11 +278,16 @@ def enterprise_ai_assistant(request):
         )
 
     form = EnterpriseAIAssistantForm(
-        request.POST or None
+        request.POST or None,
+        request.FILES or None,
     )
 
     if request.method == "POST" and form.is_valid():
         user_message = form.cleaned_data["message"].strip()
+        uploaded_image = form.cleaned_data.get("image")
+        image_input = _build_image_input(
+            uploaded_image
+        )
 
         if selected_conversation is None:
             selected_conversation = (
@@ -308,14 +303,36 @@ def enterprise_ai_assistant(request):
 
         try:
             with transaction.atomic():
-                AIConversationMessage.objects.create(
-                    conversation=selected_conversation,
-                    company=access_context.company,
-                    role=(
-                        AIConversationMessage.Role.USER
-                    ),
-                    content=user_message,
+                user_conversation_message = (
+                    AIConversationMessage.objects.create(
+                        conversation=selected_conversation,
+                        company=access_context.company,
+                        role=(
+                            AIConversationMessage.Role.USER
+                        ),
+                        content=user_message,
+                    )
                 )
+
+                if uploaded_image:
+                    uploaded_image.seek(0)
+
+                    AIConversationAttachment.objects.create(
+                        message=user_conversation_message,
+                        company=access_context.company,
+                        attachment_type=(
+                            AIConversationAttachment
+                            .AttachmentType.IMAGE
+                        ),
+                        file=uploaded_image,
+                        original_filename=(
+                            uploaded_image.name
+                        ),
+                        content_type=(
+                            uploaded_image.content_type
+                        ),
+                        file_size=uploaded_image.size,
+                    )
 
                 runtime = FunctionCallingRuntime(
                     company=access_context.company,
@@ -335,6 +352,7 @@ def enterprise_ai_assistant(request):
                             "response_mode"
                         ]
                     ),
+                    image_input=image_input,
                 )
 
                 AIConversationMessage.objects.create(
@@ -362,6 +380,17 @@ def enterprise_ai_assistant(request):
                             form.cleaned_data[
                                 "response_mode"
                             ]
+                        ),
+                        "image": (
+                            {
+                                "name": uploaded_image.name,
+                                "content_type": (
+                                    uploaded_image.content_type
+                                ),
+                                "size": uploaded_image.size,
+                            }
+                            if uploaded_image
+                            else None
                         ),
                     },
                 )
@@ -401,7 +430,9 @@ def enterprise_ai_assistant(request):
         )
 
     conversation_messages = (
-        selected_conversation.messages.all()
+        selected_conversation.messages.prefetch_related(
+            "attachments"
+        )
         if selected_conversation
         else AIConversationMessage.objects.none()
     )

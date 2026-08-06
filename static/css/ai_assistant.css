@@ -2095,3 +2095,196 @@ html[data-theme="dark"]
         opacity: 1;
     }
 }
+
+
+/* =========================================================
+   ASSISTANT IMAGE ATTACHMENT
+   ========================================================= */
+
+.glauria-ai__attachment-row {
+    margin-bottom: 11px;
+}
+
+.glauria-ai__image-input {
+    position: absolute;
+
+    width: 1px;
+    height: 1px;
+
+    opacity: 0;
+    overflow: hidden;
+    pointer-events: none;
+}
+
+.glauria-ai__attachment-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+
+    min-height: 32px;
+    padding: 6px 10px;
+
+    color: var(--ai-muted);
+
+    border: 1px solid var(--ai-border);
+    border-radius: 9px;
+
+    background: rgba(169, 80, 109, 0.045);
+
+    cursor: pointer;
+
+    font-size: 0.69rem;
+    font-weight: 700;
+
+    transition:
+        color 160ms ease,
+        border-color 160ms ease,
+        background 160ms ease;
+}
+
+.glauria-ai__attachment-button:hover {
+    color: var(--ai-page-text);
+
+    border-color: rgba(169, 80, 109, 0.24);
+    background: rgba(169, 80, 109, 0.08);
+}
+
+.glauria-ai__image-preview {
+    display: grid;
+    grid-template-columns:
+        52px
+        minmax(0, 1fr)
+        auto;
+    align-items: center;
+    gap: 10px;
+
+    margin-top: 9px;
+    padding: 9px;
+
+    border: 1px solid rgba(169, 80, 109, 0.16);
+    border-radius: 11px;
+
+    background: rgba(169, 80, 109, 0.04);
+}
+
+.glauria-ai__image-preview[hidden] {
+    display: none;
+}
+
+.glauria-ai__image-preview img {
+    width: 52px;
+    height: 42px;
+
+    object-fit: cover;
+
+    border-radius: 7px;
+    background: var(--ai-input);
+}
+
+.glauria-ai__image-preview-copy {
+    min-width: 0;
+}
+
+.glauria-ai__image-preview strong,
+.glauria-ai__image-preview small {
+    display: block;
+}
+
+.glauria-ai__image-preview strong {
+    overflow: hidden;
+
+    color: var(--ai-page-text);
+
+    font-size: 0.72rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.glauria-ai__image-preview small {
+    margin-top: 3px;
+
+    color: var(--ai-muted);
+
+    font-size: 0.63rem;
+    line-height: 1.4;
+}
+
+.glauria-ai__image-preview button {
+    display: grid;
+
+    width: 27px;
+    height: 27px;
+    place-items: center;
+
+    padding: 0;
+
+    color: var(--ai-muted);
+
+    border: 1px solid transparent;
+    border-radius: 8px;
+
+    background: transparent;
+    cursor: pointer;
+}
+
+.glauria-ai__image-preview button:hover {
+    color: #b23d5d;
+
+    border-color: rgba(178, 61, 93, 0.18);
+    background: rgba(178, 61, 93, 0.08);
+}
+
+
+/* =========================================================
+   PERSISTED MESSAGE ATTACHMENTS
+   ========================================================= */
+
+.glauria-ai__message-image {
+    display: block;
+
+    width: min(100%, 360px);
+    margin-bottom: 10px;
+
+    overflow: hidden;
+
+    color: var(--ai-muted);
+    text-decoration: none;
+
+    border: 1px solid rgba(169, 80, 109, 0.16);
+    border-radius: 12px;
+
+    background: rgba(169, 80, 109, 0.04);
+}
+
+.glauria-ai__message-image img {
+    display: block;
+
+    width: 100%;
+    max-height: 230px;
+
+    object-fit: cover;
+
+    background: var(--ai-input);
+}
+
+.glauria-ai__message-image span {
+    display: block;
+
+    padding: 8px 10px;
+
+    overflow: hidden;
+
+    font-size: 0.67rem;
+    font-weight: 650;
+
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.glauria-ai__message-image:hover {
+    border-color: rgba(169, 80, 109, 0.3);
+}
+
+.glauria-ai__message-content {
+    min-width: 0;
+}

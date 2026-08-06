@@ -163,6 +163,7 @@ class FunctionCallingRuntime:
         user_message: str,
         model: str | None = None,
         assistant_profile: str = DEFAULT_ASSISTANT_PROFILE,
+        image_input: dict[str, str] | None = None,
         instructions: str = ERP_ASSISTANT_INSTRUCTIONS,
     ) -> FunctionCallingResult:
         normalized_message = (user_message or "").strip()
@@ -201,6 +202,38 @@ class FunctionCallingRuntime:
         )
 
         current_input: Any = normalized_message
+
+        if image_input:
+            image_url = (
+                image_input.get("data_url", "")
+                or ""
+            ).strip()
+
+            if not image_url:
+                raise ValueError(
+                    "Görsel girdisi için data_url gereklidir."
+                )
+
+            current_input = [
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "input_text",
+                            "text": normalized_message,
+                        },
+                        {
+                            "type": "input_image",
+                            "image_url": image_url,
+                            "detail": image_input.get(
+                                "detail",
+                                "high",
+                            ),
+                        },
+                    ],
+                },
+            ]
+
         previous_response_id = None
         executed_calls: list[ExecutedToolCall] = []
 
