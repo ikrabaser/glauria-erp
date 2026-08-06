@@ -6,7 +6,7 @@
 {% block content %}
 <link
     rel="stylesheet"
-    href="{% static 'css/ai_assistant.css' %}?v=20"
+    href="{% static 'css/ai_assistant.css' %}?v=21"
 >
 
 <section class="glauria-ai">
@@ -67,6 +67,12 @@
                         href="{% url 'ai_core:knowledge_base' %}"
                     >
                         ▣ Knowledge Base
+                    </a>
+
+                    <a
+                        href="{% url 'ai_core:operations' %}"
+                    >
+                        ◉ AI Operations
                     </a>
                 {% endif %}
             </div>

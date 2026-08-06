@@ -12,6 +12,7 @@ from apps.ai_core.models import (
     AIConversation,
     AIKnowledgeChunk,
     AIKnowledgeDocument,
+    AIRequestLog,
     AIConversationAttachment,
     AIConversationMessage,
 )
@@ -400,6 +401,117 @@ def knowledge_document_detail(
             "document": document,
             "chunks": chunks,
             "chunk_statistics": chunk_statistics,
+            "access_error": "",
+        },
+    )
+
+
+@login_required
+def ai_operations_dashboard(request):
+    """
+    Aktif şirkete ait AI isteklerinin operasyonel
+    metriklerini ve son çalışma kayıtlarını gösterir.
+    """
+
+    access_context = resolve_enterprise_ai_access(
+        request.user
+    )
+
+    if access_context is None:
+        return render(
+            request,
+            "ai_core/operations.html",
+            {
+                "current_membership": None,
+                "access_error": (
+                    "Aktif çalışma alanı üyeliğiniz bulunmuyor."
+                ),
+            },
+            status=403,
+        )
+
+    if not _can_manage_ai_knowledge(
+        access_context
+    ):
+        return render(
+            request,
+            "ai_core/operations.html",
+            {
+                "current_membership": (
+                    access_context.membership
+                ),
+                "access_error": (
+                    "AI operasyon kayıtları yalnızca şirket "
+                    "sahibi ve yöneticilere açıktır."
+                ),
+            },
+            status=403,
+        )
+
+    logs = AIRequestLog.objects.filter(
+        company=access_context.company,
+    )
+
+    statistics = logs.aggregate(
+        total_requests=Count("id"),
+        completed_requests=Count(
+            "id",
+            filter=models.Q(
+                status=AIRequestLog.Status.COMPLETED
+            ),
+        ),
+        failed_requests=Count(
+            "id",
+            filter=models.Q(
+                status=AIRequestLog.Status.FAILED
+            ),
+        ),
+        processing_requests=Count(
+            "id",
+            filter=models.Q(
+                status=AIRequestLog.Status.PROCESSING
+            ),
+        ),
+        average_latency=Avg("latency_ms"),
+        total_tokens=Sum("total_tokens"),
+    )
+
+    total_requests = (
+        statistics["total_requests"]
+        or 0
+    )
+    completed_requests = (
+        statistics["completed_requests"]
+        or 0
+    )
+
+    success_rate = (
+        round(
+            completed_requests
+            / total_requests
+            * 100,
+            1,
+        )
+        if total_requests
+        else 0
+    )
+
+    latest_logs = (
+        logs
+        .select_related("requested_by")
+        .order_by("-created_at")[:30]
+    )
+
+    return render(
+        request,
+        "ai_core/operations.html",
+        {
+            "current_membership": (
+                access_context.membership
+            ),
+            "statistics": statistics,
+            "success_rate": success_rate,
+            "latest_logs": latest_logs,
             "access_error": "",
         },
     )
