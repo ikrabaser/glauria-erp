@@ -1,0 +1,165 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Knowledge Base · Glauria AI{% endblock %}
+
+{% block extra_css %}
+    {{ block.super }}
+    <link
+        rel="stylesheet"
+        href="{% static 'css/ai_knowledge_base.css' %}?v=1"
+    >
+{% endblock %}
+
+{% block content %}
+<section class="ai-kb">
+    <header class="ai-kb__header">
+        <div>
+            <span class="ai-kb__eyebrow">
+                GLAURIA AI CORE
+            </span>
+
+            <h1>Knowledge Base</h1>
+
+            <p>
+                Kurumsal dokümanları, chunk yapılarını ve
+                embedding durumlarını şirket bazında yönetin.
+            </p>
+        </div>
+
+        <a
+            href="{% url 'ai_core:assistant' %}"
+            class="ai-kb__assistant-link"
+        >
+            Glauria AI’ya dön
+        </a>
+    </header>
+
+    {% if access_error %}
+        <div class="ai-kb__alert">
+            {{ access_error }}
+        </div>
+    {% else %}
+        <section class="ai-kb__stats">
+            <article class="ai-kb__stat">
+                <span>Doküman</span>
+                <strong>
+                    {{ document_statistics.total_documents|default:0 }}
+                </strong>
+                <small>
+                    {{ document_statistics.indexed_documents|default:0 }}
+                    indekslendi
+                </small>
+            </article>
+
+            <article class="ai-kb__stat">
+                <span>Chunk</span>
+                <strong>
+                    {{ chunk_statistics.total_chunks|default:0 }}
+                </strong>
+                <small>
+                    Bilgi parçaları
+                </small>
+            </article>
+
+            <article class="ai-kb__stat">
+                <span>Embedding</span>
+                <strong>
+                    {{ chunk_statistics.embedded_chunks|default:0 }}
+                </strong>
+                <small>
+                    pgvector kayıtları
+                </small>
+            </article>
+
+            <article class="ai-kb__stat">
+                <span>Ortalama chunk</span>
+                <strong>
+                    {{ chunk_statistics.average_tokens|floatformat:0|default:0 }}
+                </strong>
+                <small>
+                    Tahmini token
+                </small>
+            </article>
+
+            <article class="ai-kb__stat">
+                <span>Son indeksleme</span>
+                <strong class="ai-kb__stat-date">
+                    {% if document_statistics.latest_indexing %}
+                        {{ document_statistics.latest_indexing|date:"d.m.Y" }}
+                    {% else %}
+                        —
+                    {% endif %}
+                </strong>
+                <small>
+                    {% if document_statistics.latest_indexing %}
+                        {{ document_statistics.latest_indexing|date:"H:i" }}
+                    {% else %}
+                        Henüz indeksleme yok
+                    {% endif %}
+                </small>
+            </article>
+        </section>
+
+        <section class="ai-kb__panel">
+            <header class="ai-kb__panel-head">
+                <div>
+                    <h2>Bilgi tabanı dokümanları</h2>
+                    <p>
+                        Son eklenen kurumsal bilgi kaynakları ve
+                        indeksleme durumları.
+                    </p>
+                </div>
+
+                <span>
+                    {{ document_statistics.total_documents|default:0 }}
+                    kayıt
+                </span>
+            </header>
+
+            <div class="ai-kb__documents">
+                {% for document in documents %}
+                    <article class="ai-kb__document">
+                        <div class="ai-kb__document-icon">
+                            ✦
+                        </div>
+
+                        <div class="ai-kb__document-copy">
+                            <strong>{{ document.title }}</strong>
+
+                            <small>
+                                {{ document.get_document_type_display }}
+                                ·
+                                {{ document.get_source_type_display }}
+                            </small>
+                        </div>
+
+                        <div class="ai-kb__document-metrics">
+                            <span>
+                                {{ document.chunk_total }}
+                                chunk
+                            </span>
+
+                            <span>
+                                {{ document.embedded_chunk_total }}
+                                embedding
+                            </span>
+                        </div>
+
+                        <span
+                            class="ai-kb__status
+                            ai-kb__status--{{ document.status }}"
+                        >
+                            {{ document.get_status_display }}
+                        </span>
+                    </article>
+                {% empty %}
+                    <div class="ai-kb__empty">
+                        Henüz bilgi tabanı dokümanı bulunmuyor.
+                    </div>
+                {% endfor %}
+            </div>
+        </section>
+    {% endif %}
+</section>
+{% endblock %}

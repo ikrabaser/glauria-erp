@@ -3,12 +3,15 @@ import json
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.db import transaction
+from django.db import models, transaction
+from django.db.models import Avg, Count, Max
 from django.shortcuts import redirect, render
 from django.utils import timezone
 
 from apps.ai_core.models import (
     AIConversation,
+    AIKnowledgeChunk,
+    AIKnowledgeDocument,
     AIConversationAttachment,
     AIConversationMessage,
 )
@@ -161,6 +164,105 @@ def _resolve_selected_conversation(
         ).first()
 
     return conversations.first()
+
+
+@login_required
+def knowledge_base_home(request):
+    """
+    Aktif şirketin bilgi tabanı, chunk ve embedding
+    istatistiklerini gösterir.
+    """
+
+    access_context = resolve_enterprise_ai_access(
+        request.user
+    )
+
+    if access_context is None:
+        return render(
+            request,
+            "ai_core/knowledge_base.html",
+            {
+                "current_membership": None,
+                "access_error": (
+                    "Aktif çalışma alanı üyeliğiniz bulunmuyor."
+                ),
+            },
+            status=403,
+        )
+
+    company = access_context.company
+
+    documents = (
+        AIKnowledgeDocument.objects
+        .filter(company=company)
+        .annotate(
+            chunk_total=Count("chunks"),
+            embedded_chunk_total=Count(
+                "chunks",
+                filter=models.Q(
+                    chunks__embedding__isnull=False
+                ),
+            ),
+        )
+        .order_by("-created_at")
+    )
+
+    chunk_statistics = (
+        AIKnowledgeChunk.objects
+        .filter(company=company)
+        .aggregate(
+            total_chunks=Count("id"),
+            embedded_chunks=Count(
+                "id",
+                filter=models.Q(
+                    embedding__isnull=False
+                ),
+            ),
+            average_tokens=Avg("token_count"),
+            latest_embedding=Max("embedded_at"),
+        )
+    )
+
+    document_statistics = (
+        AIKnowledgeDocument.objects
+        .filter(company=company)
+        .aggregate(
+            total_documents=Count("id"),
+            indexed_documents=Count(
+                "id",
+                filter=models.Q(
+                    status=(
+                        AIKnowledgeDocument.Status.INDEXED
+                    )
+                ),
+            ),
+            failed_documents=Count(
+                "id",
+                filter=models.Q(
+                    status=(
+                        AIKnowledgeDocument.Status.FAILED
+                    )
+                ),
+            ),
+            latest_indexing=Max("indexed_at"),
+        )
+    )
+
+    return render(
+        request,
+        "ai_core/knowledge_base.html",
+        {
+            "current_membership": (
+                access_context.membership
+            ),
+            "documents": documents[:12],
+            "document_statistics": (
+                document_statistics
+            ),
+            "chunk_statistics": chunk_statistics,
+            "access_error": "",
+        },
+    )
 
 
 @login_required
