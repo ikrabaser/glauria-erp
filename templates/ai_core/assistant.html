@@ -73,55 +73,57 @@
                 {% endif %}
 
                 <section class="glauria-ai__conversation">
-                    {% if form.message.value %}
-                        <article class="glauria-ai__message glauria-ai__message--user">
+                    {% for message in conversation_messages %}
+                        <article
+                            class="glauria-ai__message
+                            {% if message.role == 'user' %}
+                                glauria-ai__message--user
+                            {% else %}
+                                glauria-ai__message--assistant
+                            {% endif %}"
+                        >
                             <div class="glauria-ai__message-label">
-                                SİZ
+                                {% if message.role == 'user' %}
+                                    SİZ
+                                {% else %}
+                                    GLAURIA AI
+                                {% endif %}
                             </div>
 
                             <div class="glauria-ai__bubble">
-                                {{ form.message.value }}
+                                {{ message.content|linebreaksbr }}
                             </div>
+
+                            {% if message.role == 'assistant' %}
+                                <div class="glauria-ai__metadata">
+                                    <span>
+                                        {{ message.tool_calls|length }}
+                                        araç çağrısı
+                                    </span>
+
+                                    <span>
+                                        {{ message.round_count }}
+                                        AI turu
+                                    </span>
+
+                                    <span>
+                                        Yetkili veri kapsamı
+                                    </span>
+                                </div>
+                            {% endif %}
                         </article>
-                    {% endif %}
-
-                    {% if assistant_answer %}
-                        <article class="glauria-ai__message glauria-ai__message--assistant">
-                            <div class="glauria-ai__message-label">
-                                GLAURIA AI
-                            </div>
-
-                            <div class="glauria-ai__bubble">
-                                {{ assistant_answer|linebreaksbr }}
-                            </div>
-
-                            <div class="glauria-ai__metadata">
-                                <span>
-                                    {{ tool_call_count }} araç çağrısı
-                                </span>
-
-                                <span>
-                                    {{ round_count }} AI turu
-                                </span>
-
-                                <span>Yetkili veri kapsamı</span>
-                            </div>
-                        </article>
-                    {% endif %}
-
-                    {% if not form.message.value and not assistant_answer %}
+                    {% empty %}
                         <div class="glauria-ai__empty-state">
                             <div>
                                 <strong>
-                                    Şirket verilerinizi doğal dille sorgulayın
+                                    Yeni bir Glauria AI sohbeti başlatın
                                 </strong>
 
-                                Sağ taraftaki örneklerden birini
-                                seçebilir veya kendi sorunuzu
-                                yazabilirsiniz.
+                                Sağ taraftaki örneklerden birini seçebilir
+                                veya kendi sorunuzu yazabilirsiniz.
                             </div>
                         </div>
-                    {% endif %}
+                    {% endfor %}
                 </section>
 
                 <div class="glauria-ai__composer-area">
@@ -130,6 +132,14 @@
                         class="glauria-ai__composer"
                     >
                         {% csrf_token %}
+
+                        {% if selected_conversation %}
+                            <input
+                                type="hidden"
+                                name="conversation_id"
+                                value="{{ selected_conversation.id }}"
+                            >
+                        {% endif %}
 
                         <label for="{{ form.message.id_for_label }}">
                             Glauria AI'ya sorun

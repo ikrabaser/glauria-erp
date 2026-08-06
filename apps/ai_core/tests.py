@@ -2859,9 +2859,15 @@ class EnterpriseAIAssistantViewTestCase(TestCase):
                     "Nova Kozmetik'in bakiyesini göster."
                 ),
             },
+            follow=True,
         )
 
         self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.redirect_chain)
+        self.assertIn(
+            "/ai/?conversation=",
+            response.redirect_chain[0][0],
+        )
 
         self.assertContains(
             response,
