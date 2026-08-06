@@ -184,6 +184,84 @@ def enterprise_ai_assistant(request):
         user=request.user,
     )
 
+    if (
+        request.method == "POST"
+        and request.POST.get("action")
+        == "archive_conversation"
+    ):
+        conversation_id = (
+            request.POST.get("conversation_id")
+            or ""
+        ).strip()
+
+        conversation = conversations.filter(
+            id=conversation_id,
+        ).first()
+
+        if conversation is None:
+            messages.error(
+                request,
+                "Arşivlenecek sohbet bulunamadı.",
+            )
+        else:
+            conversation.status = (
+                AIConversation.Status.ARCHIVED
+            )
+            conversation.save(
+                update_fields=[
+                    "status",
+                    "updated_at",
+                ]
+            )
+
+            messages.success(
+                request,
+                "Sohbet başarıyla silindi.",
+            )
+
+        return redirect(
+            "/ai/?new=1"
+        )
+
+    if (
+        request.method == "POST"
+        and request.POST.get("action")
+        == "archive_conversation"
+    ):
+        conversation_id = (
+            request.POST.get("conversation_id")
+            or ""
+        ).strip()
+
+        conversation = conversations.filter(
+            id=conversation_id,
+        ).first()
+
+        if conversation is None:
+            messages.error(
+                request,
+                "Arşivlenecek sohbet bulunamadı.",
+            )
+        else:
+            conversation.status = (
+                AIConversation.Status.ARCHIVED
+            )
+            conversation.save(
+                update_fields=[
+                    "status",
+                    "updated_at",
+                ]
+            )
+
+            messages.success(
+                request,
+                "Sohbet başarıyla silindi.",
+            )
+
+        return redirect(
+            "/ai/?new=1"
+        )
+
     new_chat_requested = (
         request.GET.get("new") == "1"
     )

@@ -1991,3 +1991,107 @@ html[data-theme="dark"]
         flex: 1;
     }
 }
+
+
+/* =========================================================
+   CONVERSATION ARCHIVE ACTION
+   ========================================================= */
+
+.glauria-ai__history-entry {
+    position: relative;
+
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+
+    border: 1px solid transparent;
+    border-radius: 12px;
+
+    transition:
+        border-color 160ms ease,
+        background 160ms ease;
+}
+
+.glauria-ai__history-entry:hover {
+    border-color: var(--ai-border);
+    background: rgba(169, 80, 109, 0.055);
+}
+
+.glauria-ai__history-entry.is-active {
+    border-color: rgba(169, 80, 109, 0.22);
+
+    background:
+        linear-gradient(
+            135deg,
+            rgba(181, 91, 120, 0.12),
+            rgba(225, 161, 126, 0.08)
+        );
+}
+
+.glauria-ai__history-entry .glauria-ai__history-item {
+    min-width: 0;
+
+    border: 0;
+    background: transparent;
+}
+
+.glauria-ai__history-entry .glauria-ai__history-item:hover {
+    border-color: transparent;
+    background: transparent;
+    transform: none;
+}
+
+.glauria-ai__history-action {
+    margin: 0;
+    padding-right: 7px;
+}
+
+.glauria-ai__history-delete {
+    display: grid;
+
+    width: 27px;
+    height: 27px;
+    place-items: center;
+
+    padding: 0;
+
+    color: var(--ai-muted);
+
+    opacity: 0;
+
+    border: 1px solid transparent;
+    border-radius: 8px;
+
+    background: transparent;
+
+    cursor: pointer;
+
+    font-size: 1rem;
+    line-height: 1;
+
+    transition:
+        opacity 150ms ease,
+        color 150ms ease,
+        border-color 150ms ease,
+        background 150ms ease;
+}
+
+.glauria-ai__history-entry:hover
+.glauria-ai__history-delete,
+.glauria-ai__history-delete:focus-visible {
+    opacity: 1;
+}
+
+.glauria-ai__history-delete:hover {
+    color: #b23d5d;
+
+    border-color: rgba(178, 61, 93, 0.18);
+
+    background: rgba(178, 61, 93, 0.08);
+}
+
+@media (hover: none) {
+    .glauria-ai__history-delete {
+        opacity: 1;
+    }
+}

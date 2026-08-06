@@ -6,7 +6,7 @@
 {% block content %}
 <link
     rel="stylesheet"
-    href="{% static 'css/ai_assistant.css' %}?v=13"
+    href="{% static 'css/ai_assistant.css' %}?v=14"
 >
 
 <section class="glauria-ai">
@@ -61,31 +61,64 @@
 
                 <nav class="glauria-ai__history-list">
                     {% for conversation in conversations %}
-                        <a
-                            href="{% url 'ai_core:assistant' %}?conversation={{ conversation.id }}"
-                            class="glauria-ai__history-item
+                        <div
+                            class="glauria-ai__history-entry
                             {% if selected_conversation and selected_conversation.id == conversation.id %}
                                 is-active
                             {% endif %}"
                         >
-                            <span class="glauria-ai__history-icon">
-                                ✦
-                            </span>
+                            <a
+                                href="{% url 'ai_core:assistant' %}?conversation={{ conversation.id }}"
+                                class="glauria-ai__history-item"
+                            >
+                                <span class="glauria-ai__history-icon">
+                                    ✦
+                                </span>
 
-                            <span class="glauria-ai__history-copy">
-                                <strong>
-                                    {{ conversation.title }}
-                                </strong>
+                                <span class="glauria-ai__history-copy">
+                                    <strong>
+                                        {{ conversation.title }}
+                                    </strong>
 
-                                <small>
-                                    {% if conversation.last_message_at %}
-                                        {{ conversation.last_message_at|date:"d.m.Y H:i" }}
-                                    {% else %}
-                                        {{ conversation.updated_at|date:"d.m.Y H:i" }}
-                                    {% endif %}
-                                </small>
-                            </span>
-                        </a>
+                                    <small>
+                                        {% if conversation.last_message_at %}
+                                            {{ conversation.last_message_at|date:"d.m.Y H:i" }}
+                                        {% else %}
+                                            {{ conversation.updated_at|date:"d.m.Y H:i" }}
+                                        {% endif %}
+                                    </small>
+                                </span>
+                            </a>
+
+                            <form
+                                method="post"
+                                class="glauria-ai__history-action"
+                                data-conversation-delete-form
+                            >
+                                {% csrf_token %}
+
+                                <input
+                                    type="hidden"
+                                    name="action"
+                                    value="archive_conversation"
+                                >
+
+                                <input
+                                    type="hidden"
+                                    name="conversation_id"
+                                    value="{{ conversation.id }}"
+                                >
+
+                                <button
+                                    type="submit"
+                                    class="glauria-ai__history-delete"
+                                    aria-label="Sohbeti sil"
+                                    title="Sohbeti sil"
+                                >
+                                    ×
+                                </button>
+                            </form>
+                        </div>
                     {% empty %}
                         <div class="glauria-ai__history-empty">
                             Henüz kayıtlı sohbet yok.
@@ -622,6 +655,26 @@ document.addEventListener("DOMContentLoaded", function () {
             });
         });
     }
+
+    document
+        .querySelectorAll(
+            "[data-conversation-delete-form]"
+        )
+        .forEach(function (deleteForm) {
+            deleteForm.addEventListener(
+                "submit",
+                function (event) {
+                    const confirmed = window.confirm(
+                        "Bu sohbet silinsin mi? "
+                        + "Sohbet geçmişinden kaldırılacak."
+                    );
+
+                    if (!confirmed) {
+                        event.preventDefault();
+                    }
+                }
+            );
+        });
 
     scrollConversationToBottom();
 });
