@@ -1,0 +1,210 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}
+    AI Operations · Glauria AI
+{% endblock %}
+
+{% block extra_css %}
+    {{ block.super }}
+    <link
+        rel="stylesheet"
+        href="{% static 'css/ai_operations.css' %}?v=1"
+    >
+{% endblock %}
+
+{% block content %}
+<section class="ai-ops">
+    {% if access_error %}
+        <div class="ai-ops__alert">
+            {{ access_error }}
+        </div>
+    {% else %}
+        <header class="ai-ops__header">
+            <div>
+                <span>GLAURIA AI CORE</span>
+
+                <h1>AI Operations</h1>
+
+                <p>
+                    Model çağrılarını, token kullanımını,
+                    performansı ve hata durumlarını izleyin.
+                </p>
+            </div>
+
+            <nav class="ai-ops__nav">
+                <a href="{% url 'ai_core:assistant' %}">
+                    Asistan
+                </a>
+
+                <a href="{% url 'ai_core:knowledge_base' %}">
+                    Knowledge Base
+                </a>
+
+                <a
+                    href="{% url 'ai_core:operations' %}"
+                    class="is-active"
+                >
+                    AI Operations
+                </a>
+            </nav>
+        </header>
+
+        <section class="ai-ops__stats">
+            <article>
+                <span>Toplam istek</span>
+                <strong>
+                    {{ statistics.total_requests|default:0 }}
+                </strong>
+                <small>Tüm AI işlemleri</small>
+            </article>
+
+            <article>
+                <span>Tamamlanan</span>
+                <strong>
+                    {{ statistics.completed_requests|default:0 }}
+                </strong>
+                <small>Başarılı işlemler</small>
+            </article>
+
+            <article>
+                <span>Başarısız</span>
+                <strong>
+                    {{ statistics.failed_requests|default:0 }}
+                </strong>
+                <small>Hata ile sonuçlanan</small>
+            </article>
+
+            <article>
+                <span>Başarı oranı</span>
+                <strong>
+                    %{{ success_rate|floatformat:1 }}
+                </strong>
+                <small>Completed / total</small>
+            </article>
+
+            <article>
+                <span>Ort. gecikme</span>
+                <strong>
+                    {{ statistics.average_latency|floatformat:0|default:0 }}
+                </strong>
+                <small>Milisaniye</small>
+            </article>
+
+            <article>
+                <span>Toplam token</span>
+                <strong>
+                    {{ statistics.total_tokens|default:0 }}
+                </strong>
+                <small>Girdi + çıktı</small>
+            </article>
+        </section>
+
+        <section class="ai-ops__panel">
+            <header class="ai-ops__panel-head">
+                <div>
+                    <h2>Son AI istekleri</h2>
+
+                    <p>
+                        Aktif şirkete ait son 30 operasyon kaydı.
+                    </p>
+                </div>
+
+                <span>
+                    Canlı operasyon görünümü
+                </span>
+            </header>
+
+            <div class="ai-ops__table-wrap">
+                <table class="ai-ops__table">
+                    <thead>
+                        <tr>
+                            <th>Durum</th>
+                            <th>Özellik</th>
+                            <th>Tür</th>
+                            <th>Model</th>
+                            <th>Token</th>
+                            <th>Süre</th>
+                            <th>Kullanıcı</th>
+                            <th>Zaman</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        {% for log in latest_logs %}
+                            <tr>
+                                <td>
+                                    <span
+                                        class="ai-ops__status
+                                        ai-ops__status--{{ log.status }}"
+                                    >
+                                        {{ log.get_status_display }}
+                                    </span>
+                                </td>
+
+                                <td>
+                                    <strong>{{ log.feature }}</strong>
+
+                                    <small>{{ log.module }}</small>
+                                </td>
+
+                                <td>
+                                    {{ log.get_request_type_display }}
+                                </td>
+
+                                <td>
+                                    {{ log.model_name|default:"—" }}
+                                </td>
+
+                                <td>
+                                    {{ log.total_tokens }}
+                                </td>
+
+                                <td>
+                                    {% if log.latency_ms %}
+                                        {{ log.latency_ms }} ms
+                                    {% else %}
+                                        —
+                                    {% endif %}
+                                </td>
+
+                                <td>
+                                    {% if log.requested_by %}
+                                        {{ log.requested_by.username }}
+                                    {% else %}
+                                        Sistem
+                                    {% endif %}
+                                </td>
+
+                                <td>
+                                    {{ log.created_at|date:"d.m.Y H:i:s" }}
+                                </td>
+                            </tr>
+
+                            {% if log.status == 'failed' %}
+                                <tr class="ai-ops__error-row">
+                                    <td colspan="8">
+                                        <strong>
+                                            {{ log.error_type|default:"AI hatası" }}
+                                        </strong>
+
+                                        <span>
+                                            {{ log.error_message|default:"Hata özeti bulunmuyor." }}
+                                        </span>
+                                    </td>
+                                </tr>
+                            {% endif %}
+                        {% empty %}
+                            <tr>
+                                <td colspan="8" class="ai-ops__empty">
+                                    Henüz AI istek kaydı bulunmuyor.
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    {% endif %}
+</section>
+{% endblock %}

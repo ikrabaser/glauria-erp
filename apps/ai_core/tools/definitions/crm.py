@@ -1,3 +1,5 @@
+from uuid import UUID
+
 from django.db.models import Count, DecimalField, Sum
 from django.db.models.functions import Coalesce
 
@@ -33,20 +35,32 @@ def get_customer_summary(
         company=context.company,
     )
 
+    resolved_customer_id = ""
+    resolved_customer_name = normalized_name
+
     if normalized_id:
+        try:
+            resolved_customer_id = str(
+                UUID(normalized_id)
+            )
+        except ValueError:
+            if not resolved_customer_name:
+                resolved_customer_name = normalized_id
+
+    if resolved_customer_id:
         customer = customers.filter(
-            id=normalized_id,
+            id=resolved_customer_id,
         ).first()
     else:
         exact_matches = customers.filter(
-            name__iexact=normalized_name,
+            name__iexact=resolved_customer_name,
         )
 
         if exact_matches.count() > 1:
             return {
                 "found": False,
                 "ambiguous": True,
-                "customer_name": normalized_name,
+                "customer_name": resolved_customer_name,
                 "matches": [
                     {
                         "customer_id": str(item.id),
@@ -214,13 +228,17 @@ GET_CUSTOMER_SUMMARY_TOOL = ERPToolDefinition(
             "customer_id": {
                 "type": "string",
                 "description": (
-                    "Opsiyonel müşteri UUID değeri."
+                    "Opsiyonel müşteri UUID'si. Yalnızca geçerli "
+                    "UUID formatında gönderilmelidir. Müşteri adı "
+                    "bu alana gönderilmemelidir."
                 ),
             },
             "customer_name": {
                 "type": "string",
                 "description": (
-                    "Opsiyonel tam müşteri adı."
+                    "Opsiyonel tam müşteri adı. Örneğin "
+                    "'Nova Kozmetik A.Ş.'. UUID bilinmiyorsa "
+                    "bu alan kullanılmalıdır."
                 ),
             },
         },

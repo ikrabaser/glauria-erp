@@ -3,6 +3,11 @@ from dataclasses import dataclass
 from time import monotonic
 from typing import Any
 
+from apps.ai_core.profiles import (
+    DEFAULT_ASSISTANT_PROFILE,
+    resolve_assistant_profile,
+)
+
 from apps.ai_core.models import (
     AIKnowledgeDocument,
     AIRequestLog,
@@ -24,7 +29,10 @@ from apps.ai_core.tools.definitions import (
     register_core_erp_tools,
 )
 
-from .retrievers import format_knowledge_results
+from .retrievers import (
+    KnowledgeSource,
+    format_knowledge_results,
+)
 
 
 DEFAULT_MAX_TOOL_ROUNDS = 5
@@ -62,6 +70,7 @@ class FunctionCallingResult:
     response_id: str
     tool_calls: tuple[ExecutedToolCall, ...]
     round_count: int
+    knowledge_sources: tuple[KnowledgeSource, ...] = ()
 
     @property
     def tool_call_count(self) -> int:
@@ -157,6 +166,8 @@ class FunctionCallingRuntime:
         *,
         user_message: str,
         model: str | None = None,
+        assistant_profile: str = DEFAULT_ASSISTANT_PROFILE,
+        image_input: dict[str, str] | None = None,
         instructions: str = ERP_ASSISTANT_INSTRUCTIONS,
     ) -> FunctionCallingResult:
         normalized_message = (user_message or "").strip()
@@ -166,11 +177,12 @@ class FunctionCallingRuntime:
                 "AI asistan mesajı boş olamaz."
             )
 
-        resolved_instructions = (
-            self._build_rag_instructions(
-                user_message=normalized_message,
-                base_instructions=instructions,
-            )
+        (
+            resolved_instructions,
+            knowledge_sources,
+        ) = self._build_rag_instructions(
+            user_message=normalized_message,
+            base_instructions=instructions,
         )
 
         tools = self.registry.as_openai_tools(
@@ -184,12 +196,49 @@ class FunctionCallingRuntime:
                 "bulunmuyor."
             )
 
+        profile = resolve_assistant_profile(
+            assistant_profile
+        )
+
         model_name = (
             model
+            or profile.model
             or self.provider.configuration.default_model
         )
 
         current_input: Any = normalized_message
+
+        if image_input:
+            image_url = (
+                image_input.get("data_url", "")
+                or ""
+            ).strip()
+
+            if not image_url:
+                raise ValueError(
+                    "Görsel girdisi için data_url gereklidir."
+                )
+
+            current_input = [
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "input_text",
+                            "text": normalized_message,
+                        },
+                        {
+                            "type": "input_image",
+                            "image_url": image_url,
+                            "detail": image_input.get(
+                                "detail",
+                                "high",
+                            ),
+                        },
+                    ],
+                },
+            ]
+
         previous_response_id = None
         executed_calls: list[ExecutedToolCall] = []
 
@@ -206,6 +255,9 @@ class FunctionCallingRuntime:
                     previous_response_id
                 ),
                 round_number=round_number,
+                reasoning_effort=(
+                    profile.reasoning_effort
+                ),
             )
 
             function_calls = [
@@ -242,6 +294,7 @@ class FunctionCallingRuntime:
                     ),
                     tool_calls=tuple(executed_calls),
                     round_count=round_number,
+                    knowledge_sources=knowledge_sources,
                 )
 
             tool_outputs = []
@@ -297,7 +350,10 @@ class FunctionCallingRuntime:
         *,
         user_message: str,
         base_instructions: str,
-    ) -> str:
+    ) -> tuple[
+        str,
+        tuple[KnowledgeSource, ...],
+    ]:
         """
         Şirketin indekslenmiş bilgi tabanı varsa kullanıcı
         sorusuna en yakın parçaları sistem talimatlarına ekler.
@@ -316,7 +372,7 @@ class FunctionCallingRuntime:
         )
 
         if not has_indexed_documents:
-            return base_instructions
+            return base_instructions, ()
 
         search_results = semantic_search(
             company=self.company,
@@ -330,9 +386,9 @@ class FunctionCallingRuntime:
         )
 
         if retrieved_context.source_count == 0:
-            return base_instructions
+            return base_instructions, ()
 
-        return (
+        resolved_instructions = (
             f"{base_instructions}\n\n"
             "BİLGİ TABANI BAĞLAMI:\n"
             f"{retrieved_context.text}\n\n"
@@ -347,6 +403,11 @@ class FunctionCallingRuntime:
             "olarak tekrar etme."
         )
 
+        return (
+            resolved_instructions,
+            retrieved_context.sources,
+        )
+
     def _create_response(
         self,
         *,
@@ -356,6 +417,7 @@ class FunctionCallingRuntime:
         tools: list[dict],
         previous_response_id: str | None,
         round_number: int,
+        reasoning_effort: str | None,
     ):
         log = AIRequestLog.objects.create(
             company=self.company,
@@ -375,6 +437,7 @@ class FunctionCallingRuntime:
                 "has_previous_response": bool(
                     previous_response_id
                 ),
+                "reasoning_effort": reasoning_effort,
             },
         )
 
@@ -387,6 +450,11 @@ class FunctionCallingRuntime:
             "tools": tools,
             "tool_choice": "auto",
         }
+
+        if reasoning_effort:
+            request_kwargs["reasoning"] = {
+                "effort": reasoning_effort,
+            }
 
         if previous_response_id:
             request_kwargs["previous_response_id"] = (

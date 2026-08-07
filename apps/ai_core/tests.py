@@ -2855,13 +2855,20 @@ class EnterpriseAIAssistantViewTestCase(TestCase):
         response = self.client.post(
             "/ai/",
             {
+                "response_mode": "fast",
                 "message": (
                     "Nova Kozmetik'in bakiyesini göster."
                 ),
             },
+            follow=True,
         )
 
         self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.redirect_chain)
+        self.assertIn(
+            "/ai/?conversation=",
+            response.redirect_chain[0][0],
+        )
 
         self.assertContains(
             response,

@@ -1,0 +1,291 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Glauria AI{% endblock %}
+
+{% block content %}
+<link
+    rel="stylesheet"
+    href="{% static 'css/ai_assistant.css' %}?v=8"
+>
+
+<section class="glauria-ai">
+    <header class="glauria-ai__hero">
+        <div class="glauria-ai__hero-copy">
+            <span class="glauria-ai__eyebrow">
+                ENTERPRISE INTELLIGENCE
+            </span>
+
+            <h1 class="glauria-ai__hero-title">
+                Glauria AI <span>✦</span>
+            </h1>
+
+            <p class="glauria-ai__hero-description">
+                Yetkili olduğunuz ERP modüllerindeki verileri
+                güvenli araç çağrılarıyla sorgulayın.
+            </p>
+        </div>
+
+        {% if current_membership %}
+            <div class="glauria-ai__workspace-card">
+                <small>AKTİF ÇALIŞMA ALANI</small>
+
+                <strong>
+                    {{ current_membership.company.name }}
+                </strong>
+
+                <span class="glauria-ai__workspace-mark">♛</span>
+            </div>
+        {% endif %}
+    </header>
+
+    {% if access_error %}
+        <div class="glauria-ai__alert glauria-ai__alert--error">
+            {{ access_error }}
+        </div>
+    {% else %}
+        <div class="glauria-ai__layout">
+            <main class="glauria-ai__chat-shell">
+                <header class="glauria-ai__chat-head">
+                    <span class="glauria-ai__assistant-orb">✦</span>
+
+                    <div>
+                        <h2>Kurumsal asistanınız hazır</h2>
+
+                        <p>
+                            CRM, finans, stok ve işe alım
+                            verilerinizi doğal dille sorgulayın.
+                        </p>
+                    </div>
+                </header>
+
+                {% if assistant_error %}
+                    <div class="glauria-ai__alert glauria-ai__alert--error">
+                        <strong>Yanıt oluşturulamadı.</strong>
+                        {{ assistant_error }}
+                    </div>
+                {% endif %}
+
+                {% if form.message.errors %}
+                    <div class="glauria-ai__alert glauria-ai__alert--error">
+                        {{ form.message.errors|striptags }}
+                    </div>
+                {% endif %}
+
+                <section class="glauria-ai__conversation">
+                    {% for message in conversation_messages %}
+                        <article
+                            class="glauria-ai__message
+                            {% if message.role == 'user' %}
+                                glauria-ai__message--user
+                            {% else %}
+                                glauria-ai__message--assistant
+                            {% endif %}"
+                        >
+                            <div class="glauria-ai__message-label">
+                                {% if message.role == 'user' %}
+                                    SİZ
+                                {% else %}
+                                    GLAURIA AI
+                                {% endif %}
+                            </div>
+
+                            <div class="glauria-ai__bubble">
+                                {{ message.content|linebreaksbr }}
+                            </div>
+
+                            {% if message.role == 'assistant' %}
+                                <div class="glauria-ai__metadata">
+                                    <span>
+                                        {{ message.tool_calls|length }}
+                                        araç çağrısı
+                                    </span>
+
+                                    <span>
+                                        {{ message.round_count }}
+                                        AI turu
+                                    </span>
+
+                                    <span>
+                                        Yetkili veri kapsamı
+                                    </span>
+                                </div>
+                            {% endif %}
+                        </article>
+                    {% empty %}
+                        <div class="glauria-ai__empty-state">
+                            <div>
+                                <strong>
+                                    Yeni bir Glauria AI sohbeti başlatın
+                                </strong>
+
+                                Sağ taraftaki örneklerden birini seçebilir
+                                veya kendi sorunuzu yazabilirsiniz.
+                            </div>
+                        </div>
+                    {% endfor %}
+                </section>
+
+                <div class="glauria-ai__composer-area">
+                    <form
+                        method="post"
+                        class="glauria-ai__composer"
+                    >
+                        {% csrf_token %}
+
+                        {% if selected_conversation %}
+                            <input
+                                type="hidden"
+                                name="conversation_id"
+                                value="{{ selected_conversation.id }}"
+                            >
+                        {% endif %}
+
+                        <label for="{{ form.message.id_for_label }}">
+                            Glauria AI'ya sorun
+                        </label>
+
+                        {{ form.message }}
+
+                        <div class="glauria-ai__composer-footer">
+                            <span class="glauria-ai__composer-note">
+                                Yanıtlar erişim yetkilerinizle
+                                sınırlandırılır.
+                            </span>
+
+                            <button
+                                type="submit"
+                                class="glauria-ai__submit"
+                            >
+                                Yanıt Oluştur
+                                <span>✦</span>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </main>
+
+            <aside class="glauria-ai__side">
+                <section class="glauria-ai__panel">
+                    <span class="glauria-ai__panel-label">
+                        ERİŞİLEBİLEN MODÜLLER
+                    </span>
+
+                    <div class="glauria-ai__modules">
+                        {% for module in allowed_modules %}
+                            <span>{{ module|upper }}</span>
+                        {% empty %}
+                            <span>MODÜL YOK</span>
+                        {% endfor %}
+                    </div>
+                </section>
+
+                <section class="glauria-ai__panel">
+                    <span class="glauria-ai__panel-label">
+                        ÖRNEK SORULAR
+                    </span>
+
+                    <div class="glauria-ai__prompt-list">
+                        <button
+                            type="button"
+                            class="glauria-ai__prompt-button"
+                            data-ai-prompt="Nova Kozmetik'in açık faturalarını ve cari bakiyesini özetle."
+                        >
+                            <span>
+                                Nova Kozmetik'in açık faturalarını
+                                ve cari bakiyesini özetle.
+                            </span>
+                            <span>›</span>
+                        </button>
+
+                        <button
+                            type="button"
+                            class="glauria-ai__prompt-button"
+                            data-ai-prompt="SERUM-001 ürününün kullanılabilir stok miktarı nedir?"
+                        >
+                            <span>
+                                SERUM-001 ürününün kullanılabilir
+                                stok miktarı nedir?
+                            </span>
+                            <span>›</span>
+                        </button>
+
+                        <button
+                            type="button"
+                            class="glauria-ai__prompt-button"
+                            data-ai-prompt="İşe alım pipeline'ındaki aktif başvuruları göster."
+                        >
+                            <span>
+                                İşe alım pipeline'ındaki aktif
+                                başvuruları göster.
+                            </span>
+                            <span>›</span>
+                        </button>
+                    </div>
+                </section>
+
+                <section class="glauria-ai__panel">
+                    <span class="glauria-ai__panel-label">
+                        KULLANIM ÖZETİ
+                    </span>
+
+                    <div class="glauria-ai__usage">
+                        <div class="glauria-ai__usage-row">
+                            <span>Bu Yanıttaki Araçlar</span>
+                            <strong>{{ tool_call_count|default:0 }}</strong>
+                        </div>
+
+                        <div class="glauria-ai__usage-row">
+                            <span>AI Turu</span>
+                            <strong>{{ round_count|default:0 }}</strong>
+                        </div>
+
+                        <div class="glauria-ai__usage-row">
+                            <span>Yetkili Modül</span>
+                            <strong>{{ allowed_modules|length }}</strong>
+                        </div>
+                    </div>
+                </section>
+
+                {% if tool_calls %}
+                    <section class="glauria-ai__panel">
+                        <span class="glauria-ai__panel-label">
+                            KULLANILAN ARAÇLAR
+                        </span>
+
+                        {% for call in tool_calls %}
+                            <div class="glauria-ai__tool">
+                                <strong>{{ call.tool_name }}</strong>
+                                <small>{{ call.latency_ms }} ms</small>
+                            </div>
+                        {% endfor %}
+                    </section>
+                {% endif %}
+            </aside>
+        </div>
+    {% endif %}
+</section>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const textarea = document.getElementById("id_message");
+
+    document
+        .querySelectorAll("[data-ai-prompt]")
+        .forEach(function (button) {
+            button.addEventListener("click", function () {
+                if (!textarea) {
+                    return;
+                }
+
+                textarea.value = button.dataset.aiPrompt;
+                textarea.focus();
+                textarea.scrollIntoView({
+                    behavior: "smooth",
+                    block: "center"
+                });
+            });
+        });
+});
+</script>
+{% endblock %}

@@ -6,7 +6,7 @@
 {% block content %}
 <link
     rel="stylesheet"
-    href="{% static 'css/ai_assistant.css' %}?v=8"
+    href="{% static 'css/ai_assistant.css' %}?v=21"
 >
 
 <section class="glauria-ai">
@@ -44,17 +44,144 @@
             {{ access_error }}
         </div>
     {% else %}
+        <nav
+            class="glauria-ai__management-nav"
+            aria-label="Glauria AI yönetimi"
+        >
+            <div>
+                <span>AI ÇALIŞMA ALANI</span>
+
+                <strong>Kurumsal yapay zekâ yönetimi</strong>
+            </div>
+
+            <div class="glauria-ai__management-actions">
+                <a
+                    href="{% url 'ai_core:assistant' %}"
+                    class="is-active"
+                >
+                    ✦ Asistan
+                </a>
+
+                {% if can_manage_ai_knowledge %}
+                    <a
+                        href="{% url 'ai_core:knowledge_base' %}"
+                    >
+                        ▣ Knowledge Base
+                    </a>
+
+                    <a
+                        href="{% url 'ai_core:operations' %}"
+                    >
+                        ◉ AI Operations
+                    </a>
+                {% endif %}
+            </div>
+        </nav>
+
         <div class="glauria-ai__layout">
+            <aside class="glauria-ai__history">
+                <a
+                    href="{% url 'ai_core:assistant' %}?new=1"
+                    class="glauria-ai__new-chat"
+                >
+                    <span>＋</span>
+                    Yeni sohbet
+                </a>
+
+                <div class="glauria-ai__history-heading">
+                    <span>SOHBET GEÇMİŞİ</span>
+                    <small>{{ conversations|length }}</small>
+                </div>
+
+                <nav class="glauria-ai__history-list">
+                    {% for conversation in conversations %}
+                        <div
+                            class="glauria-ai__history-entry
+                            {% if selected_conversation and selected_conversation.id == conversation.id %}
+                                is-active
+                            {% endif %}"
+                        >
+                            <a
+                                href="{% url 'ai_core:assistant' %}?conversation={{ conversation.id }}"
+                                class="glauria-ai__history-item"
+                            >
+                                <span class="glauria-ai__history-icon">
+                                    ✦
+                                </span>
+
+                                <span class="glauria-ai__history-copy">
+                                    <strong>
+                                        {{ conversation.title }}
+                                    </strong>
+
+                                    <small>
+                                        {% if conversation.last_message_at %}
+                                            {{ conversation.last_message_at|date:"d.m.Y H:i" }}
+                                        {% else %}
+                                            {{ conversation.updated_at|date:"d.m.Y H:i" }}
+                                        {% endif %}
+                                    </small>
+                                </span>
+                            </a>
+
+                            <form
+                                method="post"
+                                class="glauria-ai__history-action"
+                                data-conversation-delete-form
+                            >
+                                {% csrf_token %}
+
+                                <input
+                                    type="hidden"
+                                    name="action"
+                                    value="archive_conversation"
+                                >
+
+                                <input
+                                    type="hidden"
+                                    name="conversation_id"
+                                    value="{{ conversation.id }}"
+                                >
+
+                                <button
+                                    type="submit"
+                                    class="glauria-ai__history-delete"
+                                    aria-label="Sohbeti sil"
+                                    title="Sohbeti sil"
+                                >
+                                    ×
+                                </button>
+                            </form>
+                        </div>
+                    {% empty %}
+                        <div class="glauria-ai__history-empty">
+                            Henüz kayıtlı sohbet yok.
+                        </div>
+                    {% endfor %}
+                </nav>
+            </aside>
+
             <main class="glauria-ai__chat-shell">
                 <header class="glauria-ai__chat-head">
                     <span class="glauria-ai__assistant-orb">✦</span>
 
                     <div>
-                        <h2>Kurumsal asistanınız hazır</h2>
+                        <h2>
+                            {% if selected_conversation %}
+                                {{ selected_conversation.title }}
+                            {% else %}
+                                Kurumsal asistanınız hazır
+                            {% endif %}
+                        </h2>
 
                         <p>
-                            CRM, finans, stok ve işe alım
-                            verilerinizi doğal dille sorgulayın.
+                            {% if selected_conversation %}
+                                Bu konuşmadaki önceki mesajlar
+                                kalıcı olarak saklanır.
+                            {% else %}
+                                CRM, finans, stok ve işe alım
+                                verilerinizi doğal dille sorgulayın.
+                            {% endif %}
                         </p>
                     </div>
                 </header>
@@ -73,63 +200,232 @@
                 {% endif %}
 
                 <section class="glauria-ai__conversation">
-                    {% if form.message.value %}
-                        <article class="glauria-ai__message glauria-ai__message--user">
+                    {% for message in conversation_messages %}
+                        <article
+                            class="glauria-ai__message
+                            {% if message.role == 'user' %}
+                                glauria-ai__message--user
+                            {% else %}
+                                glauria-ai__message--assistant
+                            {% endif %}"
+                        >
                             <div class="glauria-ai__message-label">
-                                SİZ
+                                {% if message.role == 'user' %}
+                                    SİZ
+                                {% else %}
+                                    GLAURIA AI
+                                {% endif %}
                             </div>
 
                             <div class="glauria-ai__bubble">
-                                {{ form.message.value }}
+                                {% if message.role == 'user' %}
+                                    {% for attachment in message.attachments.all %}
+                                        {% if attachment.attachment_type == 'image' %}
+                                            <a
+                                                href="{{ attachment.file.url }}"
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                class="glauria-ai__message-image"
+                                            >
+                                                <img
+                                                    src="{{ attachment.file.url }}"
+                                                    alt="{{ attachment.original_filename }}"
+                                                    loading="lazy"
+                                                >
+
+                                                <span>
+                                                    {{ attachment.original_filename }}
+                                                </span>
+                                            </a>
+                                        {% endif %}
+                                    {% endfor %}
+                                {% endif %}
+
+                                <div class="glauria-ai__message-content">
+                                    {{ message.content|linebreaksbr }}
+                                </div>
                             </div>
+
+                            {% if message.role == 'assistant' %}
+                                {% if message.knowledge_sources %}
+                                    <details class="glauria-ai__sources">
+                                        <summary>
+                                            <span>
+                                                Kullanılan kaynaklar
+                                            </span>
+
+                                            <small>
+                                                {{ message.knowledge_sources|length }}
+                                                kurumsal kaynak
+                                            </small>
+                                        </summary>
+
+                                        <div class="glauria-ai__sources-list">
+                                            {% for source in message.knowledge_sources %}
+                                                <article
+                                                    class="glauria-ai__source-card"
+                                                >
+                                                    <strong>
+                                                        {{ source.document_title }}
+                                                    </strong>
+
+                                                    {% if source.preview %}
+                                                        <p>
+                                                            {{ source.preview }}
+                                                        </p>
+                                                    {% endif %}
+                                                </article>
+                                            {% endfor %}
+                                        </div>
+                                    </details>
+                                {% endif %}
+
+                                <div class="glauria-ai__metadata">
+                                    <span>
+                                        {{ message.tool_calls|length }}
+                                        araç çağrısı
+                                    </span>
+
+                                    <span>
+                                        {{ message.round_count }}
+                                        AI turu
+                                    </span>
+
+                                    <span>
+                                        Yetkili veri kapsamı
+                                    </span>
+                                </div>
+                            {% endif %}
                         </article>
-                    {% endif %}
-
-                    {% if assistant_answer %}
-                        <article class="glauria-ai__message glauria-ai__message--assistant">
-                            <div class="glauria-ai__message-label">
-                                GLAURIA AI
-                            </div>
-
-                            <div class="glauria-ai__bubble">
-                                {{ assistant_answer|linebreaksbr }}
-                            </div>
-
-                            <div class="glauria-ai__metadata">
-                                <span>
-                                    {{ tool_call_count }} araç çağrısı
-                                </span>
-
-                                <span>
-                                    {{ round_count }} AI turu
-                                </span>
-
-                                <span>Yetkili veri kapsamı</span>
-                            </div>
-                        </article>
-                    {% endif %}
-
-                    {% if not form.message.value and not assistant_answer %}
+                    {% empty %}
                         <div class="glauria-ai__empty-state">
                             <div>
                                 <strong>
-                                    Şirket verilerinizi doğal dille sorgulayın
+                                    Yeni bir Glauria AI sohbeti başlatın
                                 </strong>
 
-                                Sağ taraftaki örneklerden birini
-                                seçebilir veya kendi sorunuzu
-                                yazabilirsiniz.
+                                Sağ taraftaki örneklerden birini seçebilir
+                                veya kendi sorunuzu yazabilirsiniz.
                             </div>
                         </div>
-                    {% endif %}
+                    {% endfor %}
                 </section>
+
+                <div
+                    id="glauria-ai-working-state"
+                    class="glauria-ai__thinking"
+                    hidden
+                    aria-live="polite"
+                >
+                    <span id="glauria-ai-working-label">
+                        Düşünüyor
+                    </span>
+
+                    <span
+                        class="glauria-ai__thinking-dots"
+                        aria-hidden="true"
+                    >
+                        <i></i>
+                        <i></i>
+                        <i></i>
+                    </span>
+                </div>
 
                 <div class="glauria-ai__composer-area">
                     <form
                         method="post"
+                        enctype="multipart/form-data"
                         class="glauria-ai__composer"
+                        id="glauria-ai-composer"
                     >
                         {% csrf_token %}
+
+                        {% if selected_conversation %}
+                            <input
+                                type="hidden"
+                                name="conversation_id"
+                                value="{{ selected_conversation.id }}"
+                            >
+                        {% endif %}
+
+                        <div class="glauria-ai__mode-row">
+                            <span class="glauria-ai__mode-label">
+                                YANIT MODU
+                            </span>
+
+                            <div class="glauria-ai__mode-options">
+                                {% for option in form.response_mode %}
+                                    <label
+                                        class="glauria-ai__mode-option"
+                                    >
+                                        {{ option.tag }}
+
+                                        <span>
+                                            {% if option.data.value == 'fast' %}
+                                                ⚡ Hızlı
+                                            {% else %}
+                                                ◆ Derin Analiz
+                                            {% endif %}
+                                        </span>
+                                    </label>
+                                {% endfor %}
+                            </div>
+                        </div>
+
+                        {% if form.response_mode.errors %}
+                            <div class="glauria-ai__field-error">
+                                {{ form.response_mode.errors|striptags }}
+                            </div>
+                        {% endif %}
+
+                        <div class="glauria-ai__attachment-row">
+                            <label
+                                for="{{ form.image.id_for_label }}"
+                                class="glauria-ai__attachment-button"
+                            >
+                                <span>▧</span>
+                                Görsel ekle
+                            </label>
+
+                            {{ form.image }}
+
+                            <div
+                                id="glauria-ai-image-preview"
+                                class="glauria-ai__image-preview"
+                                hidden
+                            >
+                                <img
+                                    id="glauria-ai-image-preview-img"
+                                    alt="Seçilen ekran görüntüsü"
+                                >
+
+                                <div class="glauria-ai__image-preview-copy">
+                                    <strong
+                                        id="glauria-ai-image-name"
+                                    ></strong>
+
+                                    <small>
+                                        Görsel yalnızca bu sorunun
+                                        analizi için kullanılır.
+                                    </small>
+                                </div>
+
+                                <button
+                                    type="button"
+                                    id="glauria-ai-image-remove"
+                                    aria-label="Görseli kaldır"
+                                    title="Görseli kaldır"
+                                >
+                                    ×
+                                </button>
+                            </div>
+                        </div>
+
+                        {% if form.image.errors %}
+                            <div class="glauria-ai__field-error">
+                                {{ form.image.errors|striptags }}
+                            </div>
+                        {% endif %}
 
                         <label for="{{ form.message.id_for_label }}">
                             Glauria AI'ya sorun
@@ -146,8 +442,12 @@
                             <button
                                 type="submit"
                                 class="glauria-ai__submit"
+                                id="glauria-ai-submit"
                             >
-                                Yanıt Oluştur
+                                <span id="glauria-ai-submit-label">
+                                    Yanıt Oluştur
+                                </span>
+
                                 <span>✦</span>
                             </button>
                         </div>
@@ -259,6 +559,166 @@
 <script>
 document.addEventListener("DOMContentLoaded", function () {
     const textarea = document.getElementById("id_message");
+    const form = document.getElementById(
+        "glauria-ai-composer"
+    );
+    const submitButton = document.getElementById(
+        "glauria-ai-submit"
+    );
+    const submitLabel = document.getElementById(
+        "glauria-ai-submit-label"
+    );
+    const workingState = document.getElementById(
+        "glauria-ai-working-state"
+    );
+    const workingLabel = document.getElementById(
+        "glauria-ai-working-label"
+    );
+    const conversation = document.querySelector(
+        ".glauria-ai__conversation"
+    );
+    const imageInput = document.getElementById("id_image");
+    const imagePreview = document.getElementById(
+        "glauria-ai-image-preview"
+    );
+    const imagePreviewElement = document.getElementById(
+        "glauria-ai-image-preview-img"
+    );
+    const imageName = document.getElementById(
+        "glauria-ai-image-name"
+    );
+    const imageRemoveButton = document.getElementById(
+        "glauria-ai-image-remove"
+    );
+
+    function scrollConversationToBottom() {
+        if (!conversation) {
+            return;
+        }
+
+        conversation.scrollTo({
+            top: conversation.scrollHeight,
+            behavior: "smooth",
+        });
+    }
+
+    function createPendingUserMessage(message) {
+        if (!conversation) {
+            return;
+        }
+
+        const emptyState = conversation.querySelector(
+            ".glauria-ai__empty-state"
+        );
+
+        if (emptyState) {
+            emptyState.remove();
+        }
+
+        const article = document.createElement("article");
+
+        article.className = [
+            "glauria-ai__message",
+            "glauria-ai__message--user",
+            "glauria-ai__message--pending",
+        ].join(" ");
+
+        const label = document.createElement("div");
+        label.className = "glauria-ai__message-label";
+        label.textContent = "SİZ";
+
+        const bubble = document.createElement("div");
+        bubble.className = "glauria-ai__bubble";
+        bubble.textContent = message;
+
+        article.appendChild(label);
+        article.appendChild(bubble);
+        conversation.appendChild(article);
+    }
+
+    function startWorkingState() {
+        if (workingLabel) {
+            workingLabel.textContent = "Düşünüyor";
+        }
+
+        if (workingState) {
+            workingState.hidden = false;
+        }
+    }
+
+    if (imageInput) {
+        imageInput.addEventListener("change", function () {
+            const file = imageInput.files[0];
+
+            if (!file) {
+                if (imagePreview) {
+                    imagePreview.hidden = true;
+                }
+
+                return;
+            }
+
+            if (imageName) {
+                imageName.textContent = file.name;
+            }
+
+            if (imagePreviewElement) {
+                imagePreviewElement.src = (
+                    URL.createObjectURL(file)
+                );
+            }
+
+            if (imagePreview) {
+                imagePreview.hidden = false;
+            }
+        });
+    }
+
+    if (imageRemoveButton && imageInput) {
+        imageRemoveButton.addEventListener(
+            "click",
+            function () {
+                imageInput.value = "";
+
+                if (imagePreviewElement) {
+                    imagePreviewElement.removeAttribute(
+                        "src"
+                    );
+                }
+
+                if (imageName) {
+                    imageName.textContent = "";
+                }
+
+                if (imagePreview) {
+                    imagePreview.hidden = true;
+                }
+            }
+        );
+    }
+
+    if (textarea && form) {
+        textarea.addEventListener("keydown", function (event) {
+            if (
+                event.key !== "Enter"
+                || event.shiftKey
+                || event.isComposing
+            ) {
+                return;
+            }
+
+            event.preventDefault();
+
+            if (
+                submitButton
+                && submitButton.disabled
+            ) {
+                return;
+            }
+
+            form.requestSubmit();
+        });
+    }
 
     document
         .querySelectorAll("[data-ai-prompt]")
@@ -270,12 +730,159 @@ document.addEventListener("DOMContentLoaded", function () {
 
                 textarea.value = button.dataset.aiPrompt;
                 textarea.focus();
+
                 textarea.scrollIntoView({
                     behavior: "smooth",
-                    block: "center"
+                    block: "center",
                 });
             });
         });
+
+    if (form) {
+        let submissionStarted = false;
+
+        form.addEventListener("submit", function (event) {
+            if (submissionStarted) {
+                return;
+            }
+
+            event.preventDefault();
+
+            const message = (
+                textarea
+                    ? textarea.value.trim()
+                    : ""
+            );
+
+            if (!message) {
+                if (textarea) {
+                    textarea.focus();
+                }
+
+                return;
+            }
+
+            submissionStarted = true;
+
+            const formData = new FormData(form);
+
+            createPendingUserMessage(message);
+
+            if (textarea) {
+                textarea.value = "";
+            }
+
+            startWorkingState();
+
+            if (submitButton) {
+                submitButton.disabled = true;
+                submitButton.classList.add("is-loading");
+            }
+
+            if (submitLabel) {
+                submitLabel.textContent = "Yanıt hazırlanıyor";
+            }
+
+            if (textarea) {
+                textarea.readOnly = true;
+                textarea.setAttribute(
+                    "aria-busy",
+                    "true"
+                );
+            }
+
+            scrollConversationToBottom();
+
+            window.requestAnimationFrame(function () {
+                window.requestAnimationFrame(async function () {
+                    try {
+                        const response = await fetch(
+                            form.action || window.location.href,
+                            {
+                                method: "POST",
+                                body: formData,
+                                credentials: "same-origin",
+                                redirect: "follow",
+                                headers: {
+                                    "X-Requested-With": (
+                                        "XMLHttpRequest"
+                                    ),
+                                },
+                            }
+                        );
+
+                        if (!response.ok) {
+                            throw new Error(
+                                "Yanıt isteği tamamlanamadı."
+                            );
+                        }
+
+                        window.location.assign(
+                            response.url
+                            || window.location.href
+                        );
+                    } catch (error) {
+                        submissionStarted = false;
+
+                        if (workingLabel) {
+                            workingLabel.textContent = (
+                                "Yanıt oluşturulamadı. "
+                                + "Lütfen tekrar deneyin."
+                            );
+                        }
+
+                        if (submitButton) {
+                            submitButton.disabled = false;
+                            submitButton.classList.remove(
+                                "is-loading"
+                            );
+                        }
+
+                        if (submitLabel) {
+                            submitLabel.textContent = (
+                                "Tekrar Dene"
+                            );
+                        }
+
+                        if (textarea) {
+                            textarea.readOnly = false;
+                            textarea.removeAttribute(
+                                "aria-busy"
+                            );
+                            textarea.focus();
+                        }
+
+                        console.error(
+                            "Glauria AI request failed:",
+                            error
+                        );
+                    }
+                });
+            });
+        });
+    }
+
+    document
+        .querySelectorAll(
+            "[data-conversation-delete-form]"
+        )
+        .forEach(function (deleteForm) {
+            deleteForm.addEventListener(
+                "submit",
+                function (event) {
+                    const confirmed = window.confirm(
+                        "Bu sohbet silinsin mi? "
+                        + "Sohbet geçmişinden kaldırılacak."
+                    );
+
+                    if (!confirmed) {
+                        event.preventDefault();
+                    }
+                }
+            );
+        });
+
+    scrollConversationToBottom();
 });
 </script>
 {% endblock %}

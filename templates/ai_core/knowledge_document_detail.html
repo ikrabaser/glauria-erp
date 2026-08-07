@@ -1,0 +1,198 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}
+    {{ document.title }} · Knowledge Base
+{% endblock %}
+
+{% block extra_css %}
+    {{ block.super }}
+    <link
+        rel="stylesheet"
+        href="{% static 'css/ai_knowledge_base.css' %}?v=2"
+    >
+{% endblock %}
+
+{% block content %}
+<section class="ai-kb ai-kb--detail">
+    {% if access_error %}
+        <div class="ai-kb__alert">
+            {{ access_error }}
+        </div>
+    {% else %}
+        <nav class="ai-kb__breadcrumb">
+            <a href="{% url 'ai_core:knowledge_base' %}">
+                Knowledge Base
+            </a>
+
+            <span>›</span>
+
+            <strong>{{ document.title }}</strong>
+        </nav>
+
+        <header class="ai-kb__header">
+            <div>
+                <span class="ai-kb__eyebrow">
+                    KNOWLEDGE DOCUMENT
+                </span>
+
+                <h1>{{ document.title }}</h1>
+
+                <p>
+                    {{ document.get_document_type_display }}
+                    ·
+                    {{ document.get_source_type_display }}
+                </p>
+            </div>
+
+            <span
+                class="ai-kb__status
+                ai-kb__status--{{ document.status }}"
+            >
+                {{ document.get_status_display }}
+            </span>
+        </header>
+
+        <section class="ai-kb__stats">
+            <article class="ai-kb__stat">
+                <span>Chunk</span>
+                <strong>
+                    {{ chunk_statistics.total_chunks|default:0 }}
+                </strong>
+                <small>Toplam bilgi parçası</small>
+            </article>
+
+            <article class="ai-kb__stat">
+                <span>Embedding</span>
+                <strong>
+                    {{ chunk_statistics.embedded_chunks|default:0 }}
+                </strong>
+                <small>Hazır vektör kaydı</small>
+            </article>
+
+            <article class="ai-kb__stat">
+                <span>Toplam token</span>
+                <strong>
+                    {{ chunk_statistics.total_tokens|default:0 }}
+                </strong>
+                <small>Tahmini token</small>
+            </article>
+
+            <article class="ai-kb__stat">
+                <span>Ortalama chunk</span>
+                <strong>
+                    {{ chunk_statistics.average_tokens|floatformat:0|default:0 }}
+                </strong>
+                <small>Tahmini token</small>
+            </article>
+
+            <article class="ai-kb__stat">
+                <span>Embedding modeli</span>
+                <strong class="ai-kb__stat-model">
+                    {% with first_chunk=chunks.first %}
+                        {% if first_chunk %}
+                            {{ first_chunk.embedding_model|default:"—" }}
+                        {% else %}
+                            —
+                        {% endif %}
+                    {% endwith %}
+                </strong>
+                <small>1536 boyut</small>
+            </article>
+        </section>
+
+        <section class="ai-kb__panel">
+            <header class="ai-kb__panel-head">
+                <div>
+                    <h2>Chunk Inspector</h2>
+
+                    <p>
+                        Dokümanın indeksleme sırasında oluşturulan
+                        bilgi parçalarını inceleyin.
+                    </p>
+                </div>
+
+                <span>
+                    {{ chunk_statistics.total_chunks|default:0 }}
+                    chunk
+                </span>
+            </header>
+
+            <div class="ai-kb__chunk-list">
+                {% for chunk in chunks %}
+                    <article class="ai-kb__chunk">
+                        <header class="ai-kb__chunk-head">
+                            <div>
+                                <strong>
+                                    Chunk #{{ chunk.chunk_index }}
+                                </strong>
+
+                                <small>
+                                    {{ chunk.token_count }} token
+                                    ·
+                                    {% if chunk.embedded_at %}
+                                        Embedding hazır
+                                    {% else %}
+                                        Embedding eksik
+                                    {% endif %}
+                                </small>
+                            </div>
+
+                            <span>
+                                {{ chunk.embedding_model|default:"Model yok" }}
+                            </span>
+                        </header>
+
+                        <div class="ai-kb__chunk-content">
+                            {{ chunk.content|linebreaksbr }}
+                        </div>
+
+                        <details class="ai-kb__chunk-technical">
+                            <summary>
+                                Teknik ayrıntılar
+                            </summary>
+
+                            <div>
+                                <span>
+                                    Chunk ID:
+                                    <code>{{ chunk.id }}</code>
+                                </span>
+
+                                <span>
+                                    Hash:
+                                    <code>
+                                        {{ chunk.content_hash|default:"—" }}
+                                    </code>
+                                </span>
+
+                                <span>
+                                    İndeks:
+                                    {{ chunk.chunk_index }}
+                                </span>
+
+                                <span>
+                                    Token:
+                                    {{ chunk.token_count }}
+                                </span>
+
+                                <span>
+                                    Embedding zamanı:
+                                    {% if chunk.embedded_at %}
+                                        {{ chunk.embedded_at|date:"d.m.Y H:i" }}
+                                    {% else %}
+                                        —
+                                    {% endif %}
+                                </span>
+                            </div>
+                        </details>
+                    </article>
+                {% empty %}
+                    <div class="ai-kb__empty">
+                        Bu doküman için henüz chunk oluşturulmamış.
+                    </div>
+                {% endfor %}
+            </div>
+        </section>
+    {% endif %}
+</section>
+{% endblock %}

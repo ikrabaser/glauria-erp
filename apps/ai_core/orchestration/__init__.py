@@ -8,11 +8,13 @@ from .prompts import (
     build_recruitment_assessment_prompt,
 )
 from .retrievers import (
+    KnowledgeSource,
     RetrievedKnowledgeContext,
     format_knowledge_results,
 )
 
 __all__ = [
+    "KnowledgeSource",
     "LangChainStructuredResult",
     "RECRUITMENT_ASSESSMENT_SYSTEM_PROMPT",
     "RecruitmentAssessmentChain",
