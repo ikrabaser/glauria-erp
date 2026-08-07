@@ -1,0 +1,163 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}
+    Semantic Search · Glauria AI
+{% endblock %}
+
+{% block extra_css %}
+    {{ block.super }}
+    <link
+        rel="stylesheet"
+        href="{% static 'css/ai_knowledge_base.css' %}?v=6"
+    >
+{% endblock %}
+
+{% block content %}
+<section class="ai-kb ai-kb--search">
+    <nav class="ai-kb__breadcrumb">
+        <a href="{% url 'ai_core:knowledge_base' %}">
+            Knowledge Base
+        </a>
+
+        <span>›</span>
+
+        <strong>Semantic Search</strong>
+    </nav>
+
+    <header class="ai-kb__header">
+        <div>
+            <span class="ai-kb__eyebrow">
+                RAG RETRIEVAL DEBUGGER
+            </span>
+
+            <h1>Semantic Search Playground</h1>
+
+            <p>
+                Bir sorgunun Knowledge Base üzerinde hangi
+                chunk'larla eşleştiğini ve similarity skorlarını
+                LLM yanıtından bağımsız olarak inceleyin.
+            </p>
+        </div>
+
+        <a
+            href="{% url 'ai_core:knowledge_base' %}"
+            class="ai-kb__assistant-link"
+        >
+            Knowledge Base'e dön
+        </a>
+    </header>
+
+    <section class="ai-kb__search-panel">
+        <form
+            method="get"
+            class="ai-kb__search-form"
+        >
+            <div>
+                <label for="semantic-query">
+                    Semantic search sorgusu
+                </label>
+
+                <input
+                    id="semantic-query"
+                    type="search"
+                    name="q"
+                    value="{{ query }}"
+                    placeholder="Örn. yıllık izin talebi nasıl onaylanır?"
+                    autocomplete="off"
+                >
+            </div>
+
+            <button type="submit">
+                Semantic Search
+            </button>
+        </form>
+
+        {% if search_error %}
+            <div class="ai-kb__index-error">
+                <strong>Arama başarısız</strong>
+                <span>{{ search_error }}</span>
+            </div>
+        {% endif %}
+    </section>
+
+    {% if query %}
+        <section class="ai-kb__panel">
+            <header class="ai-kb__panel-head">
+                <div>
+                    <h2>Retrieval sonuçları</h2>
+
+                    <p>
+                        “{{ query }}” sorgusu için en yakın
+                        Knowledge Base chunk'ları.
+                    </p>
+                </div>
+
+                <span>
+                    {{ results|length }} sonuç
+                </span>
+            </header>
+
+            <div class="ai-kb__search-results">
+                {% for result in results %}
+                    <article class="ai-kb__search-result">
+                        <header>
+                            <div>
+                                <span class="ai-kb__search-rank">
+                                    #{{ forloop.counter }}
+                                </span>
+
+                                <div>
+                                    <strong>
+                                        {{ result.document_title }}
+                                    </strong>
+
+                                    <small>
+                                        {{ result.document_type }}
+                                    </small>
+                                </div>
+                            </div>
+
+                            <div class="ai-kb__search-score">
+                                <span>Similarity</span>
+
+                                <strong>
+                                    {{ result.similarity|floatformat:3 }}
+                                </strong>
+                            </div>
+                        </header>
+
+                        <div class="ai-kb__search-meta">
+                            <span>
+                                Chunk #{{ result.chunk_index }}
+                            </span>
+
+                            <span>
+                                {{ result.token_count }} token
+                            </span>
+
+                            <span>
+                                {{ result.chunk_id }}
+                            </span>
+                        </div>
+
+                        <p>
+                            {{ result.content|truncatechars:480 }}
+                        </p>
+
+                        <a
+                            href="{% url 'ai_core:knowledge_document_detail' result.document_id %}"
+                        >
+                            Chunk Inspector'da aç →
+                        </a>
+                    </article>
+                {% empty %}
+                    <div class="ai-kb__empty">
+                        Bu sorgu için retrieval sonucu bulunamadı.
+                    </div>
+                {% endfor %}
+            </div>
+        </section>
+    {% endif %}
+</section>
+{% endblock %}

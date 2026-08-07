@@ -23,13 +23,21 @@ from apps.ai_core.orchestration import (
     FunctionCallingRuntimeError,
 )
 from apps.ai_core.services import (
+    KnowledgeDocumentIngestionError,
+    extract_document_text,
+    semantic_search,
     AIConfigurationError,
     AIProviderError,
 )
 from apps.ai_core.tools import ERPToolError
+from apps.ai_core.tasks import index_ai_knowledge_document
 
 from .assistant import resolve_enterprise_ai_access
-from .forms import EnterpriseAIAssistantForm
+from .forms import (
+    EnterpriseAIAssistantForm,
+    KnowledgeDocumentUpdateForm,
+    KnowledgeDocumentUploadForm,
+)
 
 
 def _build_image_input(uploaded_image):
@@ -249,6 +257,97 @@ def knowledge_base_home(request):
 
     company = access_context.company
 
+    upload_form = KnowledgeDocumentUploadForm(
+        request.POST or None,
+        request.FILES or None,
+    )
+
+    if (
+        request.method == "POST"
+        and request.POST.get("action")
+        == "upload_knowledge_document"
+    ):
+        if upload_form.is_valid():
+            uploaded_file = (
+                upload_form.cleaned_data["file"]
+            )
+
+            try:
+                extracted = extract_document_text(
+                    filename=uploaded_file.name,
+                    content=uploaded_file.read(),
+                )
+
+                document = (
+                    AIKnowledgeDocument.objects.create(
+                        company=company,
+                        title=upload_form.cleaned_data[
+                            "title"
+                        ],
+                        document_type=(
+                            upload_form.cleaned_data[
+                                "document_type"
+                            ]
+                        ),
+                        source_type=(
+                            AIKnowledgeDocument
+                            .SourceType
+                            .FILE_UPLOAD
+                        ),
+                        source_reference=(
+                            extracted.filename
+                        ),
+                        content_text=extracted.text,
+                        metadata={
+                            "filename": (
+                                extracted.filename
+                            ),
+                            "extension": (
+                                extracted.extension
+                            ),
+                            "uploaded_by": (
+                                request.user.username
+                            ),
+                        },
+                    )
+                )
+
+                index_ai_knowledge_document.delay(
+                    str(document.id),
+                    request.user.id,
+                )
+
+                messages.success(
+                    request,
+                    (
+                        f"'{document.title}' bilgi tabanına "
+                        "eklendi. İndeksleme işlemi kuyruğa alındı."
+                    ),
+                )
+
+                return redirect(
+                    "ai_core:knowledge_base"
+                )
+
+            except (
+                KnowledgeDocumentIngestionError,
+                ValueError,
+            ) as error:
+                messages.error(
+                    request,
+                    str(error),
+                )
+
+            except Exception:
+                messages.error(
+                    request,
+                    (
+                        "Doküman işlenirken beklenmeyen "
+                        "bir hata oluştu."
+                    ),
+                )
+
+
     documents = (
         AIKnowledgeDocument.objects
         .filter(company=company)
@@ -312,6 +411,7 @@ def knowledge_base_home(request):
             "current_membership": (
                 access_context.membership
             ),
+            "upload_form": upload_form,
             "documents": documents[:12],
             "document_statistics": (
                 document_statistics
@@ -399,9 +499,345 @@ def knowledge_document_detail(
                 access_context.membership
             ),
             "document": document,
+            "update_form": KnowledgeDocumentUpdateForm(
+                initial={
+                    "title": document.title,
+                    "document_type": document.document_type,
+                }
+            ),
             "chunks": chunks,
             "chunk_statistics": chunk_statistics,
             "access_error": "",
+        },
+    )
+
+
+@login_required
+def knowledge_document_update(
+    request,
+    document_id,
+):
+    """
+    Knowledge Base dokümanının başlık, tür ve
+    isteğe bağlı dosya içeriğini günceller.
+    """
+
+    access_context = resolve_enterprise_ai_access(
+        request.user
+    )
+
+    if (
+        access_context is None
+        or not _can_manage_ai_knowledge(access_context)
+    ):
+        messages.error(
+            request,
+            "Bu işlem için yetkiniz bulunmuyor.",
+        )
+        return redirect("ai_core:knowledge_base")
+
+    document = get_object_or_404(
+        AIKnowledgeDocument.objects.filter(
+            company=access_context.company,
+        ),
+        id=document_id,
+    )
+
+    if request.method != "POST":
+        return redirect(
+            "ai_core:knowledge_document_detail",
+            document_id=document.id,
+        )
+
+    form = KnowledgeDocumentUpdateForm(
+        request.POST,
+        request.FILES,
+        initial={
+            "title": document.title,
+            "document_type": document.document_type,
+        },
+    )
+
+    if not form.is_valid():
+        messages.error(
+            request,
+            "Doküman güncelleme bilgileri geçerli değil.",
+        )
+        return redirect(
+            "ai_core:knowledge_document_detail",
+            document_id=document.id,
+        )
+
+    uploaded_file = form.cleaned_data.get("file")
+
+    try:
+        document.title = form.cleaned_data["title"]
+        document.document_type = (
+            form.cleaned_data["document_type"]
+        )
+
+        if uploaded_file is not None:
+            extracted = extract_document_text(
+                filename=uploaded_file.name,
+                content=uploaded_file.read(),
+            )
+
+            document.content_text = extracted.text
+            document.source_type = (
+                AIKnowledgeDocument.SourceType.FILE_UPLOAD
+            )
+            document.source_reference = extracted.filename
+
+            metadata = dict(document.metadata or {})
+            metadata.update(
+                {
+                    "filename": extracted.filename,
+                    "extension": extracted.extension,
+                    "updated_by": request.user.username,
+                }
+            )
+            document.metadata = metadata
+
+            # Yeni dosya geldiyse mevcut indeks geçersizdir.
+            document.status = (
+                AIKnowledgeDocument.Status.PENDING
+            )
+            document.content_hash = ""
+
+        document.save()
+
+        if uploaded_file is not None:
+            index_ai_knowledge_document.delay(
+                str(document.id),
+                request.user.id,
+            )
+
+            messages.success(
+                request,
+                (
+                    f"'{document.title}' güncellendi. "
+                    "Yeniden indeksleme kuyruğa alındı."
+                ),
+            )
+        else:
+            messages.success(
+                request,
+                f"'{document.title}' güncellendi.",
+            )
+
+    except KnowledgeDocumentIngestionError as error:
+        messages.error(
+            request,
+            str(error),
+        )
+
+    except Exception:
+        messages.error(
+            request,
+            "Doküman güncellenirken beklenmeyen bir hata oluştu.",
+        )
+
+    return redirect(
+        "ai_core:knowledge_document_detail",
+        document_id=document.id,
+    )
+
+
+@login_required
+def knowledge_document_reindex(
+    request,
+    document_id,
+):
+    """
+    Aktif şirkete ait Knowledge Base dokümanını
+    zorunlu olarak yeniden indeksler.
+    """
+
+    if request.method != "POST":
+        return redirect("ai_core:knowledge_document_detail", document_id=document_id)
+
+    access_context = resolve_enterprise_ai_access(
+        request.user
+    )
+
+    if (
+        access_context is None
+        or not _can_manage_ai_knowledge(access_context)
+    ):
+        messages.error(
+            request,
+            "Bu işlem için yetkiniz bulunmuyor.",
+        )
+        return redirect("ai_core:knowledge_base")
+
+    document = get_object_or_404(
+        AIKnowledgeDocument.objects.filter(
+            company=access_context.company,
+        ),
+        id=document_id,
+    )
+
+    try:
+        # Mevcut indeksin reuse edilmesini engeller.
+        document.status = AIKnowledgeDocument.Status.PENDING
+        document.content_hash = ""
+        document.save(
+            update_fields=[
+                "status",
+                "content_hash",
+                "updated_at",
+            ]
+        )
+
+        index_ai_knowledge_document.delay(
+            str(document.id),
+            request.user.id,
+        )
+
+        messages.success(
+            request,
+            (
+                f"'{document.title}' için yeniden indeksleme "
+                "kuyruğa alındı."
+            ),
+        )
+
+    except Exception:
+        messages.error(
+            request,
+            "Doküman yeniden indekslenirken bir hata oluştu.",
+        )
+
+    return redirect(
+        "ai_core:knowledge_document_detail",
+        document_id=document.id,
+    )
+
+
+@login_required
+def knowledge_document_delete(
+    request,
+    document_id,
+):
+    """
+    Aktif şirkete ait Knowledge Base dokümanını siler.
+    """
+
+    if request.method != "POST":
+        return redirect("ai_core:knowledge_document_detail", document_id=document_id)
+
+    access_context = resolve_enterprise_ai_access(
+        request.user
+    )
+
+    if (
+        access_context is None
+        or not _can_manage_ai_knowledge(access_context)
+    ):
+        messages.error(
+            request,
+            "Bu işlem için yetkiniz bulunmuyor.",
+        )
+        return redirect("ai_core:knowledge_base")
+
+    document = get_object_or_404(
+        AIKnowledgeDocument.objects.filter(
+            company=access_context.company,
+        ),
+        id=document_id,
+    )
+
+    document_title = document.title
+    document.delete()
+
+    messages.success(
+        request,
+        f"'{document_title}' bilgi tabanından silindi.",
+    )
+
+    return redirect("ai_core:knowledge_base")
+
+
+@login_required
+def knowledge_search_playground(request):
+    """
+    Knowledge Base üzerinde semantic search sonuçlarını
+    LLM çağrısından bağımsız olarak test eder.
+    """
+
+    access_context = resolve_enterprise_ai_access(
+        request.user
+    )
+
+    if (
+        access_context is None
+        or not _can_manage_ai_knowledge(access_context)
+    ):
+        messages.error(
+            request,
+            "Semantic Search Playground için yetkiniz bulunmuyor.",
+        )
+        return redirect("ai_core:knowledge_base")
+
+    query = (
+        request.GET.get("q", "")
+        or ""
+    ).strip()
+
+    results = []
+    search_error = ""
+
+    if query:
+        try:
+            matches = semantic_search(
+                company=access_context.company,
+                requested_by=request.user,
+                query=query,
+                limit=5,
+            )
+
+            results = [
+                {
+                    "document_id": str(
+                        match.document.id
+                    ),
+                    "document_title": (
+                        match.document.title
+                    ),
+                    "document_type": (
+                        match.document
+                        .get_document_type_display()
+                    ),
+                    "chunk_id": str(match.chunk.id),
+                    "chunk_index": (
+                        match.chunk.chunk_index
+                    ),
+                    "token_count": (
+                        match.chunk.token_count
+                    ),
+                    "similarity": (
+                        match.similarity
+                    ),
+                    "content": (
+                        match.chunk.content
+                    ),
+                }
+                for match in matches
+            ]
+
+        except Exception as error:
+            search_error = str(error)
+
+    return render(
+        request,
+        "ai_core/knowledge_search.html",
+        {
+            "current_membership": (
+                access_context.membership
+            ),
+            "query": query,
+            "results": results,
+            "search_error": search_error,
         },
     )
 
@@ -476,6 +912,46 @@ def ai_operations_dashboard(request):
         total_tokens=Sum("total_tokens"),
     )
 
+    rag_logs = logs.filter(
+        request_type=AIRequestLog.RequestType.RAG,
+        feature="semantic_knowledge_retrieval",
+    )
+
+    rag_statistics = {
+        "total_retrievals": rag_logs.count(),
+        "average_latency": (
+            rag_logs.aggregate(
+                value=Avg("latency_ms")
+            )["value"]
+            or 0
+        ),
+    }
+
+    rag_source_counts = [
+        log.response_metadata.get("source_count", 0)
+        for log in rag_logs.only("response_metadata")
+    ]
+
+    rag_highest_similarities = [
+        log.response_metadata.get("highest_similarity")
+        for log in rag_logs.only("response_metadata")
+        if log.response_metadata.get(
+            "highest_similarity"
+        ) is not None
+    ]
+
+    rag_statistics["average_source_count"] = (
+        sum(rag_source_counts) / len(rag_source_counts)
+        if rag_source_counts
+        else 0
+    )
+
+    rag_statistics["highest_similarity"] = (
+        max(rag_highest_similarities)
+        if rag_highest_similarities
+        else 0
+    )
+
     total_requests = (
         statistics["total_requests"]
         or 0
@@ -510,6 +986,7 @@ def ai_operations_dashboard(request):
                 access_context.membership
             ),
             "statistics": statistics,
+            "rag_statistics": rag_statistics,
             "success_rate": success_rate,
             "latest_logs": latest_logs,
             "access_error": "",

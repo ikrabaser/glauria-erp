@@ -7,7 +7,7 @@
     {{ block.super }}
     <link
         rel="stylesheet"
-        href="{% static 'css/ai_knowledge_base.css' %}?v=1"
+        href="{% static 'css/ai_knowledge_base.css' %}?v=6"
     >
 {% endblock %}
 
@@ -27,12 +27,21 @@
             </p>
         </div>
 
-        <a
-            href="{% url 'ai_core:assistant' %}"
-            class="ai-kb__assistant-link"
-        >
-            Glauria AI’ya dön
-        </a>
+        <div class="ai-kb__header-actions">
+            <a
+                href="{% url 'ai_core:knowledge_search' %}"
+                class="ai-kb__assistant-link"
+            >
+                Semantic Search
+            </a>
+
+            <a
+                href="{% url 'ai_core:assistant' %}"
+                class="ai-kb__assistant-link"
+            >
+                Glauria AI’ya dön
+            </a>
+        </div>
     </header>
 
     {% if access_error %}
@@ -101,6 +110,62 @@
             </article>
         </section>
 
+        <section class="knowledge-upload">
+            <header>
+                <div>
+                    <span>DOKÜMAN INGESTION</span>
+                    <h2>Knowledge Base'e doküman ekle</h2>
+                    <p>
+                        PDF, DOCX veya TXT dosyasını yükleyin.
+                        İçerik otomatik olarak çıkarılır,
+                        chunk'lara bölünür ve embedding oluşturulur.
+                    </p>
+                </div>
+            </header>
+
+            <form
+                method="post"
+                enctype="multipart/form-data"
+                class="knowledge-upload__form"
+            >
+                {% csrf_token %}
+
+                <input
+                    type="hidden"
+                    name="action"
+                    value="upload_knowledge_document"
+                >
+
+                <div>
+                    <label>
+                        {{ upload_form.title.label }}
+                    </label>
+                    {{ upload_form.title }}
+                    {{ upload_form.title.errors }}
+                </div>
+
+                <div>
+                    <label>
+                        {{ upload_form.document_type.label }}
+                    </label>
+                    {{ upload_form.document_type }}
+                    {{ upload_form.document_type.errors }}
+                </div>
+
+                <div>
+                    <label>
+                        {{ upload_form.file.label }}
+                    </label>
+                    {{ upload_form.file }}
+                    {{ upload_form.file.errors }}
+                </div>
+
+                <button type="submit">
+                    Dokümanı yükle ve indeksle
+                </button>
+            </form>
+        </section>
+
         <section class="ai-kb__panel">
             <header class="ai-kb__panel-head">
                 <div>
@@ -135,6 +200,12 @@
                                 ·
                                 {{ document.get_source_type_display }}
                             </small>
+
+                            {% if document.status == 'failed' %}
+                                <small class="ai-kb__document-error">
+                                    {{ document.error_message|truncatechars:90 }}
+                                </small>
+                            {% endif %}
                         </div>
 
                         <div class="ai-kb__document-metrics">

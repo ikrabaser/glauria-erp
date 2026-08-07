@@ -34,3 +34,10 @@ from .knowledge import (
     index_knowledge_document,
     semantic_search,
 )
+
+
+from .document_ingestion import (
+    ExtractedDocument,
+    KnowledgeDocumentIngestionError,
+    extract_document_text,
+)

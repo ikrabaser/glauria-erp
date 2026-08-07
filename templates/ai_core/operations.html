@@ -9,7 +9,7 @@
     {{ block.super }}
     <link
         rel="stylesheet"
-        href="{% static 'css/ai_operations.css' %}?v=1"
+        href="{% static 'css/ai_operations.css' %}?v=2"
     >
 {% endblock %}
 
@@ -98,6 +98,53 @@
                 </strong>
                 <small>Girdi + çıktı</small>
             </article>
+        </section>
+
+        <section class="ai-ops__rag-section">
+            <header class="ai-ops__rag-head">
+                <div>
+                    <span>RAG OBSERVABILITY</span>
+                    <h2>Retrieval metrikleri</h2>
+                </div>
+
+                <small>
+                    Semantic Knowledge Retrieval
+                </small>
+            </header>
+
+            <section class="ai-ops__stats ai-ops__stats--rag">
+                <article>
+                    <span>RAG retrieval</span>
+                    <strong>
+                        {{ rag_statistics.total_retrievals|default:0 }}
+                    </strong>
+                    <small>Toplam retrieval isteği</small>
+                </article>
+
+                <article>
+                    <span>Ort. retrieval</span>
+                    <strong>
+                        {{ rag_statistics.average_latency|floatformat:0|default:0 }}
+                    </strong>
+                    <small>Milisaniye</small>
+                </article>
+
+                <article>
+                    <span>Ort. kaynak</span>
+                    <strong>
+                        {{ rag_statistics.average_source_count|floatformat:1|default:0 }}
+                    </strong>
+                    <small>Context'e giren chunk</small>
+                </article>
+
+                <article>
+                    <span>En yüksek similarity</span>
+                    <strong>
+                        {{ rag_statistics.highest_similarity|floatformat:3|default:0 }}
+                    </strong>
+                    <small>Cosine similarity</small>
+                </article>
+            </section>
         </section>
 
         <section class="ai-ops__panel">

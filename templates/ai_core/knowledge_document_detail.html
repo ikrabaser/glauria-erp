@@ -9,7 +9,7 @@
     {{ block.super }}
     <link
         rel="stylesheet"
-        href="{% static 'css/ai_knowledge_base.css' %}?v=2"
+        href="{% static 'css/ai_knowledge_base.css' %}?v=5"
     >
 {% endblock %}
 
@@ -45,13 +45,102 @@
                 </p>
             </div>
 
-            <span
-                class="ai-kb__status
-                ai-kb__status--{{ document.status }}"
-            >
-                {{ document.get_status_display }}
-            </span>
+            <div class="ai-kb__document-actions">
+                <span
+                    class="ai-kb__status
+                    ai-kb__status--{{ document.status }}"
+                >
+                    {{ document.get_status_display }}
+                </span>
+
+                <form
+                    method="post"
+                    action="{% url 'ai_core:knowledge_document_reindex' document.id %}"
+                >
+                    {% csrf_token %}
+                    <button
+                        type="submit"
+                        class="ai-kb__action-button"
+                    >
+                        {% if document.status == 'failed' %}
+                            Tekrar Dene
+                        {% else %}
+                            Yeniden İndeksle
+                        {% endif %}
+                    </button>
+                </form>
+
+                <form
+                    method="post"
+                    action="{% url 'ai_core:knowledge_document_delete' document.id %}"
+                    onsubmit="return confirm('Bu dokümanı silmek istediğinize emin misiniz?');"
+                >
+                    {% csrf_token %}
+                    <button
+                        type="submit"
+                        class="ai-kb__action-button ai-kb__action-button--danger"
+                    >
+                        Dokümanı Sil
+                    </button>
+                </form>
+            </div>
         </header>
+
+        {% if document.status == 'failed' and document.error_message %}
+            <div class="ai-kb__index-error">
+                <strong>İndeksleme başarısız</strong>
+                <span>
+                    {{ document.error_message }}
+                </span>
+            </div>
+        {% endif %}
+
+        <details class="ai-kb__edit-panel">
+            <summary>
+                Dokümanı Düzenle
+            </summary>
+
+            <form
+                method="post"
+                enctype="multipart/form-data"
+                action="{% url 'ai_core:knowledge_document_update' document.id %}"
+                class="ai-kb__edit-form"
+            >
+                {% csrf_token %}
+
+                <div>
+                    <label>
+                        {{ update_form.title.label }}
+                    </label>
+                    {{ update_form.title }}
+                </div>
+
+                <div>
+                    <label>
+                        {{ update_form.document_type.label }}
+                    </label>
+                    {{ update_form.document_type }}
+                </div>
+
+                <div>
+                    <label>
+                        {{ update_form.file.label }}
+                    </label>
+                    {{ update_form.file }}
+
+                    <small>
+                        Yeni dosya seçmezsen mevcut içerik korunur.
+                    </small>
+                </div>
+
+                <button
+                    type="submit"
+                    class="ai-kb__action-button"
+                >
+                    Değişiklikleri Kaydet
+                </button>
+            </form>
+        </details>
 
         <section class="ai-kb__stats">
             <article class="ai-kb__stat">

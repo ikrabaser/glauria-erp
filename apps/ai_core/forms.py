@@ -97,3 +97,158 @@ class EnterpriseAIAssistantForm(forms.Form):
             )
 
         return message
+
+
+class KnowledgeDocumentUploadForm(forms.Form):
+    title = forms.CharField(
+        label="Doküman başlığı",
+        max_length=200,
+        required=True,
+        widget=forms.TextInput(
+            attrs={
+                "class": "glauria-ai__knowledge-input",
+                "placeholder": (
+                    "Örn. 2026 İnsan Kaynakları Politikası"
+                ),
+            }
+        ),
+    )
+
+    document_type = forms.ChoiceField(
+        label="Doküman türü",
+        choices=(),
+        required=True,
+        widget=forms.Select(
+            attrs={
+                "class": "glauria-ai__knowledge-select",
+            }
+        ),
+    )
+
+    file = forms.FileField(
+        label="Dosya",
+        required=True,
+        widget=forms.FileInput(
+            attrs={
+                "class": "glauria-ai__knowledge-file",
+                "accept": ".pdf,.docx,.txt",
+            }
+        ),
+    )
+
+    def __init__(self, *args, **kwargs):
+        from apps.ai_core.models import (
+            AIKnowledgeDocument,
+        )
+
+        super().__init__(*args, **kwargs)
+
+        self.fields[
+            "document_type"
+        ].choices = (
+            AIKnowledgeDocument.DocumentType.choices
+        )
+
+    def clean_file(self):
+        uploaded_file = self.cleaned_data["file"]
+
+        maximum_size = 10 * 1024 * 1024
+
+        if uploaded_file.size > maximum_size:
+            raise forms.ValidationError(
+                "Doküman boyutu en fazla 10 MB olabilir."
+            )
+
+        filename = (
+            uploaded_file.name
+            or ""
+        ).lower()
+
+        if not filename.endswith(
+            (".pdf", ".docx", ".txt")
+        ):
+            raise forms.ValidationError(
+                "Yalnızca PDF, DOCX veya TXT "
+                "dosyaları yükleyebilirsiniz."
+            )
+
+        return uploaded_file
+
+
+class KnowledgeDocumentUpdateForm(forms.Form):
+    title = forms.CharField(
+        label="Doküman başlığı",
+        max_length=200,
+        required=True,
+        widget=forms.TextInput(
+            attrs={
+                "class": "glauria-ai__knowledge-input",
+            }
+        ),
+    )
+
+    document_type = forms.ChoiceField(
+        label="Doküman türü",
+        choices=(),
+        required=True,
+        widget=forms.Select(
+            attrs={
+                "class": "glauria-ai__knowledge-select",
+            }
+        ),
+    )
+
+    file = forms.FileField(
+        label="Yeni dosya",
+        required=False,
+        widget=forms.FileInput(
+            attrs={
+                "class": "glauria-ai__knowledge-file",
+                "accept": ".pdf,.docx,.txt",
+            }
+        ),
+        help_text=(
+            "Dosyayı değiştirmek istemiyorsanız boş bırakın."
+        ),
+    )
+
+    def __init__(self, *args, **kwargs):
+        from apps.ai_core.models import (
+            AIKnowledgeDocument,
+        )
+
+        super().__init__(*args, **kwargs)
+
+        self.fields[
+            "document_type"
+        ].choices = (
+            AIKnowledgeDocument.DocumentType.choices
+        )
+
+    def clean_file(self):
+        uploaded_file = self.cleaned_data.get("file")
+
+        if uploaded_file is None:
+            return None
+
+        maximum_size = 10 * 1024 * 1024
+
+        if uploaded_file.size > maximum_size:
+            raise forms.ValidationError(
+                "Doküman boyutu en fazla 10 MB olabilir."
+            )
+
+        filename = (
+            uploaded_file.name
+            or ""
+        ).lower()
+
+        if not filename.endswith(
+            (".pdf", ".docx", ".txt")
+        ):
+            raise forms.ValidationError(
+                "Yalnızca PDF, DOCX veya TXT "
+                "dosyaları yükleyebilirsiniz."
+            )
+
+        return uploaded_file

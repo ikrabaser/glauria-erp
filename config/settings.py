@@ -2,6 +2,10 @@ from pathlib import Path
 
 from decouple import config, Csv
 
+import sentry_sdk
+from sentry_sdk.integrations.celery import CeleryIntegration
+from sentry_sdk.integrations.django import DjangoIntegration
+
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -25,6 +29,33 @@ CSRF_TRUSTED_ORIGINS = [
     "https://glauria.dev",
     "https://www.glauria.dev",
 ]
+
+
+# =========================================================
+# Sentry Observability
+# =========================================================
+
+SENTRY_DSN = config(
+    "SENTRY_DSN",
+    default="",
+)
+
+SENTRY_ENVIRONMENT = config(
+    "SENTRY_ENVIRONMENT",
+    default="development",
+)
+
+if SENTRY_DSN:
+    sentry_sdk.init(
+        dsn=SENTRY_DSN,
+        integrations=[
+            DjangoIntegration(),
+            CeleryIntegration(),
+        ],
+        environment=SENTRY_ENVIRONMENT,
+        send_default_pii=False,
+        traces_sample_rate=0.1,
+    )
 
 
 # =========================================================

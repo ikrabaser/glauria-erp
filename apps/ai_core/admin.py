@@ -15,6 +15,9 @@ class AIProviderConfigurationAdmin(admin.ModelAdmin):
         "provider",
         "default_model",
         "embedding_model",
+        "rag_enabled",
+        "rag_top_k",
+        "rag_minimum_similarity",
         "is_enabled",
         "updated_at",
     )
@@ -23,6 +26,7 @@ class AIProviderConfigurationAdmin(admin.ModelAdmin):
         "provider",
         "is_enabled",
         "structured_output_enabled",
+        "rag_enabled",
     )
 
     search_fields = (
