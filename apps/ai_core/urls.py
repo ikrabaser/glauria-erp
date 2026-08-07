@@ -8,6 +8,7 @@ from .views import (
     knowledge_document_detail,
     knowledge_document_reindex,
     knowledge_document_update,
+    knowledge_search_playground,
 )
 
 
@@ -24,6 +25,11 @@ urlpatterns = [
         "knowledge/",
         knowledge_base_home,
         name="knowledge_base",
+    ),
+    path(
+        "knowledge/search/",
+        knowledge_search_playground,
+        name="knowledge_search",
     ),
     path(
         "knowledge/documents/<uuid:document_id>/",

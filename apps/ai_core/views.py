@@ -25,6 +25,7 @@ from apps.ai_core.orchestration import (
 from apps.ai_core.services import (
     KnowledgeDocumentIngestionError,
     extract_document_text,
+    semantic_search,
     AIConfigurationError,
     AIProviderError,
 )
@@ -755,6 +756,90 @@ def knowledge_document_delete(
     )
 
     return redirect("ai_core:knowledge_base")
+
+
+@login_required
+def knowledge_search_playground(request):
+    """
+    Knowledge Base üzerinde semantic search sonuçlarını
+    LLM çağrısından bağımsız olarak test eder.
+    """
+
+    access_context = resolve_enterprise_ai_access(
+        request.user
+    )
+
+    if (
+        access_context is None
+        or not _can_manage_ai_knowledge(access_context)
+    ):
+        messages.error(
+            request,
+            "Semantic Search Playground için yetkiniz bulunmuyor.",
+        )
+        return redirect("ai_core:knowledge_base")
+
+    query = (
+        request.GET.get("q", "")
+        or ""
+    ).strip()
+
+    results = []
+    search_error = ""
+
+    if query:
+        try:
+            matches = semantic_search(
+                company=access_context.company,
+                requested_by=request.user,
+                query=query,
+                limit=5,
+            )
+
+            results = [
+                {
+                    "document_id": str(
+                        match.document.id
+                    ),
+                    "document_title": (
+                        match.document.title
+                    ),
+                    "document_type": (
+                        match.document
+                        .get_document_type_display()
+                    ),
+                    "chunk_id": str(match.chunk.id),
+                    "chunk_index": (
+                        match.chunk.chunk_index
+                    ),
+                    "token_count": (
+                        match.chunk.token_count
+                    ),
+                    "similarity": (
+                        match.similarity
+                    ),
+                    "content": (
+                        match.chunk.content
+                    ),
+                }
+                for match in matches
+            ]
+
+        except Exception as error:
+            search_error = str(error)
+
+    return render(
+        request,
+        "ai_core/knowledge_search.html",
+        {
+            "current_membership": (
+                access_context.membership
+            ),
+            "query": query,
+            "results": results,
+            "search_error": search_error,
+        },
+    )
 
 
 @login_required

@@ -7,7 +7,7 @@
     {{ block.super }}
     <link
         rel="stylesheet"
-        href="{% static 'css/ai_knowledge_base.css' %}?v=5"
+        href="{% static 'css/ai_knowledge_base.css' %}?v=6"
     >
 {% endblock %}
 
@@ -27,12 +27,21 @@
             </p>
         </div>
 
-        <a
-            href="{% url 'ai_core:assistant' %}"
-            class="ai-kb__assistant-link"
-        >
-            Glauria AI’ya dön
-        </a>
+        <div class="ai-kb__header-actions">
+            <a
+                href="{% url 'ai_core:knowledge_search' %}"
+                class="ai-kb__assistant-link"
+            >
+                Semantic Search
+            </a>
+
+            <a
+                href="{% url 'ai_core:assistant' %}"
+                class="ai-kb__assistant-link"
+            >
+                Glauria AI’ya dön
+            </a>
+        </div>
     </header>
 
     {% if access_error %}
