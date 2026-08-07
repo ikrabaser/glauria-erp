@@ -59,6 +59,21 @@ class AIProviderConfiguration(BaseModel):
         verbose_name="Yapılandırılmış çıktı aktif mi?",
     )
 
+    rag_enabled = models.BooleanField(
+        default=True,
+        verbose_name="RAG aktif mi?",
+    )
+
+    rag_top_k = models.PositiveSmallIntegerField(
+        default=5,
+        verbose_name="RAG sonuç limiti",
+    )
+
+    rag_minimum_similarity = models.FloatField(
+        default=0.35,
+        verbose_name="Minimum RAG benzerliği",
+    )
+
     class Meta:
         ordering = (
             "company__name",

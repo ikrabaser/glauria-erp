@@ -362,6 +362,18 @@ class FunctionCallingRuntime:
         davranışını değiştirmez.
         """
 
+        configuration = getattr(
+            self.company,
+            "ai_provider_configuration",
+            None,
+        )
+
+        if (
+            configuration is not None
+            and not configuration.rag_enabled
+        ):
+            return base_instructions, ()
+
         has_indexed_documents = (
             AIKnowledgeDocument.objects.filter(
                 company=self.company,
@@ -374,12 +386,24 @@ class FunctionCallingRuntime:
         if not has_indexed_documents:
             return base_instructions, ()
 
+        rag_top_k = (
+            configuration.rag_top_k
+            if configuration
+            else 5
+        )
+
+        rag_minimum_similarity = (
+            configuration.rag_minimum_similarity
+            if configuration
+            else 0.35
+        )
+
         search_results = semantic_search(
             company=self.company,
             query=user_message,
             requested_by=self.requested_by,
-            limit=5,
-            minimum_similarity=0.35,
+            limit=rag_top_k,
+            minimum_similarity=rag_minimum_similarity,
         )
 
         retrieved_context = format_knowledge_results(
