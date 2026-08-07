@@ -643,3 +643,77 @@
         justify-content: flex-start;
     }
 }
+
+
+/* =========================================================
+   KNOWLEDGE DOCUMENT EDIT
+   ========================================================= */
+
+.ai-kb__edit-panel {
+    padding: 15px 17px;
+
+    border: 1px solid rgba(169, 80, 109, 0.15);
+    border-radius: 14px;
+
+    background: rgba(255, 250, 251, 0.78);
+}
+
+.ai-kb__edit-panel summary {
+    color: #a9506d;
+
+    font-size: 0.7rem;
+    font-weight: 800;
+
+    cursor: pointer;
+}
+
+.ai-kb__edit-form {
+    display: grid;
+    grid-template-columns:
+        minmax(0, 1.3fr)
+        minmax(0, 1fr)
+        minmax(0, 1.3fr)
+        auto;
+    gap: 10px;
+    align-items: end;
+
+    margin-top: 14px;
+}
+
+.ai-kb__edit-form > div {
+    min-width: 0;
+}
+
+.ai-kb__edit-form label {
+    display: block;
+
+    margin-bottom: 5px;
+
+    color: rgba(92, 65, 76, 0.7);
+
+    font-size: 0.58rem;
+    font-weight: 750;
+}
+
+.ai-kb__edit-form small {
+    display: block;
+
+    margin-top: 4px;
+
+    color: rgba(92, 65, 76, 0.55);
+
+    font-size: 0.55rem;
+}
+
+@media (max-width: 1000px) {
+    .ai-kb__edit-form {
+        grid-template-columns:
+            repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 650px) {
+    .ai-kb__edit-form {
+        grid-template-columns: 1fr;
+    }
+}

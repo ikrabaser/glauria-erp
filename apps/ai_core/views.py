@@ -34,6 +34,7 @@ from apps.ai_core.tools import ERPToolError
 from .assistant import resolve_enterprise_ai_access
 from .forms import (
     EnterpriseAIAssistantForm,
+    KnowledgeDocumentUpdateForm,
     KnowledgeDocumentUploadForm,
 )
 
@@ -498,10 +499,148 @@ def knowledge_document_detail(
                 access_context.membership
             ),
             "document": document,
+            "update_form": KnowledgeDocumentUpdateForm(
+                initial={
+                    "title": document.title,
+                    "document_type": document.document_type,
+                }
+            ),
             "chunks": chunks,
             "chunk_statistics": chunk_statistics,
             "access_error": "",
         },
+    )
+
+
+@login_required
+def knowledge_document_update(
+    request,
+    document_id,
+):
+    """
+    Knowledge Base dokümanının başlık, tür ve
+    isteğe bağlı dosya içeriğini günceller.
+    """
+
+    access_context = resolve_enterprise_ai_access(
+        request.user
+    )
+
+    if (
+        access_context is None
+        or not _can_manage_ai_knowledge(access_context)
+    ):
+        messages.error(
+            request,
+            "Bu işlem için yetkiniz bulunmuyor.",
+        )
+        return redirect("ai_core:knowledge_base")
+
+    document = get_object_or_404(
+        AIKnowledgeDocument.objects.filter(
+            company=access_context.company,
+        ),
+        id=document_id,
+    )
+
+    if request.method != "POST":
+        return redirect(
+            "ai_core:knowledge_document_detail",
+            document_id=document.id,
+        )
+
+    form = KnowledgeDocumentUpdateForm(
+        request.POST,
+        request.FILES,
+        initial={
+            "title": document.title,
+            "document_type": document.document_type,
+        },
+    )
+
+    if not form.is_valid():
+        messages.error(
+            request,
+            "Doküman güncelleme bilgileri geçerli değil.",
+        )
+        return redirect(
+            "ai_core:knowledge_document_detail",
+            document_id=document.id,
+        )
+
+    uploaded_file = form.cleaned_data.get("file")
+
+    try:
+        document.title = form.cleaned_data["title"]
+        document.document_type = (
+            form.cleaned_data["document_type"]
+        )
+
+        if uploaded_file is not None:
+            extracted = extract_document_text(
+                filename=uploaded_file.name,
+                content=uploaded_file.read(),
+            )
+
+            document.content_text = extracted.text
+            document.source_type = (
+                AIKnowledgeDocument.SourceType.FILE_UPLOAD
+            )
+            document.source_reference = extracted.filename
+
+            metadata = dict(document.metadata or {})
+            metadata.update(
+                {
+                    "filename": extracted.filename,
+                    "extension": extracted.extension,
+                    "updated_by": request.user.username,
+                }
+            )
+            document.metadata = metadata
+
+            # Yeni dosya geldiyse mevcut indeks geçersizdir.
+            document.status = (
+                AIKnowledgeDocument.Status.PENDING
+            )
+            document.content_hash = ""
+
+        document.save()
+
+        if uploaded_file is not None:
+            result = index_knowledge_document(
+                document=document,
+                requested_by=request.user,
+            )
+
+            messages.success(
+                request,
+                (
+                    f"'{document.title}' güncellendi ve "
+                    f"{result.chunk_count} chunk yeniden "
+                    "indekslendi."
+                ),
+            )
+        else:
+            messages.success(
+                request,
+                f"'{document.title}' güncellendi.",
+            )
+
+    except KnowledgeDocumentIngestionError as error:
+        messages.error(
+            request,
+            str(error),
+        )
+
+    except Exception:
+        messages.error(
+            request,
+            "Doküman güncellenirken beklenmeyen bir hata oluştu.",
+        )
+
+    return redirect(
+        "ai_core:knowledge_document_detail",
+        document_id=document.id,
     )
 
 

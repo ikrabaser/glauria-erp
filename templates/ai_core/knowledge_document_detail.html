@@ -9,7 +9,7 @@
     {{ block.super }}
     <link
         rel="stylesheet"
-        href="{% static 'css/ai_knowledge_base.css' %}?v=3"
+        href="{% static 'css/ai_knowledge_base.css' %}?v=4"
     >
 {% endblock %}
 
@@ -81,6 +81,53 @@
                 </form>
             </div>
         </header>
+
+        <details class="ai-kb__edit-panel">
+            <summary>
+                Dokümanı Düzenle
+            </summary>
+
+            <form
+                method="post"
+                enctype="multipart/form-data"
+                action="{% url 'ai_core:knowledge_document_update' document.id %}"
+                class="ai-kb__edit-form"
+            >
+                {% csrf_token %}
+
+                <div>
+                    <label>
+                        {{ update_form.title.label }}
+                    </label>
+                    {{ update_form.title }}
+                </div>
+
+                <div>
+                    <label>
+                        {{ update_form.document_type.label }}
+                    </label>
+                    {{ update_form.document_type }}
+                </div>
+
+                <div>
+                    <label>
+                        {{ update_form.file.label }}
+                    </label>
+                    {{ update_form.file }}
+
+                    <small>
+                        Yeni dosya seçmezsen mevcut içerik korunur.
+                    </small>
+                </div>
+
+                <button
+                    type="submit"
+                    class="ai-kb__action-button"
+                >
+                    Değişiklikleri Kaydet
+                </button>
+            </form>
+        </details>
 
         <section class="ai-kb__stats">
             <article class="ai-kb__stat">

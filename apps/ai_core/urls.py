@@ -7,6 +7,7 @@ from .views import (
     knowledge_document_delete,
     knowledge_document_detail,
     knowledge_document_reindex,
+    knowledge_document_update,
 )
 
 
@@ -28,6 +29,11 @@ urlpatterns = [
         "knowledge/documents/<uuid:document_id>/",
         knowledge_document_detail,
         name="knowledge_document_detail",
+    ),
+    path(
+        "knowledge/documents/<uuid:document_id>/update/",
+        knowledge_document_update,
+        name="knowledge_document_update",
     ),
     path(
         "knowledge/documents/<uuid:document_id>/reindex/",
