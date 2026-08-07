@@ -717,3 +717,48 @@
         grid-template-columns: 1fr;
     }
 }
+
+
+/* =========================================================
+   KNOWLEDGE INDEXING FAILURE
+   ========================================================= */
+
+.ai-kb__index-error {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+
+    padding: 13px 15px;
+
+    border: 1px solid rgba(170, 64, 93, 0.18);
+    border-radius: 12px;
+
+    background: rgba(170, 64, 93, 0.055);
+}
+
+.ai-kb__index-error strong {
+    flex: 0 0 auto;
+
+    color: #a63c58;
+
+    font-size: 0.67rem;
+}
+
+.ai-kb__index-error span {
+    min-width: 0;
+
+    color: rgba(92, 65, 76, 0.72);
+
+    font-size: 0.64rem;
+    line-height: 1.5;
+
+    overflow-wrap: anywhere;
+}
+
+.ai-kb__document-error {
+    margin-top: 4px;
+
+    color: #a63c58 !important;
+
+    font-size: 0.56rem !important;
+}

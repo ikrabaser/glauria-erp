@@ -9,7 +9,7 @@
     {{ block.super }}
     <link
         rel="stylesheet"
-        href="{% static 'css/ai_knowledge_base.css' %}?v=4"
+        href="{% static 'css/ai_knowledge_base.css' %}?v=5"
     >
 {% endblock %}
 
@@ -62,7 +62,11 @@
                         type="submit"
                         class="ai-kb__action-button"
                     >
-                        Yeniden İndeksle
+                        {% if document.status == 'failed' %}
+                            Tekrar Dene
+                        {% else %}
+                            Yeniden İndeksle
+                        {% endif %}
                     </button>
                 </form>
 
@@ -81,6 +85,15 @@
                 </form>
             </div>
         </header>
+
+        {% if document.status == 'failed' and document.error_message %}
+            <div class="ai-kb__index-error">
+                <strong>İndeksleme başarısız</strong>
+                <span>
+                    {{ document.error_message }}
+                </span>
+            </div>
+        {% endif %}
 
         <details class="ai-kb__edit-panel">
             <summary>
