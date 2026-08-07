@@ -379,6 +379,7 @@ class FunctionCallingRuntime:
             query=user_message,
             requested_by=self.requested_by,
             limit=5,
+            minimum_similarity=0.35,
         )
 
         retrieved_context = format_knowledge_results(

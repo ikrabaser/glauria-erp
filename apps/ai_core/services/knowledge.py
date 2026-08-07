@@ -248,6 +248,7 @@ def semantic_search(
     requested_by=None,
     document_types: Iterable[str] | None = None,
     limit: int = 5,
+    minimum_similarity: float | None = None,
     provider_class=OpenAIProvider,
 ) -> list[KnowledgeSearchResult]:
     """
@@ -341,6 +342,12 @@ def semantic_search(
             min(1.0 - distance, 1.0),
             -1.0,
         )
+
+        if (
+            minimum_similarity is not None
+            and similarity < minimum_similarity
+        ):
+            continue
 
         results.append(
             KnowledgeSearchResult(
