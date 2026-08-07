@@ -506,6 +506,121 @@ def knowledge_document_detail(
 
 
 @login_required
+def knowledge_document_reindex(
+    request,
+    document_id,
+):
+    """
+    Aktif şirkete ait Knowledge Base dokümanını
+    zorunlu olarak yeniden indeksler.
+    """
+
+    if request.method != "POST":
+        return redirect("ai_core:knowledge_document_detail", document_id=document_id)
+
+    access_context = resolve_enterprise_ai_access(
+        request.user
+    )
+
+    if (
+        access_context is None
+        or not _can_manage_ai_knowledge(access_context)
+    ):
+        messages.error(
+            request,
+            "Bu işlem için yetkiniz bulunmuyor.",
+        )
+        return redirect("ai_core:knowledge_base")
+
+    document = get_object_or_404(
+        AIKnowledgeDocument.objects.filter(
+            company=access_context.company,
+        ),
+        id=document_id,
+    )
+
+    try:
+        # Mevcut indeksin reuse edilmesini engeller.
+        document.status = AIKnowledgeDocument.Status.PENDING
+        document.content_hash = ""
+        document.save(
+            update_fields=[
+                "status",
+                "content_hash",
+                "updated_at",
+            ]
+        )
+
+        result = index_knowledge_document(
+            document=document,
+            requested_by=request.user,
+        )
+
+        messages.success(
+            request,
+            (
+                f"'{document.title}' yeniden indekslendi. "
+                f"{result.chunk_count} chunk oluşturuldu."
+            ),
+        )
+
+    except Exception:
+        messages.error(
+            request,
+            "Doküman yeniden indekslenirken bir hata oluştu.",
+        )
+
+    return redirect(
+        "ai_core:knowledge_document_detail",
+        document_id=document.id,
+    )
+
+
+@login_required
+def knowledge_document_delete(
+    request,
+    document_id,
+):
+    """
+    Aktif şirkete ait Knowledge Base dokümanını siler.
+    """
+
+    if request.method != "POST":
+        return redirect("ai_core:knowledge_document_detail", document_id=document_id)
+
+    access_context = resolve_enterprise_ai_access(
+        request.user
+    )
+
+    if (
+        access_context is None
+        or not _can_manage_ai_knowledge(access_context)
+    ):
+        messages.error(
+            request,
+            "Bu işlem için yetkiniz bulunmuyor.",
+        )
+        return redirect("ai_core:knowledge_base")
+
+    document = get_object_or_404(
+        AIKnowledgeDocument.objects.filter(
+            company=access_context.company,
+        ),
+        id=document_id,
+    )
+
+    document_title = document.title
+    document.delete()
+
+    messages.success(
+        request,
+        f"'{document_title}' bilgi tabanından silindi.",
+    )
+
+    return redirect("ai_core:knowledge_base")
+
+
+@login_required
 def ai_operations_dashboard(request):
     """
     Aktif şirkete ait AI isteklerinin operasyonel

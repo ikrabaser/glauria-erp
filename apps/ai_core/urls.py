@@ -4,7 +4,9 @@ from .views import (
     ai_operations_dashboard,
     enterprise_ai_assistant,
     knowledge_base_home,
+    knowledge_document_delete,
     knowledge_document_detail,
+    knowledge_document_reindex,
 )
 
 
@@ -26,6 +28,16 @@ urlpatterns = [
         "knowledge/documents/<uuid:document_id>/",
         knowledge_document_detail,
         name="knowledge_document_detail",
+    ),
+    path(
+        "knowledge/documents/<uuid:document_id>/reindex/",
+        knowledge_document_reindex,
+        name="knowledge_document_reindex",
+    ),
+    path(
+        "knowledge/documents/<uuid:document_id>/delete/",
+        knowledge_document_delete,
+        name="knowledge_document_delete",
     ),
     path(
         "",
