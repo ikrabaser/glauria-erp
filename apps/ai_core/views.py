@@ -912,6 +912,46 @@ def ai_operations_dashboard(request):
         total_tokens=Sum("total_tokens"),
     )
 
+    rag_logs = logs.filter(
+        request_type=AIRequestLog.RequestType.RAG,
+        feature="semantic_knowledge_retrieval",
+    )
+
+    rag_statistics = {
+        "total_retrievals": rag_logs.count(),
+        "average_latency": (
+            rag_logs.aggregate(
+                value=Avg("latency_ms")
+            )["value"]
+            or 0
+        ),
+    }
+
+    rag_source_counts = [
+        log.response_metadata.get("source_count", 0)
+        for log in rag_logs.only("response_metadata")
+    ]
+
+    rag_highest_similarities = [
+        log.response_metadata.get("highest_similarity")
+        for log in rag_logs.only("response_metadata")
+        if log.response_metadata.get(
+            "highest_similarity"
+        ) is not None
+    ]
+
+    rag_statistics["average_source_count"] = (
+        sum(rag_source_counts) / len(rag_source_counts)
+        if rag_source_counts
+        else 0
+    )
+
+    rag_statistics["highest_similarity"] = (
+        max(rag_highest_similarities)
+        if rag_highest_similarities
+        else 0
+    )
+
     total_requests = (
         statistics["total_requests"]
         or 0
@@ -946,6 +986,7 @@ def ai_operations_dashboard(request):
                 access_context.membership
             ),
             "statistics": statistics,
+            "rag_statistics": rag_statistics,
             "success_rate": success_rate,
             "latest_logs": latest_logs,
             "access_error": "",

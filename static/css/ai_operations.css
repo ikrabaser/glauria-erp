@@ -287,3 +287,66 @@
             repeat(2, minmax(0, 1fr));
     }
 }
+
+
+/* =========================================================
+   RAG OBSERVABILITY
+   ========================================================= */
+
+.ai-ops__rag-section {
+    padding: 16px;
+
+    border: 1px solid rgba(169, 80, 109, 0.13);
+    border-radius: 16px;
+
+    background:
+        linear-gradient(
+            135deg,
+            rgba(169, 80, 109, 0.045),
+            rgba(225, 161, 126, 0.025)
+        );
+}
+
+.ai-ops__rag-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+
+    margin-bottom: 12px;
+}
+
+.ai-ops__rag-head span {
+    color: #a9506d;
+    font-size: 0.58rem;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+}
+
+.ai-ops__rag-head h2 {
+    margin: 4px 0 0;
+    font-size: 0.9rem;
+}
+
+.ai-ops__rag-head small {
+    color: rgba(92, 65, 76, 0.6);
+    font-size: 0.58rem;
+}
+
+.ai-ops__stats--rag {
+    grid-template-columns:
+        repeat(4, minmax(0, 1fr));
+}
+
+@media (max-width: 900px) {
+    .ai-ops__stats--rag {
+        grid-template-columns:
+            repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 600px) {
+    .ai-ops__stats--rag {
+        grid-template-columns: 1fr;
+    }
+}

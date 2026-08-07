@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from time import monotonic
 from typing import Iterable
 
 from django.db import transaction
@@ -8,6 +9,7 @@ from pgvector.django import CosineDistance
 from apps.ai_core.models import (
     AIKnowledgeChunk,
     AIKnowledgeDocument,
+    AIRequestLog,
 )
 
 from .provider import OpenAIProvider
@@ -279,82 +281,172 @@ def semantic_search(
         else "text-embedding-3-small"
     )
 
-    provider = provider_class(
+    rag_log = AIRequestLog.objects.create(
         company=company,
         requested_by=requested_by,
+        provider=(
+            configuration.provider
+            if configuration
+            else "openai"
+        ),
+        model_name=embedding_model,
         module="ai_core",
-        feature="semantic_knowledge_search",
+        feature="semantic_knowledge_retrieval",
+        request_type=AIRequestLog.RequestType.RAG,
+        status=AIRequestLog.Status.PROCESSING,
         request_metadata={
-            "limit": limit,
+            "top_k": limit,
+            "minimum_similarity": minimum_similarity,
             "document_types": list(document_types or []),
         },
     )
 
-    embedding_result = provider.generate_embeddings(
-        texts=[normalized_query],
-        model=embedding_model,
-        dimensions=EMBEDDING_DIMENSIONS,
-    )
+    started_at = monotonic()
 
-    query_embedding = list(
-        embedding_result.embeddings[0]
-    )
-
-    queryset = (
-        AIKnowledgeChunk.objects.filter(
+    try:
+        provider = provider_class(
             company=company,
-            embedding__isnull=False,
-            embedding_model=embedding_model,
-            document__status=(
-                AIKnowledgeDocument.Status.INDEXED
+            requested_by=requested_by,
+            module="ai_core",
+            feature="semantic_knowledge_search",
+            request_metadata={
+                "limit": limit,
+                "document_types": list(
+                    document_types or []
+                ),
+            },
+        )
+
+        embedding_result = provider.generate_embeddings(
+            texts=[normalized_query],
+            model=embedding_model,
+            dimensions=EMBEDDING_DIMENSIONS,
+        )
+
+        query_embedding = list(
+            embedding_result.embeddings[0]
+        )
+
+        queryset = (
+            AIKnowledgeChunk.objects.filter(
+                company=company,
+                embedding__isnull=False,
+                embedding_model=embedding_model,
+                document__status=(
+                    AIKnowledgeDocument.Status.INDEXED
+                ),
+            )
+            .select_related(
+                "document",
+                "company",
+            )
+        )
+
+        if document_types:
+            queryset = queryset.filter(
+                document__document_type__in=document_types,
+            )
+
+        ranked_chunks = list(
+            queryset.annotate(
+                distance=CosineDistance(
+                    "embedding",
+                    query_embedding,
+                )
+            )
+            .order_by(
+                "distance",
+                "document_id",
+                "chunk_index",
+            )[:limit]
+        )
+
+        results = []
+
+        for chunk in ranked_chunks:
+            distance = float(chunk.distance)
+
+            similarity = max(
+                min(1.0 - distance, 1.0),
+                -1.0,
+            )
+
+            if (
+                minimum_similarity is not None
+                and similarity < minimum_similarity
+            ):
+                continue
+
+            results.append(
+                KnowledgeSearchResult(
+                    chunk=chunk,
+                    distance=distance,
+                    similarity=similarity,
+                )
+            )
+
+        similarities = [
+            float(result.similarity)
+            for result in results
+        ]
+
+        rag_log.status = AIRequestLog.Status.COMPLETED
+        rag_log.latency_ms = max(
+            int((monotonic() - started_at) * 1000),
+            0,
+        )
+        rag_log.response_metadata = {
+            "candidate_count": len(ranked_chunks),
+            "source_count": len(results),
+            "highest_similarity": (
+                max(similarities)
+                if similarities
+                else None
             ),
-        )
-        .select_related(
-            "document",
-            "company",
-        )
-    )
-
-    if document_types:
-        queryset = queryset.filter(
-            document__document_type__in=document_types,
-        )
-
-    ranked_chunks = (
-        queryset.annotate(
-            distance=CosineDistance(
-                "embedding",
-                query_embedding,
-            )
-        )
-        .order_by(
-            "distance",
-            "document_id",
-            "chunk_index",
-        )[:limit]
-    )
-
-    results = []
-
-    for chunk in ranked_chunks:
-        distance = float(chunk.distance)
-        similarity = max(
-            min(1.0 - distance, 1.0),
-            -1.0,
+            "lowest_similarity": (
+                min(similarities)
+                if similarities
+                else None
+            ),
+            "document_ids": list(
+                dict.fromkeys(
+                    str(result.document.id)
+                    for result in results
+                )
+            ),
+            "chunk_ids": [
+                str(result.chunk.id)
+                for result in results
+            ],
+        }
+        rag_log.save(
+            update_fields=[
+                "status",
+                "latency_ms",
+                "response_metadata",
+                "updated_at",
+            ]
         )
 
-        if (
-            minimum_similarity is not None
-            and similarity < minimum_similarity
-        ):
-            continue
+        return results
 
-        results.append(
-            KnowledgeSearchResult(
-                chunk=chunk,
-                distance=distance,
-                similarity=similarity,
-            )
+    except Exception as error:
+        rag_log.status = AIRequestLog.Status.FAILED
+        rag_log.latency_ms = max(
+            int((monotonic() - started_at) * 1000),
+            0,
+        )
+        rag_log.error_type = error.__class__.__name__
+        rag_log.error_message = str(error)[:2000]
+
+        rag_log.save(
+            update_fields=[
+                "status",
+                "latency_ms",
+                "error_type",
+                "error_message",
+                "updated_at",
+            ]
         )
 
-    return results
+        raise
