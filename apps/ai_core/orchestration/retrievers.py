@@ -122,3 +122,178 @@ def format_knowledge_results(
         source_ids=tuple(source_ids),
         sources=tuple(sources),
     )
+
+
+def rerank_knowledge_results(
+    *,
+    query: str,
+    results,
+    provider,
+    top_n: int = 3,
+):
+    """
+    pgvector retrieval adaylarını structured AI scoring ile
+    yeniden sıralar.
+
+    Reranker sonucunda yalnızca verilen chunk kimlikleri
+    kabul edilir.
+    """
+
+    result_list = list(results)
+
+    if not result_list:
+        return []
+
+    if top_n < 1:
+        return []
+
+    candidates = []
+
+    for result in result_list:
+        content = " ".join(
+            (result.chunk.content or "").split()
+        )
+
+        candidates.append(
+            {
+                "chunk_id": str(result.chunk.id),
+                "document_title": result.document.title,
+                "document_type": (
+                    result.document.document_type
+                ),
+                "semantic_similarity": round(
+                    float(result.similarity),
+                    6,
+                ),
+                "content": content[:700],
+            }
+        )
+
+    input_lines = [
+        f"Kullanıcı sorgusu: {query}",
+        "",
+        "Aday bilgi parçaları:",
+    ]
+
+    for index, candidate in enumerate(
+        candidates,
+        start=1,
+    ):
+        input_lines.extend(
+            [
+                "",
+                f"Aday {index}",
+                f"chunk_id: {candidate['chunk_id']}",
+                (
+                    "doküman: "
+                    f"{candidate['document_title']}"
+                ),
+                (
+                    "tür: "
+                    f"{candidate['document_type']}"
+                ),
+                (
+                    "semantic_similarity: "
+                    f"{candidate['semantic_similarity']}"
+                ),
+                f"içerik: {candidate['content']}",
+            ]
+        )
+
+    rerank_result = provider.generate_structured(
+        instructions=(
+            "Sen kurumsal RAG retrieval reranker'ısın. "
+            "Verilen aday bilgi parçalarını kullanıcının "
+            "sorusuna doğrudan yararlılıklarına göre "
+            "0 ile 100 arasında puanla. "
+            "Yalnızca verilen chunk_id değerlerini kullan. "
+            "Semantic similarity tek başına karar değildir; "
+            "içeriğin soruyu gerçekten cevaplayabilmesini "
+            "önceliklendir."
+        ),
+        input_text="\n".join(input_lines),
+        schema_name="knowledge_reranking",
+        schema={
+            "type": "object",
+            "properties": {
+                "rankings": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "chunk_id": {
+                                "type": "string",
+                            },
+                            "score": {
+                                "type": "number",
+                            },
+                        },
+                        "required": [
+                            "chunk_id",
+                            "score",
+                        ],
+                        "additionalProperties": False,
+                    },
+                },
+            },
+            "required": [
+                "rankings",
+            ],
+            "additionalProperties": False,
+        },
+    )
+
+    original_by_id = {
+        str(result.chunk.id): result
+        for result in result_list
+    }
+
+    ranked_items = []
+    seen_ids = set()
+
+    for item in rerank_result.data.get(
+        "rankings",
+        [],
+    ):
+        chunk_id = str(
+            item.get("chunk_id", "")
+        ).strip()
+
+        if (
+            chunk_id not in original_by_id
+            or chunk_id in seen_ids
+        ):
+            continue
+
+        try:
+            score = float(item["score"])
+        except (TypeError, ValueError, KeyError):
+            continue
+
+        ranked_items.append(
+            (
+                score,
+                original_by_id[chunk_id],
+            )
+        )
+        seen_ids.add(chunk_id)
+
+    ranked_items.sort(
+        key=lambda item: item[0],
+        reverse=True,
+    )
+
+    reranked_results = [
+        result
+        for _, result in ranked_items
+    ]
+
+    # Model herhangi bir adayı döndürmezse veya eksik
+    # döndürürse pgvector sıralaması güvenli fallback olur.
+    for result in result_list:
+        chunk_id = str(result.chunk.id)
+
+        if chunk_id not in seen_ids:
+            reranked_results.append(result)
+
+    return reranked_results[:top_n]

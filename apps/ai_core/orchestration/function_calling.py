@@ -33,6 +33,7 @@ from apps.ai_core.tools.definitions import (
 from .retrievers import (
     KnowledgeSource,
     format_knowledge_results,
+    rerank_knowledge_results,
 )
 
 
@@ -618,14 +619,33 @@ class FunctionCallingRuntime:
         if not document_types:
             return base_instructions, ()
 
+        candidate_limit = max(
+            rag_top_k,
+            10,
+        )
+
         search_results = semantic_search(
             company=self.company,
             query=user_message,
             requested_by=self.requested_by,
             document_types=document_types,
-            limit=rag_top_k,
+            limit=candidate_limit,
             minimum_similarity=rag_minimum_similarity,
         )
+
+        try:
+            search_results = rerank_knowledge_results(
+                query=user_message,
+                results=search_results,
+                provider=self.provider,
+                top_n=3,
+            )
+        except Exception:
+            # Reranker geçici olarak başarısız olsa bile
+            # RAG retrieval tamamen kesilmez.
+            search_results = list(
+                search_results
+            )[:3]
 
         retrieved_context = format_knowledge_results(
             search_results
