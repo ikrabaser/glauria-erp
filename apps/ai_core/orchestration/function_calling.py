@@ -1,4 +1,5 @@
 import json
+import unicodedata
 from dataclasses import dataclass
 from time import monotonic
 from typing import Any
@@ -36,6 +37,213 @@ from .retrievers import (
 
 
 DEFAULT_MAX_TOOL_ROUNDS = 5
+
+
+RETRIEVAL_GLOBAL_DOCUMENT_TYPES = frozenset(
+    {
+        AIKnowledgeDocument.DocumentType.ERP_HELP,
+        AIKnowledgeDocument.DocumentType.OTHER,
+    }
+)
+
+RETRIEVAL_MODULE_DOCUMENT_TYPES = {
+    "hr": frozenset(
+        {
+            AIKnowledgeDocument.DocumentType.HR_POLICY,
+            AIKnowledgeDocument.DocumentType.CANDIDATE_RESUME,
+            AIKnowledgeDocument.DocumentType.JOB_REQUISITION,
+        }
+    ),
+    "finance": frozenset(
+        {
+            AIKnowledgeDocument.DocumentType.FINANCE_POLICY,
+        }
+    ),
+    "inventory": frozenset(
+        {
+            AIKnowledgeDocument.DocumentType.PRODUCT_DOCUMENT,
+        }
+    ),
+    "crm": frozenset(
+        {
+            AIKnowledgeDocument.DocumentType.CUSTOMER_DOCUMENT,
+        }
+    ),
+}
+
+RETRIEVAL_MODULE_KEYWORDS = {
+    "hr": (
+        "insan kaynaklari",
+        "ik ",
+        "calisan",
+        "personel",
+        "izin",
+        "devamsizlik",
+        "performans",
+        "aday",
+        "ozgecmis",
+        "cv",
+        "ise alim",
+        "mulakat",
+        "basvuru",
+        "pozisyon",
+    ),
+    "finance": (
+        "finans",
+        "fatura",
+        "odeme",
+        "tahsilat",
+        "butce",
+        "bakiye",
+        "cari",
+        "banka",
+        "gelir",
+        "gider",
+    ),
+    "inventory": (
+        "stok",
+        "envanter",
+        "depo",
+        "urun",
+        "lot",
+        "yeniden siparis",
+        "reorder",
+    ),
+    "crm": (
+        "crm",
+        "musteri",
+        "lead",
+        "firsat",
+        "satis firsati",
+    ),
+}
+
+RECRUITMENT_KEYWORDS = (
+    "aday",
+    "ozgecmis",
+    "cv",
+    "ise alim",
+    "mulakat",
+    "basvuru",
+    "pozisyon",
+)
+
+
+def _normalize_retrieval_text(value: str) -> str:
+    normalized = unicodedata.normalize(
+        "NFKD",
+        (value or "").casefold(),
+    )
+
+    return "".join(
+        character
+        for character in normalized
+        if not unicodedata.combining(character)
+    )
+
+
+def _resolve_retrieval_document_types(
+    *,
+    query: str,
+    allowed_modules,
+) -> tuple[str, ...]:
+    """
+    Kullanıcı yetkileri ve sorgu bağlamına göre Knowledge Base
+    doküman türlerini daraltır.
+
+    Yetkisiz bir modüle ait doküman türü retrieval havuzuna
+    dahil edilmez.
+    """
+
+    resolved_modules = frozenset(
+        allowed_modules or ()
+    )
+
+    if not resolved_modules:
+        return ()
+
+    normalized_query = _normalize_retrieval_text(
+        query
+    )
+
+    allowed_document_types = set(
+        RETRIEVAL_GLOBAL_DOCUMENT_TYPES
+    )
+
+    for module in resolved_modules:
+        allowed_document_types.update(
+            RETRIEVAL_MODULE_DOCUMENT_TYPES.get(
+                module,
+                (),
+            )
+        )
+
+    query_modules = {
+        module
+        for module, keywords
+        in RETRIEVAL_MODULE_KEYWORDS.items()
+        if any(
+            keyword in normalized_query
+            for keyword in keywords
+        )
+    }
+
+    matched_modules = (
+        query_modules
+        & resolved_modules
+    )
+
+    # Sorguda belirgin bir modül intent'i var ancak kullanıcı
+    # bu modüle yetkili değilse farklı yetkili modüllerin
+    # dokümanlarını retrieval havuzuna sokma.
+    if query_modules and not matched_modules:
+        return tuple(
+            sorted(
+                RETRIEVAL_GLOBAL_DOCUMENT_TYPES
+            )
+        )
+
+    # Hiçbir modül intent'i çıkarılamayan genel sorularda
+    # kullanıcının erişebildiği bilgi havuzunda arama yapılabilir.
+    if not query_modules:
+        return tuple(
+            sorted(allowed_document_types)
+        )
+
+    selected_document_types = set(
+        RETRIEVAL_GLOBAL_DOCUMENT_TYPES
+    )
+
+    for module in matched_modules:
+        selected_document_types.update(
+            RETRIEVAL_MODULE_DOCUMENT_TYPES.get(
+                module,
+                (),
+            )
+        )
+
+    # Genel bir İK sorusunda aday/CV dokümanlarını gereksiz
+    # retrieval havuzuna sokma.
+    if (
+        "hr" in matched_modules
+        and not any(
+            keyword in normalized_query
+            for keyword in RECRUITMENT_KEYWORDS
+        )
+    ):
+        selected_document_types.discard(
+            AIKnowledgeDocument.DocumentType.CANDIDATE_RESUME
+        )
+        selected_document_types.discard(
+            AIKnowledgeDocument.DocumentType.JOB_REQUISITION
+        )
+
+    return tuple(
+        sorted(
+            selected_document_types
+            & allowed_document_types
+        )
+    )
 
 
 class FunctionCallingRuntimeError(Exception):
@@ -398,10 +606,23 @@ class FunctionCallingRuntime:
             else 0.35
         )
 
+        document_types = (
+            _resolve_retrieval_document_types(
+                query=user_message,
+                allowed_modules=(
+                    self.context.allowed_modules
+                ),
+            )
+        )
+
+        if not document_types:
+            return base_instructions, ()
+
         search_results = semantic_search(
             company=self.company,
             query=user_message,
             requested_by=self.requested_by,
+            document_types=document_types,
             limit=rag_top_k,
             minimum_similarity=rag_minimum_similarity,
         )
