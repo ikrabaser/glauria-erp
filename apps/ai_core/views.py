@@ -23,13 +23,19 @@ from apps.ai_core.orchestration import (
     FunctionCallingRuntimeError,
 )
 from apps.ai_core.services import (
+    KnowledgeDocumentIngestionError,
+    extract_document_text,
+    index_knowledge_document,
     AIConfigurationError,
     AIProviderError,
 )
 from apps.ai_core.tools import ERPToolError
 
 from .assistant import resolve_enterprise_ai_access
-from .forms import EnterpriseAIAssistantForm
+from .forms import (
+    EnterpriseAIAssistantForm,
+    KnowledgeDocumentUploadForm,
+)
 
 
 def _build_image_input(uploaded_image):
@@ -249,6 +255,98 @@ def knowledge_base_home(request):
 
     company = access_context.company
 
+    upload_form = KnowledgeDocumentUploadForm(
+        request.POST or None,
+        request.FILES or None,
+    )
+
+    if (
+        request.method == "POST"
+        and request.POST.get("action")
+        == "upload_knowledge_document"
+    ):
+        if upload_form.is_valid():
+            uploaded_file = (
+                upload_form.cleaned_data["file"]
+            )
+
+            try:
+                extracted = extract_document_text(
+                    filename=uploaded_file.name,
+                    content=uploaded_file.read(),
+                )
+
+                document = (
+                    AIKnowledgeDocument.objects.create(
+                        company=company,
+                        title=upload_form.cleaned_data[
+                            "title"
+                        ],
+                        document_type=(
+                            upload_form.cleaned_data[
+                                "document_type"
+                            ]
+                        ),
+                        source_type=(
+                            AIKnowledgeDocument
+                            .SourceType
+                            .FILE_UPLOAD
+                        ),
+                        source_reference=(
+                            extracted.filename
+                        ),
+                        content_text=extracted.text,
+                        metadata={
+                            "filename": (
+                                extracted.filename
+                            ),
+                            "extension": (
+                                extracted.extension
+                            ),
+                            "uploaded_by": (
+                                request.user.username
+                            ),
+                        },
+                    )
+                )
+
+                result = index_knowledge_document(
+                    document=document,
+                    requested_by=request.user,
+                )
+
+                messages.success(
+                    request,
+                    (
+                        f"'{document.title}' bilgi tabanına "
+                        f"eklendi ve {result.chunk_count} "
+                        "chunk indekslendi."
+                    ),
+                )
+
+                return redirect(
+                    "ai_core:knowledge_base"
+                )
+
+            except (
+                KnowledgeDocumentIngestionError,
+                ValueError,
+            ) as error:
+                messages.error(
+                    request,
+                    str(error),
+                )
+
+            except Exception:
+                messages.error(
+                    request,
+                    (
+                        "Doküman işlenirken beklenmeyen "
+                        "bir hata oluştu."
+                    ),
+                )
+
+
     documents = (
         AIKnowledgeDocument.objects
         .filter(company=company)
@@ -312,6 +410,7 @@ def knowledge_base_home(request):
             "current_membership": (
                 access_context.membership
             ),
+            "upload_form": upload_form,
             "documents": documents[:12],
             "document_statistics": (
                 document_statistics

@@ -459,3 +459,126 @@
 .ai-kb__chunk-technical code {
     overflow-wrap: anywhere;
 }
+
+
+/* =========================================================
+   KNOWLEDGE DOCUMENT INGESTION
+   ========================================================= */
+
+.knowledge-upload {
+    margin-bottom: 16px;
+    padding: 18px;
+
+    border: 1px solid rgba(169, 80, 109, 0.15);
+    border-radius: 16px;
+
+    background: rgba(255, 250, 251, 0.82);
+}
+
+.knowledge-upload header span {
+    color: #a9506d;
+
+    font-size: 0.6rem;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+}
+
+.knowledge-upload header h2 {
+    margin: 6px 0 4px;
+
+    font-size: 1rem;
+}
+
+.knowledge-upload header p {
+    margin: 0;
+
+    color: rgba(92, 65, 76, 0.68);
+
+    font-size: 0.68rem;
+}
+
+.knowledge-upload__form {
+    display: grid;
+    grid-template-columns:
+        minmax(0, 1.4fr)
+        minmax(0, 1fr)
+        minmax(0, 1.2fr)
+        auto;
+    gap: 10px;
+    align-items: end;
+
+    margin-top: 16px;
+}
+
+.knowledge-upload__form > div {
+    min-width: 0;
+}
+
+.knowledge-upload__form label {
+    display: block;
+
+    margin-bottom: 5px;
+
+    color: rgba(92, 65, 76, 0.7);
+
+    font-size: 0.58rem;
+    font-weight: 750;
+}
+
+.glauria-ai__knowledge-input,
+.glauria-ai__knowledge-select,
+.glauria-ai__knowledge-file {
+    box-sizing: border-box;
+
+    width: 100%;
+    min-height: 38px;
+
+    padding: 8px 10px;
+
+    border: 1px solid rgba(169, 80, 109, 0.16);
+    border-radius: 9px;
+
+    background: rgba(255, 255, 255, 0.78);
+
+    font: inherit;
+    font-size: 0.67rem;
+}
+
+.knowledge-upload__form button {
+    min-height: 38px;
+
+    padding: 8px 13px;
+
+    border: 1px solid rgba(169, 80, 109, 0.22);
+    border-radius: 9px;
+
+    color: #fff;
+    background: #a9506d;
+
+    font-size: 0.65rem;
+    font-weight: 750;
+}
+
+.knowledge-upload__form .errorlist {
+    margin: 5px 0 0;
+    padding: 0;
+
+    color: #a63c58;
+
+    font-size: 0.58rem;
+
+    list-style: none;
+}
+
+@media (max-width: 1000px) {
+    .knowledge-upload__form {
+        grid-template-columns:
+            repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 650px) {
+    .knowledge-upload__form {
+        grid-template-columns: 1fr;
+    }
+}
