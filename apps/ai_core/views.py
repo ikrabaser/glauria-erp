@@ -25,11 +25,11 @@ from apps.ai_core.orchestration import (
 from apps.ai_core.services import (
     KnowledgeDocumentIngestionError,
     extract_document_text,
-    index_knowledge_document,
     AIConfigurationError,
     AIProviderError,
 )
 from apps.ai_core.tools import ERPToolError
+from apps.ai_core.tasks import index_ai_knowledge_document
 
 from .assistant import resolve_enterprise_ai_access
 from .forms import (
@@ -311,17 +311,16 @@ def knowledge_base_home(request):
                     )
                 )
 
-                result = index_knowledge_document(
-                    document=document,
-                    requested_by=request.user,
+                index_ai_knowledge_document.delay(
+                    str(document.id),
+                    request.user.id,
                 )
 
                 messages.success(
                     request,
                     (
                         f"'{document.title}' bilgi tabanına "
-                        f"eklendi ve {result.chunk_count} "
-                        "chunk indekslendi."
+                        "eklendi. İndeksleme işlemi kuyruğa alındı."
                     ),
                 )
 
@@ -607,17 +606,16 @@ def knowledge_document_update(
         document.save()
 
         if uploaded_file is not None:
-            result = index_knowledge_document(
-                document=document,
-                requested_by=request.user,
+            index_ai_knowledge_document.delay(
+                str(document.id),
+                request.user.id,
             )
 
             messages.success(
                 request,
                 (
-                    f"'{document.title}' güncellendi ve "
-                    f"{result.chunk_count} chunk yeniden "
-                    "indekslendi."
+                    f"'{document.title}' güncellendi. "
+                    "Yeniden indeksleme kuyruğa alındı."
                 ),
             )
         else:
@@ -690,16 +688,16 @@ def knowledge_document_reindex(
             ]
         )
 
-        result = index_knowledge_document(
-            document=document,
-            requested_by=request.user,
+        index_ai_knowledge_document.delay(
+            str(document.id),
+            request.user.id,
         )
 
         messages.success(
             request,
             (
-                f"'{document.title}' yeniden indekslendi. "
-                f"{result.chunk_count} chunk oluşturuldu."
+                f"'{document.title}' için yeniden indeksleme "
+                "kuyruğa alındı."
             ),
         )
 
